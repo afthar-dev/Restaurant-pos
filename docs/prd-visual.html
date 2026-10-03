@@ -1,0 +1,656 @@
+<title>Restaurant POS PRD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: single reading column (max 1080px) with a sticky section nav; diagrams break into full-width panels; receipt + KOT as paper slips. */
+:root {
+  --bg: #f4f6f5;
+  --surface: #ffffff;
+  --paper: #fffef9;
+  --fg: #17201d;
+  --muted: #5a6964;
+  --line: #d9e1de;
+  --accent: #0d6b58;
+  --accent-soft: #e1f0ec;
+  --spice: #b7791f;
+  --spice-soft: #fbf0db;
+  --later: #6b6f86;
+  --later-soft: #ecedf3;
+  --danger: #b4372f;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1412; --surface: #151d1a; --paper: #1b2320; --fg: #e4ece9; --muted: #93a39d;
+    --line: #283530; --accent: #43c3a3; --accent-soft: #15322b; --spice: #e9b452; --spice-soft: #33290f;
+    --later: #a9add0; --later-soft: #23253a; --danger: #ef7a70; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1412; --surface: #151d1a; --paper: #1b2320; --fg: #e4ece9; --muted: #93a39d;
+  --line: #283530; --accent: #43c3a3; --accent-soft: #15322b; --spice: #e9b452; --spice-soft: #33290f;
+  --later: #a9add0; --later-soft: #23253a; --danger: #ef7a70; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+  padding-inline: 16px; padding-block: 0 64px;
+}
+.wrap { max-width: 1080px; margin-inline: auto; display: flex; flex-direction: column; gap: 56px; }
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 3.1rem); letter-spacing: -0.02em; }
+h2 { font-size: 1.6rem; letter-spacing: -0.01em; }
+h3 { font-size: 1.08rem; }
+p { margin: 0; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.lede { color: var(--muted); max-width: 64ch; font-size: 1.05rem; }
+section { display: flex; flex-direction: column; gap: 20px; scroll-margin-top: 64px; }
+.sec-head { display: flex; flex-direction: column; gap: 6px; }
+.mono { font-family: var(--font-mono); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* nav */
+nav.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+  margin-inline: -16px; padding: 10px 16px;
+}
+nav.top ul { list-style: none; margin: 0 auto; padding: 0; max-width: 1080px; display: flex; gap: 4px 18px; flex-wrap: wrap; }
+nav.top a { color: var(--muted); text-decoration: none; font-size: 0.85rem; font-weight: 500; }
+nav.top a:hover, nav.top a:focus-visible { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+/* hero */
+header.hero { padding-top: 40px; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 32px; align-items: end; }
+.hero-text { display: flex; flex-direction: column; gap: 14px; }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.fact { background: var(--surface); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.fact b { font-weight: 600; font-size: 0.95rem; }
+.fact span { font-size: 0.75rem; color: var(--muted); font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* chips */
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 500; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.chip.v1 { background: var(--accent-soft); color: var(--accent); }
+.chip.v2 { background: var(--later-soft); color: var(--later); }
+.chip.warn { background: var(--spice-soft); color: var(--spice); }
+
+/* scope board */
+.scope { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+.scope-col { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.scope-col ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.scope-col li { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-size: 0.9rem; }
+.scope-col li .chip { flex-shrink: 0; }
+
+/* architecture */
+.arch { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) minmax(0, 1fr); gap: 18px; align-items: stretch; }
+.lane { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.lane-title { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.node { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--bg); display: flex; flex-direction: column; gap: 1px; }
+.node b { font-size: 0.92rem; }
+.node small { color: var(--muted); font-size: 0.78rem; line-height: 1.35; }
+.core { border: 1.5px solid var(--accent); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 14px; background: var(--accent-soft); }
+.spine { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.spine .step { background: var(--surface); border: 1px solid var(--accent); color: var(--fg); border-radius: 6px; padding: 6px 10px; font-weight: 600; font-size: 0.88rem; }
+.spine .arrow { color: var(--accent); font-family: var(--font-mono); }
+.feeds { display: flex; gap: 8px; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); }
+.feeds span { border: 1px dashed var(--line); border-radius: 6px; padding: 3px 8px; background: var(--surface); }
+.bus { border-top: 1px dashed var(--accent); padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.bus .events { display: flex; gap: 6px; flex-wrap: wrap; }
+.bus code { font-family: var(--font-mono); font-size: 0.75rem; background: var(--surface); border: 1px solid var(--line); padding: 1px 6px; border-radius: 4px; }
+.listeners { display: flex; gap: 6px; flex-wrap: wrap; }
+.base { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--line); padding-top: 14px; font-size: 0.85rem; }
+.base .lane-title { margin-right: 4px; }
+.base span.b { border: 1px solid var(--line); border-radius: 6px; padding: 3px 9px; background: var(--bg); }
+.stack { display: flex; gap: 8px; flex-wrap: wrap; }
+.stack span { font-family: var(--font-mono); font-size: 0.78rem; border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; background: var(--surface); }
+
+/* tables */
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 500; background: var(--bg); }
+tr:last-child td { border-bottom: 0; }
+td code { font-family: var(--font-mono); font-size: 0.8rem; color: var(--accent); }
+.matrix td:not(:first-child), .matrix th:not(:first-child) { text-align: center; white-space: nowrap; }
+.y { color: var(--accent); font-weight: 600; }
+.n { color: var(--muted); }
+.p { color: var(--spice); font-size: 0.8rem; }
+
+/* state machines */
+.machines { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.machine { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.states { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.st { font-family: var(--font-mono); font-size: 0.74rem; padding: 3px 8px; border-radius: 5px; border: 1px solid var(--line); background: var(--bg); }
+.st.end { border-color: var(--accent); color: var(--accent); }
+.st.bad { border-color: var(--danger); color: var(--danger); }
+.machine .arrow { color: var(--muted); font-size: 0.8rem; }
+.machine p { font-size: 0.82rem; color: var(--muted); }
+
+/* flows */
+.flows { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.flow { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.flow ol { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 5px; font-size: 0.88rem; }
+.flow ol li::marker { font-family: var(--font-mono); color: var(--accent); font-size: 0.8rem; }
+
+/* paper slips */
+.slips { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; align-items: start; }
+.slip {
+  background: var(--paper); border: 1px solid var(--line); padding: 18px 16px 22px;
+  font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.5;
+  position: relative; min-width: 0;
+  -webkit-mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 12px 100%;
+          mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 12px 100%;
+}
+.slip .c { text-align: center; }
+.slip .row { display: flex; justify-content: space-between; gap: 8px; }
+.slip .row span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.slip hr { border: 0; border-top: 1px dashed var(--muted); margin: 8px 0; }
+.slip .big { font-weight: 600; font-size: 0.95rem; }
+.slip .sub { color: var(--muted); padding-left: 1.2em; }
+.slip .label { font-family: var(--font-body); font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+.calc { display: flex; flex-direction: column; gap: 10px; font-size: 0.88rem; }
+.calc pre { margin: 0; font-family: var(--font-mono); font-size: 0.76rem; line-height: 1.6; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; overflow-x: auto; }
+.calc ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 4px; color: var(--muted); }
+
+/* data model */
+.groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.group { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.group ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.group li { font-family: var(--font-mono); font-size: 0.78rem; }
+.group li em { font-family: var(--font-body); font-style: normal; color: var(--muted); font-size: 0.78rem; }
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px 24px; margin: 0; padding: 0; list-style: none; }
+.rules li { font-size: 0.88rem; padding-left: 14px; border-left: 2px solid var(--accent); }
+
+/* milestones */
+.road { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.ms { padding: 14px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.ms:last-child { border-right: 0; }
+.ms .tag { font-family: var(--font-mono); font-weight: 600; color: var(--accent); font-size: 0.85rem; }
+.ms.launch { background: var(--accent-soft); }
+.ms.later { background: var(--later-soft); }
+.ms.later .tag { color: var(--later); }
+.ms p { font-size: 0.82rem; }
+.ms .demo { font-size: 0.75rem; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 6px; margin-top: auto; }
+
+.callout { background: var(--spice-soft); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.callout b { color: var(--spice); }
+.todo { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px 24px; margin: 0; padding: 0; list-style: none; }
+.todo li { display: flex; gap: 10px; font-size: 0.9rem; }
+.todo li::before { content: ""; width: 14px; height: 14px; border: 1.5px solid var(--muted); border-radius: 3px; flex-shrink: 0; margin-top: 4px; }
+
+footer { color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--line); padding-top: 16px; }
+
+@media (max-width: 860px) {
+  header.hero { grid-template-columns: 1fr; }
+  .arch { grid-template-columns: 1fr; }
+  .slips { grid-template-columns: 1fr; max-width: 420px; }
+  .ms { border-right: 0; border-bottom: 1px solid var(--line); }
+  .ms:last-child { border-bottom: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+</style>
+
+<nav class="top" aria-label="Sections">
+  <ul>
+    <li><a href="#scope">Scope</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#lifecycle">Lifecycle</a></li>
+    <li><a href="#flows">Flows</a></li>
+    <li><a href="#billing">Billing</a></li>
+    <li><a href="#data">Data</a></li>
+    <li><a href="#roles">Roles</a></li>
+    <li><a href="#milestones">Milestones</a></li>
+    <li><a href="#decisions">Decisions</a></li>
+  </ul>
+</nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="hero-text">
+    <span class="eyebrow">Product requirements · Draft · 3 Oct 2026</span>
+    <h1>Restaurant POS + ERP for one client restaurant</h1>
+    <p class="lede">Point of sale, kitchen flow, billing, a light back office and table-side QR ordering. Feature inspiration is Petpooja, trimmed to what a single Indian restaurant needs to run a full service day.</p>
+  </div>
+  <div class="facts">
+    <div class="fact"><span>Client</span><b>1 restaurant, India</b></div>
+    <div class="fact"><span>Outlets</span><b>1 now, multi-ready</b></div>
+    <div class="fact"><span>Orders</span><b>Dine-in + Parcel</b></div>
+    <div class="fact"><span>Hosting</span><b>Cloud VPS</b></div>
+    <div class="fact"><span>Tax</span><b>GST 5%, configurable</b></div>
+    <div class="fact"><span>Team</span><b>Solo dev</b></div>
+  </div>
+</header>
+
+<section id="scope">
+  <div class="sec-head">
+    <span class="eyebrow">What ships when</span>
+    <h2>Scope at a glance</h2>
+  </div>
+  <div class="scope">
+    <div class="scope-col">
+      <h3>Front of house</h3>
+      <ul>
+        <li>Cashier POS screen <span class="chip v1">v1</span></li>
+        <li>Waiter captain app (phone) <span class="chip v1">v1</span></li>
+        <li>QR ordering, staff approval <span class="chip v1">v1</span></li>
+        <li>Split, move, merge tables <span class="chip v1">v1</span></li>
+        <li>Discounts, void with reason <span class="chip v1">v1</span></li>
+        <li>Delivery / Swiggy / Zomato <span class="chip v2">out</span></li>
+      </ul>
+    </div>
+    <div class="scope-col">
+      <h3>Kitchen</h3>
+      <ul>
+        <li>Printed KOT <span class="chip v1">v1</span></li>
+        <li>Kitchen display screen <span class="chip v1">v1</span></li>
+        <li>Stations (1 now, more later) <span class="chip v1">v1</span></li>
+        <li>Browser printing <span class="chip v1">v1</span></li>
+        <li>Print agent (ESC/POS) <span class="chip v2">v2</span></li>
+      </ul>
+    </div>
+    <div class="scope-col">
+      <h3>Money</h3>
+      <ul>
+        <li>Cash, UPI, card (recorded) <span class="chip v1">v1</span></li>
+        <li>Business day + day close <span class="chip v1">v1</span></li>
+        <li>Expenses <span class="chip v1">v1</span></li>
+        <li>Sales reports <span class="chip v1">v1</span></li>
+        <li>Payment gateway <span class="chip v2">v2</span></li>
+        <li>GST report <span class="chip v2">v2</span></li>
+      </ul>
+    </div>
+    <div class="scope-col">
+      <h3>Back office &amp; people</h3>
+      <ul>
+        <li>Logins, roles, PIN <span class="chip v1">v1</span></li>
+        <li>Minimal audit trail <span class="chip v1">v1</span></li>
+        <li>Simple stock register <span class="chip v1">v1</span></li>
+        <li>CRM, loyalty, campaigns <span class="chip v2">v2</span></li>
+        <li>Attendance, payroll <span class="chip v2">v2</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="architecture">
+  <div class="sec-head">
+    <span class="eyebrow">Mental model</span>
+    <h2>Everything runs through the order</h2>
+    <p class="lede">Screens create and change orders. Orders produce KOTs for the kitchen and bills for payment. Other modules react to events, so v2 features plug in as new listeners without touching the POS.</p>
+  </div>
+  <div class="arch">
+    <div class="lane">
+      <span class="lane-title">Input surfaces</span>
+      <div class="node"><b>POS counter</b><small>Cashier · parcel, billing, payments</small></div>
+      <div class="node"><b>Captain app</b><small>Waiter · phone PWA at the table</small></div>
+      <div class="node"><b>QR menu</b><small>Customer · own phone, needs approval</small></div>
+      <div class="node"><b>Admin</b><small>Owner, manager · menu, stock, reports</small></div>
+    </div>
+    <div class="lane">
+      <span class="lane-title">Core · NestJS modular monolith</span>
+      <div class="core">
+        <div class="spine" aria-label="Order lifecycle">
+          <span class="step">Order</span><span class="arrow">→</span>
+          <span class="step">KOT</span><span class="arrow">→</span>
+          <span class="step">Bill</span><span class="arrow">→</span>
+          <span class="step">Payment</span>
+        </div>
+        <div class="feeds"><span>Menu feeds items + prices</span><span>Tables feed seating</span><span>Business day tags everything</span></div>
+        <div class="bus">
+          <span class="lane-title">Event bus</span>
+          <div class="events"><code>order.created</code><code>kot.sent</code><code>kot.ready</code><code>bill.closed</code><code>bill.voided</code><code>purchase.created</code></div>
+          <span class="lane-title">Listeners</span>
+          <div class="listeners">
+            <span class="chip v1">kitchen</span><span class="chip v1">print</span><span class="chip v1">audit</span><span class="chip v1">realtime</span><span class="chip v1">expenses</span><span class="chip v2">crm</span><span class="chip v2">loyalty</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="lane">
+      <span class="lane-title">Outputs</span>
+      <div class="node"><b>Kitchen display</b><small>Live KOTs, preparing → ready</small></div>
+      <div class="node"><b>Thermal prints</b><small>KOT slips, bills, day close</small></div>
+      <div class="node"><b>Waiter alerts</b><small>“Table 5 ready”, new QR order</small></div>
+      <div class="node"><b>Reports</b><small>Sales, cash tally, expenses</small></div>
+    </div>
+    <div class="base">
+      <span class="lane-title">Shared base</span>
+      <span class="b">Outlet</span><span class="b">Users &amp; roles</span><span class="b">Settings</span><span class="b">Tax rates</span><span class="b">Stations &amp; printers</span><span class="b">Business day</span><span class="b">PostgreSQL · outlet_id on every row</span>
+    </div>
+  </div>
+  <div class="stack" aria-label="Technology stack">
+    <span>pnpm monorepo</span><span>NestJS</span><span>Prisma</span><span>PostgreSQL 16</span><span>Socket.IO</span><span>React + Vite</span><span>TanStack Query</span><span>Zustand</span><span>Tailwind + shadcn/ui</span><span>Zod (shared)</span><span>Docker Compose</span>
+  </div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Module</th><th>Owns</th><th>Emits / listens</th></tr></thead>
+      <tbody>
+        <tr><td><code>auth</code></td><td>Users, roles, sessions, device tokens</td><td>—</td></tr>
+        <tr><td><code>outlet</code></td><td>Outlet, settings, tax rates, stations, printers</td><td>—</td></tr>
+        <tr><td><code>menu</code></td><td>Categories, items, variants, add-ons, combos, availability</td><td>emits menu.availability.changed</td></tr>
+        <tr><td><code>tables</code></td><td>Areas, tables, status, QR tokens</td><td>listens order.*</td></tr>
+        <tr><td><code>orders</code></td><td>Orders, order items, QR pending orders</td><td>emits order.*, kot.sent, kot.cancelled</td></tr>
+        <tr><td><code>kitchen</code></td><td>KOTs, station routing, KDS status</td><td>listens kot.*; emits kot.ready</td></tr>
+        <tr><td><code>billing</code></td><td>Bills, discounts, payments, numbering</td><td>emits bill.printed, bill.closed, bill.voided</td></tr>
+        <tr><td><code>business-day</code></td><td>Day open/close, cash tally</td><td>reads billing + expenses</td></tr>
+        <tr><td><code>stock</code></td><td>Stock items, purchases, stock transactions</td><td>emits purchase.created</td></tr>
+        <tr><td><code>expenses</code></td><td>Expense categories, expenses</td><td>listens purchase.created</td></tr>
+        <tr><td><code>reports</code></td><td>Read-only SQL views</td><td>reads all</td></tr>
+        <tr><td><code>audit</code></td><td>Audit entries</td><td>listens to sensitive events</td></tr>
+        <tr><td><code>realtime</code></td><td>Socket.IO gateway and rooms</td><td>forwards events to screens</td></tr>
+        <tr><td><code>print</code></td><td>Print jobs, browser / agent drivers</td><td>listens kot.sent, kot.cancelled, bill.printed</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="lifecycle">
+  <div class="sec-head">
+    <span class="eyebrow">State machines</span>
+    <h2>How each record moves</h2>
+  </div>
+  <div class="machines">
+    <div class="machine">
+      <h3>Order</h3>
+      <div class="states"><span class="st">PENDING_APPROVAL</span><span class="arrow">→</span><span class="st">OPEN</span><span class="arrow">→</span><span class="st">BILLED</span><span class="arrow">→</span><span class="st end">CLOSED</span></div>
+      <p>Pending only for QR orders. Any order not yet closed can become <span class="mono">CANCELLED</span>.</p>
+    </div>
+    <div class="machine">
+      <h3>KOT on the kitchen screen</h3>
+      <div class="states"><span class="st">NEW</span><span class="arrow">→</span><span class="st">PREPARING</span><span class="arrow">→</span><span class="st">READY</span><span class="arrow">→</span><span class="st end">SERVED</span></div>
+      <p>READY pings the waiter's phone. A cancelled item sends a separate CANCEL KOT.</p>
+    </div>
+    <div class="machine">
+      <h3>Bill</h3>
+      <div class="states"><span class="st">OPEN</span><span class="arrow">→</span><span class="st end">PAID</span><span class="arrow">·</span><span class="st bad">VOID</span></div>
+      <p>Void needs a manager and a reason. The bill number is kept and never reused.</p>
+    </div>
+    <div class="machine">
+      <h3>Table</h3>
+      <div class="states"><span class="st">VACANT</span><span class="arrow">→</span><span class="st">RUNNING</span><span class="arrow">→</span><span class="st">BILL_PRINTED</span><span class="arrow">→</span><span class="st end">VACANT</span></div>
+      <p>The table's QR token rotates each time it goes vacant.</p>
+    </div>
+    <div class="machine">
+      <h3>Order item</h3>
+      <div class="states"><span class="st">NEW</span><span class="arrow">→</span><span class="st end">SENT</span><span class="arrow">·</span><span class="st bad">CANCELLED</span></div>
+      <p>Cancelling a sent item needs manager permission and is audited.</p>
+    </div>
+    <div class="machine">
+      <h3>Business day</h3>
+      <div class="states"><span class="st">OPEN</span><span class="arrow">→</span><span class="st end">CLOSED</span></div>
+      <p>No open day means no ordering. Only the owner can reopen a closed day.</p>
+    </div>
+  </div>
+</section>
+
+<section id="flows">
+  <div class="sec-head">
+    <span class="eyebrow">Key journeys</span>
+    <h2>Service flows</h2>
+  </div>
+  <div class="flows">
+    <div class="flow">
+      <h3>Dine-in</h3>
+      <ol>
+        <li>Waiter taps a table; an open order starts and the table turns running.</li>
+        <li>Adds items with variant, add-ons and notes.</li>
+        <li>Send KOT: items split by station, shown on the kitchen screen and printed.</li>
+        <li>More items later go out on a new KOT with only the new items.</li>
+        <li>Kitchen marks ready; the waiter's phone gets a ping.</li>
+        <li>Print bill, record payment, table goes vacant.</li>
+      </ol>
+    </div>
+    <div class="flow">
+      <h3>Parcel</h3>
+      <ol>
+        <li>Cashier starts a parcel order and a token number is assigned.</li>
+        <li>Items use parcel price plus packaging charge.</li>
+        <li>Send KOT, print bill, take payment (pay first by default).</li>
+        <li>When the kitchen marks ready, the token shows in the pickup list.</li>
+      </ol>
+    </div>
+    <div class="flow">
+      <h3>QR order with approval</h3>
+      <ol>
+        <li>Customer scans the signed table QR and sees the live menu.</li>
+        <li>Submits; the order waits as pending approval.</li>
+        <li>Captain app and POS get an alert.</li>
+        <li>Staff review, edit if needed, then approve to fire the KOT.</li>
+        <li>On reject, the customer sees “please call the waiter”.</li>
+      </ol>
+    </div>
+    <div class="flow">
+      <h3>Day close</h3>
+      <ol>
+        <li>Manager opens the day with the opening cash amount.</li>
+        <li>All orders, payments and expenses are tagged to that day.</li>
+        <li>Close is blocked while any order or bill is unpaid.</li>
+        <li>Expected cash = opening + cash sales − cash expenses.</li>
+        <li>Manager counts cash; the variance is stored and the report prints.</li>
+      </ol>
+    </div>
+  </div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Operation</th><th>What happens</th></tr></thead>
+      <tbody>
+        <tr><td>Move table</td><td>Order moves to the new table; KOTs and the kitchen screen show the new number.</td></tr>
+        <tr><td>Merge tables</td><td>Items from order B move to order A; B is cancelled with “merged into A”.</td></tr>
+        <tr><td>Split by items</td><td>Picked items become a separate bill. The order closes when every item is paid.</td></tr>
+        <tr><td>Split equally</td><td>One bill paid in N equal payments, so tax is never pro-rated across bills.</td></tr>
+        <tr><td>Cancel after KOT</td><td>Manager approves with a reason; a CANCEL KOT goes to the same station.</td></tr>
+        <tr><td>Void bill</td><td>Manager approves with a reason; the number is kept and the order reopens.</td></tr>
+        <tr><td>Discount</td><td>Flat or percent with a reason. Cashiers are capped at a set percentage.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="billing">
+  <div class="sec-head">
+    <span class="eyebrow">What prints</span>
+    <h2>KOT, bill and the maths behind it</h2>
+    <p class="lede">Sample slips with example items. Totals and taxes are computed on the server only, in paise, and the bill number comes from a locked counter per financial year.</p>
+  </div>
+  <div class="slips">
+    <div class="slip" aria-label="Sample kitchen order ticket">
+      <div class="label">Sample KOT · kitchen printer</div>
+      <div class="c big">KOT #0042</div>
+      <div class="c">Main Kitchen</div>
+      <hr>
+      <div class="row"><span>Table T5 · Dine-in</span><span>8:42 PM</span></div>
+      <div class="row"><span>Waiter: Arun</span><span>Guests: 3</span></div>
+      <hr>
+      <div class="row big"><span>1 × Paneer Tikka (Full)</span></div>
+      <div class="sub">+ Extra cheese</div>
+      <div class="sub">Note: less spicy</div>
+      <div class="row big"><span>4 × Butter Naan</span></div>
+      <div class="row big"><span>2 × Masala Chaas</span></div>
+      <hr>
+      <div class="c">-- 7 items --</div>
+    </div>
+    <div class="slip" aria-label="Sample bill">
+      <div class="label">Sample bill · counter printer</div>
+      <div class="c big">Tax Invoice</div>
+      <div class="c">GSTIN: from client certificate</div>
+      <hr>
+      <div class="row"><span>Bill 2026-27/000318</span><span>T5</span></div>
+      <hr>
+      <div class="row"><span>Paneer Tikka (Full) +cheese ×1</span><span>350.00</span></div>
+      <div class="row"><span>Butter Naan ×4</span><span>200.00</span></div>
+      <div class="row"><span>Masala Chaas ×2</span><span>120.00</span></div>
+      <hr>
+      <div class="row"><span>Subtotal</span><span>670.00</span></div>
+      <div class="row"><span>Discount 10%</span><span>−67.00</span></div>
+      <div class="row"><span>Taxable value</span><span>603.00</span></div>
+      <div class="row"><span>CGST 2.5%</span><span>15.08</span></div>
+      <div class="row"><span>SGST 2.5%</span><span>15.08</span></div>
+      <div class="row"><span>Round off</span><span>−0.16</span></div>
+      <hr>
+      <div class="row big"><span>Total ₹</span><span>633.00</span></div>
+      <div class="row"><span>Paid: UPI</span><span>633.00</span></div>
+    </div>
+    <div class="calc">
+      <h3>Calculation order</h3>
+<pre>line_total   = (price + add-ons) × qty − item discount
+subtotal     = Σ line_total
+taxable      = subtotal − bill discount + packaging
+line_taxable = line share of taxable (pro-rata)
+cgst, sgst   = Σ line_taxable × rate ÷ 10000
+total        = taxable + cgst + sgst → nearest ₹
+round_off    = rounded total − exact total</pre>
+      <ul>
+        <li>Money is stored as whole paise; rates as basis points (2.5% = 250).</li>
+        <li>Composition scheme prints “Bill of Supply” with no tax lines.</li>
+        <li>Each order item stores its name, price and tax when it was added, so menu edits never change old bills.</li>
+        <li>Bills are never deleted. Bill, KOT and token numbers are gap-free per financial year (April to March).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="data">
+  <div class="sec-head">
+    <span class="eyebrow">Data model</span>
+    <h2>Tables by area</h2>
+  </div>
+  <div class="groups">
+    <div class="group"><h3>Setup</h3><ul>
+      <li>outlets <em>GSTIN, tax scheme</em></li><li>users <em>role, PIN, password</em></li><li>devices <em>KDS, print agent</em></li><li>tax_rates</li><li>stations · printers</li><li>counters <em>bill, KOT, token per FY</em></li>
+    </ul></div>
+    <div class="group"><h3>Menu &amp; floor</h3><ul>
+      <li>categories <em>→ station</em></li><li>items <em>available, combo</em></li><li>item_variants <em>dine-in, parcel, packaging</em></li><li>addon_groups · addons</li><li>combo_components</li><li>areas · tables <em>QR token</em></li>
+    </ul></div>
+    <div class="group"><h3>Service</h3><ul>
+      <li>business_days</li><li>orders <em>type, source, status</em></li><li>order_items <em>price snapshot</em></li><li>kots <em>NEW or CANCEL</em></li><li>bills · bill_items</li><li>payments <em>many per bill</em></li>
+    </ul></div>
+    <div class="group"><h3>Back office</h3><ul>
+      <li>stock_items <em>min level</em></li><li>stock_txns <em>purchase, adjust, count</em></li><li>purchases · purchase_lines</li><li>expense_categories · expenses</li><li>audit_entries</li><li>print_jobs</li>
+    </ul></div>
+  </div>
+  <ul class="rules">
+    <li>Every item has at least one variant. Items without sizes get “Regular”.</li>
+    <li>outlet_id on every outlet-scoped row, enforced in one Prisma extension.</li>
+    <li>A purchase writes stock and a “Raw material” expense in one transaction.</li>
+    <li>Orders and bills carry a version column; a stale edit is rejected, not overwritten.</li>
+  </ul>
+</section>
+
+<section id="roles">
+  <div class="sec-head">
+    <span class="eyebrow">Permissions</span>
+    <h2>Who can do what</h2>
+    <p class="lede">A cashier who hits a restricted action can ask a manager to type their PIN on the same screen. The action then runs and is audited as the manager.</p>
+  </div>
+  <div class="tbl">
+    <table class="matrix">
+      <thead><tr><th>Action</th><th>Owner</th><th>Manager</th><th>Cashier</th><th>Waiter</th></tr></thead>
+      <tbody>
+        <tr><td>Take order, send KOT, approve QR</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+        <tr><td>Print bill, take payment</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td><td class="p">Setting</td></tr>
+        <tr><td>Move, merge, split</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+        <tr><td>Discount</td><td class="y">Any</td><td class="y">Any</td><td class="p">Up to cap</td><td class="n">No</td></tr>
+        <tr><td>Cancel after KOT, void bill</td><td class="y">Yes</td><td class="y">Yes</td><td class="p">Manager PIN</td><td class="n">No</td></tr>
+        <tr><td>Open / close day</td><td class="y">Yes</td><td class="y">Yes</td><td class="n">No</td><td class="n">No</td></tr>
+        <tr><td>Reopen day</td><td class="y">Yes</td><td class="n">No</td><td class="n">No</td><td class="n">No</td></tr>
+        <tr><td>Menu, prices, tax, tables, printers</td><td class="y">Yes</td><td class="p">Menu only</td><td class="p">Availability</td><td class="p">Availability</td></tr>
+        <tr><td>Stock and purchases</td><td class="y">Yes</td><td class="y">Yes</td><td class="n">No</td><td class="n">No</td></tr>
+        <tr><td>Expenses</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td><td class="n">No</td></tr>
+        <tr><td>Reports</td><td class="y">All</td><td class="p">Day close</td><td class="n">No</td><td class="n">No</td></tr>
+        <tr><td>Users and roles</td><td class="y">Yes</td><td class="n">No</td><td class="n">No</td><td class="n">No</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>Who</th><th>Signs in with</th></tr></thead>
+      <tbody>
+        <tr><td>Owner, manager</td><td>Phone + password · 15-minute access token + rotating refresh cookie</td></tr>
+        <tr><td>Cashier, waiter</td><td>4–6 digit PIN on a registered device · locks after 5 wrong attempts</td></tr>
+        <tr><td>Kitchen screen, print agent</td><td>Paired once from Admin with a one-time code · revocable device token</td></tr>
+        <tr><td>QR customer</td><td>No login · signed table token, rate-limited, rotated on table close</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="milestones">
+  <div class="sec-head">
+    <span class="eyebrow">Delivery</span>
+    <h2>Milestones, each ending in a client demo</h2>
+  </div>
+  <div class="road">
+    <div class="ms"><span class="tag">M0</span><p>Monorepo, Docker, CI, auth with password + PIN, roles, settings, VPS deploy</p><span class="demo">Staff log in online</span></div>
+    <div class="ms"><span class="tag">M1</span><p>Menu with variants, add-ons, combos, parcel price, availability; tables; tax; stations</p><span class="demo">Client enters real menu</span></div>
+    <div class="ms"><span class="tag">M2</span><p>Dine-in + parcel orders, KOT + kitchen screen, browser printing, captain app</p><span class="demo">Kitchen flow live</span></div>
+    <div class="ms launch"><span class="tag">M3</span><p>Billing, discounts, split, move/merge, void, payments, audit, business day, day close</p><span class="demo">Soft launch: restaurant runs on it</span></div>
+    <div class="ms"><span class="tag">M4</span><p>QR ordering with staff approval</p><span class="demo">Customers order from table</span></div>
+    <div class="ms"><span class="tag">M5</span><p>Stock register, purchases → expenses, sales reports</p><span class="demo">Owner back office</span></div>
+    <div class="ms later"><span class="tag">v2</span><p>CRM, loyalty, WhatsApp/SMS, feedback, attendance, payroll, gateway, print agent, GST report, multi-outlet</p><span class="demo">After launch</span></div>
+  </div>
+  <div class="callout">
+    <b>Client advisory: keep a 4G backup router at the counter</b>
+    <p>The system is cloud-hosted, so billing needs internet. Offline mode is out of scope. Every screen shows a clear banner when the connection drops, and print jobs queue with a Reprint button.</p>
+  </div>
+</section>
+
+<section id="decisions">
+  <div class="sec-head">
+    <span class="eyebrow">From brainstorming</span>
+    <h2>Decisions log</h2>
+  </div>
+  <div class="tbl">
+    <table>
+      <thead><tr><th>#</th><th>Topic</th><th>Decision</th></tr></thead>
+      <tbody class="num">
+        <tr><td>1</td><td>Audience</td><td>Client project, one restaurant, single tenant</td></tr>
+        <tr><td>2</td><td>Outlets</td><td>One now; outlet_id everywhere for later branches</td></tr>
+        <tr><td>3</td><td>Order types</td><td>Dine-in and parcel only</td></tr>
+        <tr><td>4</td><td>Kitchen</td><td>Printed KOT and kitchen display screen</td></tr>
+        <tr><td>5</td><td>Order entry</td><td>Cashier POS, waiter captain app, customer QR</td></tr>
+        <tr><td>6</td><td>Hosting</td><td>Cloud VPS</td></tr>
+        <tr><td>7</td><td>Tax</td><td>GST configurable, default 5% regular, composition toggle</td></tr>
+        <tr><td>8</td><td>Payments</td><td>Cash, UPI, card recorded; gateway in v2</td></tr>
+        <tr><td>9</td><td>Inventory</td><td>Simple stock register</td></tr>
+        <tr><td>10</td><td>CRM</td><td>All in v2, no customer capture in v1</td></tr>
+        <tr><td>11</td><td>Staff</td><td>Logins and roles; attendance and payroll in v2</td></tr>
+        <tr><td>12</td><td>Reports</td><td>Sales, day close, expenses; GST report in v2</td></tr>
+        <tr><td>13</td><td>Menu</td><td>Variants, add-ons, parcel price, packaging, combos, availability</td></tr>
+        <tr><td>14</td><td>Printing</td><td>Browser print now; switchable to an agent per printer</td></tr>
+        <tr><td>15</td><td>Bill ops</td><td>Discounts, split, move/merge, cancel/void with reason</td></tr>
+        <tr><td>16</td><td>QR flow</td><td>Staff approve before the KOT fires</td></tr>
+        <tr><td>17</td><td>Extras</td><td>Cashier POS confirmed; minimal audit trail in v1</td></tr>
+        <tr><td>18</td><td>Language</td><td>English only</td></tr>
+        <tr><td>19</td><td>Team</td><td>Solo developer, no deadline</td></tr>
+        <tr><td>20</td><td>Architecture</td><td>Modular monolith, React + Vite, Prisma</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="sec-head">
+    <h3>To collect from the client</h3>
+  </div>
+  <ul class="todo">
+    <li>GST certificate: GSTIN and scheme</li>
+    <li>Table list, areas and seat counts</li>
+    <li>Full menu with variants, add-ons, parcel prices</li>
+    <li>Kitchen stations needed</li>
+    <li>Cashier discount cap; can waiters collect payment</li>
+    <li>Parcel: pay first or at pickup</li>
+    <li>Printer hardware (58 or 80 mm) and kitchen screen</li>
+    <li>Bill header, footer, logo, FSSAI number</li>
+  </ul>
+</section>
+
+<footer>Written spec: docs/superpowers/specs/2026-10-03-restaurant-pos-prd-design.md</footer>
+
+</div>
