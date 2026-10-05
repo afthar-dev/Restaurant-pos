@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { BusinessDayModule } from './business-day/business-day.module';
 import { apiThrottleLimit, THROTTLE_WINDOW_MS } from './common/throttle';
 import { RposThrottlerGuard } from './common/throttler.guard';
 import { ConfigModule } from './config/config.module';
@@ -20,6 +22,7 @@ import { UsersModule } from './users/users.module';
   imports: [
     ConfigModule,
     PrismaModule,
+    EventEmitterModule.forRoot(),
     ThrottlerModule.forRoot({
       throttlers: [{ name: 'default', ttl: THROTTLE_WINDOW_MS, limit: apiThrottleLimit }],
     }),
@@ -32,6 +35,7 @@ import { UsersModule } from './users/users.module';
     KitchenModule,
     FloorModule,
     MenuModule,
+    BusinessDayModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: RposThrottlerGuard }],
