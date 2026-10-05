@@ -7,7 +7,15 @@ export const ORDER_INCLUDE = {
   items: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
   kots: {
     orderBy: { createdAt: 'asc' },
-    select: { id: true, kotNo: true, type: true, status: true, stationName: true, createdAt: true },
+    select: {
+      id: true,
+      kotNo: true,
+      type: true,
+      status: true,
+      stationId: true,
+      stationName: true,
+      createdAt: true,
+    },
   },
 } satisfies Prisma.OrderInclude;
 
@@ -64,6 +72,8 @@ export function orderView(order: OrderWithDetails) {
       status: i.status,
       kotId: i.kotId,
       cancelReason: i.cancelReason,
+      stationId: i.stationId,
+      createdAt: i.createdAt,
       lineTotal: itemTotal(i),
     })),
     kots: order.kots,

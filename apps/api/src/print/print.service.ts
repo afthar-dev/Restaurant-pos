@@ -6,6 +6,8 @@ import { notFound } from '../common/master-data';
 import type { AuthDevice } from '../common/request-context';
 import { PrismaService } from '../prisma/prisma.service';
 
+export const MAX_PRINT_ATTEMPTS = 3;
+
 interface KotEvent {
   outletId: string;
   kotId: string;
@@ -128,6 +130,8 @@ export class PrintService {
       data: {
         attempts: { increment: 1 },
         ...(ok ? { status: 'PRINTED', printedAt: new Date() } : {}),
+        // Stop retrying a broken printer; staff can still reprint the KOT.
+        ...(!ok && job.attempts + 1 >= MAX_PRINT_ATTEMPTS ? { status: 'FAILED' } : {}),
       },
     });
     return { id: updated.id, status: updated.status, attempts: updated.attempts };

@@ -371,7 +371,19 @@ export class KotsService {
   async served(user: AuthUser, kotId: string) {
     const kot = await this.prisma.kot.findFirst({ where: { id: kotId, outletId: user.outletId } });
     if (!kot) throw notFound('KOT');
-    return this.transition(kot, 'SERVED', { READY: ['SERVED'], NEW: ['SERVED'] });
+    // Cancellation tickets are acknowledged on the kitchen screen, not by floor staff.
+    if (kot.type === 'CANCEL') {
+      throw new ApiError(
+        HttpStatus.CONFLICT,
+        'INVALID_TRANSITION',
+        'The kitchen dismisses cancellation tickets.',
+      );
+    }
+    return this.transition(kot, 'SERVED', {
+      NEW: ['SERVED'],
+      PREPARING: ['SERVED'],
+      READY: ['SERVED'],
+    });
   }
 
   async reprint(user: AuthUser, kotId: string) {

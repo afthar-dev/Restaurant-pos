@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  HttpStatus,
   Delete,
   Get,
   Headers,
@@ -23,6 +24,7 @@ import {
 } from '@rpos/shared';
 import { DEVICE_COOKIE } from '../auth/cookies';
 import { RequirePermissions } from '../auth/decorators';
+import { ApiError } from '../common/api-error';
 import { CurrentUser, type AuthUser, type RequestContext } from '../common/request-context';
 import { ZodBody } from '../common/zod-body.pipe';
 import { OrdersService } from './orders.service';
@@ -44,7 +46,9 @@ export class OrdersController {
 
   @Get()
   list(@CurrentUser() user: AuthUser, @Query('status') status?: string) {
-    void status; // only "active" is supported for now
+    if (status !== undefined && status !== 'active') {
+      throw new ApiError(HttpStatus.BAD_REQUEST, 'VALIDATION', 'Only status=active is supported.');
+    }
     return this.orders.active(user.outletId);
   }
 

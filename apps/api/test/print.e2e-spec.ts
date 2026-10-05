@@ -149,6 +149,23 @@ describe('print jobs', () => {
     expect(stored).toMatchObject({ status: 'PRINTED', attempts: 2 });
   });
 
+  it('gives up on a job after three failed prints', async () => {
+    await kitchenPrinter(counter.id).expect(201);
+    await sendPaneerKot();
+    const [job] = (await jobsFor(counter)).body;
+    for (let i = 0; i < 3; i += 1) {
+      await ctx
+        .http()
+        .post(`/api/print/jobs/${job.id}/done`)
+        .set('Cookie', `rpos_dt=${counter.cookie}`)
+        .send({ ok: false })
+        .expect(201);
+    }
+    expect((await jobsFor(counter)).body).toEqual([]);
+    const stored = await ctx.prisma.printJob.findUniqueOrThrow({ where: { id: job.id } });
+    expect(stored).toMatchObject({ status: 'FAILED', attempts: 3 });
+  });
+
   it('does not let another device finish someone else’s job', async () => {
     await kitchenPrinter(counter.id).expect(201);
     await sendPaneerKot();
