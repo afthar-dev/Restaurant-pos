@@ -114,7 +114,9 @@ export async function createDevice(
 export interface SignedIn {
   user: User;
   token: string;
-  auth: { Authorization: string };
+  /** Headers a browser would send: bearer token, plus the device cookie for PIN staff. */
+  auth: Record<string, string>;
+  deviceCookie?: string;
 }
 
 /** Creates a user of the given role and signs them in (password or PIN on a device). */
@@ -149,5 +151,10 @@ export async function signIn(
     .send({ userId: user.id, pin: '1234' })
     .expect(200);
   const token = res.body.accessToken as string;
-  return { user, token, auth: { Authorization: `Bearer ${token}` } };
+  return {
+    user,
+    token,
+    deviceCookie: device.cookie,
+    auth: { Authorization: `Bearer ${token}`, Cookie: `rpos_dt=${device.cookie}` },
+  };
 }

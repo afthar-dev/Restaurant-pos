@@ -13,6 +13,7 @@ import { FloorModule } from './floor/floor.module';
 import { HealthModule } from './health/health.module';
 import { KitchenModule } from './kitchen/kitchen.module';
 import { MenuModule } from './menu/menu.module';
+import { OrdersModule } from './orders/orders.module';
 import { OutletModule } from './outlet/outlet.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { TaxModule } from './tax/tax.module';
@@ -36,6 +37,7 @@ import { UsersModule } from './users/users.module';
     FloorModule,
     MenuModule,
     BusinessDayModule,
+    OrdersModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: RposThrottlerGuard }],
