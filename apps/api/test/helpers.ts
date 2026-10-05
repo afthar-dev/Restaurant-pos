@@ -1,4 +1,4 @@
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, Type } from '@nestjs/common';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { hash } from '@node-rs/argon2';
 import type { Outlet, PrismaClient, Role, User } from '@prisma/client';
@@ -21,10 +21,16 @@ export interface TestContext {
 }
 
 export async function createTestApp(
-  customize?: (builder: TestingModuleBuilder) => TestingModuleBuilder,
+  options: {
+    controllers?: Type[];
+    customize?: (builder: TestingModuleBuilder) => TestingModuleBuilder;
+  } = {},
 ): Promise<TestContext> {
-  let builder = Test.createTestingModule({ imports: [AppModule] });
-  if (customize) builder = customize(builder);
+  let builder = Test.createTestingModule({
+    imports: [AppModule],
+    controllers: options.controllers ?? [],
+  });
+  if (options.customize) builder = options.customize(builder);
   const moduleRef = await builder.compile();
   const app = configureApp(moduleRef.createNestApplication());
   await app.init();

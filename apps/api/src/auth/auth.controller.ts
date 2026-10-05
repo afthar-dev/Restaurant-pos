@@ -1,6 +1,15 @@
-import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
-import { loginSchema, permissionsFor, type LoginRequest } from '@rpos/shared';
+import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  loginSchema,
+  overrideSchema,
+  permissionsFor,
+  pinLoginSchema,
+  type LoginRequest,
+  type OverrideRequest,
+  type PinLoginRequest,
+} from '@rpos/shared';
 import type { Response } from 'express';
+import { DeviceGuard } from '../devices/device.guard';
 import { ZodBody } from '../common/zod-body.pipe';
 import { CurrentUser, type AuthUser, type RequestContext } from '../common/request-context';
 import { ENV } from '../config/config.module';
@@ -26,6 +35,33 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<SessionBody> {
     return this.respond(await this.auth.login(body), res);
+  }
+
+  @Public()
+  @UseGuards(DeviceGuard)
+  @Get('staff')
+  staff(@Req() req: RequestContext) {
+    return this.auth.staffFor(req.device!);
+  }
+
+  @Public()
+  @UseGuards(DeviceGuard)
+  @Post('pin-login')
+  @HttpCode(200)
+  async pinLogin(
+    @Req() req: RequestContext,
+    @Body(new ZodBody(pinLoginSchema)) body: PinLoginRequest,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<SessionBody> {
+    return this.respond(await this.auth.pinLogin(req.device!, body), res);
+  }
+
+  @Post('override')
+  override(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodBody(overrideSchema)) body: OverrideRequest,
+  ) {
+    return this.auth.issueOverride(user, body);
   }
 
   @Public()
