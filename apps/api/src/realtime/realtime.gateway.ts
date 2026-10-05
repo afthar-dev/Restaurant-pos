@@ -25,10 +25,15 @@ function readCookie(header: string | undefined, name: string): string | undefine
  * Pushes small "something changed" notices to screens. Clients refetch over HTTP on each
  * notice and on reconnect, so a missed message never loses data.
  *
- * Sockets authenticate with an access token (`auth.token`) or the device cookie, and join
- * `outlet:<id>`; devices also join `device:<id>` for their print jobs.
+ * Sockets authenticate with an access token (`auth.token`), the device cookie, or both, and join
+ * `outlet:<id>`; a registered device also joins `device:<id>` for its print jobs.
+ *
+ * The path is under /api because the httpOnly device cookie is scoped to Path=/api: browsers
+ * would not send it to any other path.
  */
-@WebSocketGateway({ path: '/socket.io' })
+export const SOCKET_PATH = '/api/socket.io';
+
+@WebSocketGateway({ path: SOCKET_PATH })
 export class RealtimeGateway implements OnGatewayConnection {
   private readonly logger = new Logger(RealtimeGateway.name);
 
@@ -55,23 +60,34 @@ export class RealtimeGateway implements OnGatewayConnection {
   }
 
   private async roomsFor(client: Socket): Promise<string[] | null> {
+    const rooms: string[] = [];
+    let outletId: string | null = null;
+
     const token: unknown = client.handshake.auth?.token;
     if (typeof token === 'string' && token) {
       const claims = this.tokens.verifyAccess(token);
       if (!claims) return null;
       const user = await this.prisma.user.findUnique({ where: { id: claims.userId } });
       if (!user || user.archivedAt) return null;
-      return [`outlet:${user.outletId}`, `user:${user.id}`];
+      outletId = user.outletId;
+      rooms.push(`user:${user.id}`);
     }
+
     const deviceToken = readCookie(client.handshake.headers.cookie, DEVICE_COOKIE);
     if (deviceToken) {
       const device = await this.prisma.device.findUnique({
         where: { tokenHash: sha256(deviceToken) },
       });
-      if (!device || device.revokedAt) return null;
-      return [`outlet:${device.outletId}`, `device:${device.id}`];
+      // A signed-in browser on an unknown or other-outlet device still gets its user events.
+      if (device && !device.revokedAt && (!outletId || device.outletId === outletId)) {
+        outletId = device.outletId;
+        rooms.push(`device:${device.id}`);
+      } else if (!outletId) {
+        return null;
+      }
     }
-    return null;
+
+    return outletId ? [`outlet:${outletId}`, ...rooms] : null;
   }
 
   private toOutlet(event: string, { outletId, ...payload }: OutletEvent) {

@@ -12,6 +12,12 @@ import {
   type TestContext,
 } from './helpers';
 
+/**
+ * Browsers only send the httpOnly device cookie (Path=/api) to URLs under /api, so the socket
+ * must live there for kitchen screens and printing devices to authenticate.
+ */
+const SOCKET_PATH = '/api/socket.io';
+
 function nextEvent<T = unknown>(socket: Socket, event: string, timeoutMs = 3000): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(
@@ -72,7 +78,7 @@ describe('realtime', () => {
 
   function userSocket(token: string): Socket {
     const s = io(url, {
-      path: '/socket.io',
+      path: SOCKET_PATH,
       auth: { token },
       transports: ['websocket'],
       forceNew: true,
@@ -81,9 +87,21 @@ describe('realtime', () => {
     return s;
   }
 
+  function userDeviceSocket(token: string, cookie: string): Socket {
+    const s = io(url, {
+      path: SOCKET_PATH,
+      auth: { token },
+      transports: ['websocket'],
+      extraHeaders: { Cookie: `rpos_dt=${cookie}` },
+      forceNew: true,
+    });
+    sockets.push(s);
+    return s;
+  }
+
   function deviceSocket(cookie: string): Socket {
     const s = io(url, {
-      path: '/socket.io',
+      path: SOCKET_PATH,
       transports: ['websocket'],
       extraHeaders: { Cookie: `rpos_dt=${cookie}` },
       forceNew: true,
@@ -142,6 +160,38 @@ describe('realtime', () => {
     expect((await job).jobId).toEqual(expect.any(String));
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(leaked).toBe(false);
+  });
+
+  it('serves the socket under the device cookie path', async () => {
+    const res = await ctx
+      .http()
+      .post('/api/devices')
+      .set(owner.auth)
+      .send({ name: 'Kitchen screen', type: 'KDS' })
+      .expect(201);
+    const cookie = (res.headers['set-cookie'] as unknown as string[]).find((c) =>
+      c.startsWith('rpos_dt='),
+    )!;
+    const cookiePath = /Path=([^;]+)/.exec(cookie)![1]!;
+    expect(SOCKET_PATH.startsWith(cookiePath)).toBe(true);
+  });
+
+  it('delivers print jobs to a signed-in counter that also prints', async () => {
+    const counter = await createDevice(ctx.prisma, outlet.id, owner.user.id, 'POS', 'Counter');
+    await ctx.prisma.printer.create({
+      data: {
+        outletId: outlet.id,
+        name: 'Kitchen printer',
+        purpose: 'KOT',
+        stationId: r.kitchen.id,
+        deviceId: counter.id,
+      },
+    });
+    const socket = userDeviceSocket(owner.token, counter.cookie);
+    await connected(socket);
+    const job = nextEvent<{ jobId: string }>(socket, 'print.job');
+    await sendKot();
+    expect((await job).jobId).toEqual(expect.any(String));
   });
 
   it('does not leak events to another outlet', async () => {

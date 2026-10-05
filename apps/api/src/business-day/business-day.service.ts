@@ -53,18 +53,22 @@ export class BusinessDayService {
           'A business day is already open.',
         );
       }
-      return tx.businessDay.create({
+      const created = await tx.businessDay.create({
         data: { outletId: actor.outletId, openingCash, openedById: actor.id },
         include: { openedBy: { select: { id: true, name: true } } },
       });
-    });
-    await this.audit.record({
-      outletId: actor.outletId,
-      actorId: actor.id,
-      action: 'day.open',
-      entity: 'business_day',
-      entityId: day.id,
-      after: { openingCash },
+      await this.audit.record(
+        {
+          outletId: actor.outletId,
+          actorId: actor.id,
+          action: 'day.open',
+          entity: 'business_day',
+          entityId: created.id,
+          after: { openingCash },
+        },
+        tx,
+      );
+      return created;
     });
     this.events.emit('day.updated', { outletId: actor.outletId });
     return dayView(day);

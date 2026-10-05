@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { Kot, KotStatus, OrderItem, Prisma } from '@prisma/client';
+import { Prisma, type Kot, type KotStatus, type OrderItem } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { CountersService } from '../business-day/counters.service';
 import { ApiError } from '../common/api-error';
@@ -54,21 +54,25 @@ export class KotsService {
     ifMatch: string | undefined,
     idempotencyKey: string | undefined,
   ): Promise<SendKotResult> {
+    if (idempotencyKey) {
+      // A retry must get the first answer even if it carries the version it saw before the
+      // first send succeeded, so look the key up before the If-Match check.
+      const replay = await this.replay(actor.outletId, orderId, idempotencyKey);
+      if (replay) return replay;
+    }
     let kots: Kot[] = [];
     let created = false;
-    const order = await this.orders.mutate(
-      actor,
-      orderId,
-      ifMatch,
-      async ({ tx, order: current }) => {
+    let order: OrderView;
+    try {
+      order = await this.orders.mutate(actor, orderId, ifMatch, async ({ tx, order: current }) => {
         if (idempotencyKey) {
-          // Checked after the order lock, so a concurrent retry sees the first request's key.
-          const stored = await tx.idempotencyKey.findUnique({
-            where: { outletId_key: { outletId: actor.outletId, key: idempotencyKey } },
-          });
+          // Checked again under the order lock: a concurrent duplicate waits here for the first.
+          const stored = await this.storedKotIds(tx, actor.outletId, orderId, idempotencyKey);
           if (stored) {
-            const ids = (stored.response as { kotIds: string[] }).kotIds;
-            kots = await tx.kot.findMany({ where: { id: { in: ids } }, orderBy: { kotNo: 'asc' } });
+            kots = await tx.kot.findMany({
+              where: { id: { in: stored } },
+              orderBy: { kotNo: 'asc' },
+            });
             return;
           }
         }
@@ -108,14 +112,61 @@ export class KotsService {
             data: {
               outletId: actor.outletId,
               key: idempotencyKey,
-              response: { kotIds: kots.map((k) => k.id) },
+              response: { orderId, kotIds: kots.map((k) => k.id) },
             },
           });
         }
-      },
-    );
+      });
+    } catch (error) {
+      // The same key used at the same moment on another order: report it like a sequential reuse.
+      if (
+        idempotencyKey &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const replay = await this.replay(actor.outletId, orderId, idempotencyKey);
+        if (replay) return replay;
+      }
+      throw error;
+    }
     if (created) await this.announce(kots, orderId);
     return { order, kots: kots.map(summary) };
+  }
+
+  private async replay(
+    outletId: string,
+    orderId: string,
+    key: string,
+  ): Promise<SendKotResult | null> {
+    const ids = await this.storedKotIds(this.prisma, outletId, orderId, key);
+    if (!ids) return null;
+    const kots = await this.prisma.kot.findMany({
+      where: { id: { in: ids } },
+      orderBy: { kotNo: 'asc' },
+    });
+    return { order: await this.orders.get(outletId, orderId), kots: kots.map(summary) };
+  }
+
+  /** KOT ids stored for this key, or null. A key used for another order is refused. */
+  private async storedKotIds(
+    db: Pick<Tx, 'idempotencyKey'>,
+    outletId: string,
+    orderId: string,
+    key: string,
+  ): Promise<string[] | null> {
+    const stored = await db.idempotencyKey.findUnique({
+      where: { outletId_key: { outletId, key } },
+    });
+    if (!stored) return null;
+    const response = stored.response as { orderId?: string; kotIds: string[] };
+    if (response.orderId !== orderId) {
+      throw new ApiError(
+        HttpStatus.CONFLICT,
+        'IDEMPOTENCY_KEY_REUSED',
+        'This request id was already used for another order.',
+      );
+    }
+    return response.kotIds;
   }
 
   /** Cancels all or part of an item already in the kitchen. `actor` is the approving manager. */
@@ -129,7 +180,6 @@ export class KotsService {
     quantity: number | undefined,
   ): Promise<OrderView> {
     let kot: Kot | null = null;
-    let cancelled: { itemName: string; variantName: string; quantity: number } | null = null;
     const view = await this.orders.mutate(requester, orderId, ifMatch, async ({ tx, order }) => {
       if (order.status !== 'OPEN') {
         throw new ApiError(HttpStatus.CONFLICT, 'ORDER_NOT_OPEN', 'This order is no longer open.');
@@ -178,16 +228,24 @@ export class KotsService {
         cancelledLine = await tx.orderItem.update({ where: { id: item.id }, data: cancelData });
       }
       kot = await this.createKot(tx, requester, order, item.stationId, 'CANCEL', [cancelledLine]);
-      cancelled = { itemName: item.itemName, variantName: item.variantName, quantity: qty };
-    });
-    await this.audit.record({
-      outletId: actor.outletId,
-      actorId: actor.id,
-      action: 'order.item.cancel',
-      entity: 'order',
-      entityId: orderId,
-      reason,
-      after: { ...cancelled!, requestedBy: requester.id },
+      // Same transaction: a cancellation without its audit entry must not exist.
+      await this.audit.record(
+        {
+          outletId: actor.outletId,
+          actorId: actor.id,
+          action: 'order.item.cancel',
+          entity: 'order',
+          entityId: orderId,
+          reason,
+          after: {
+            itemName: item.itemName,
+            variantName: item.variantName,
+            quantity: qty,
+            requestedBy: requester.id,
+          },
+        },
+        tx,
+      );
     });
     if (kot) await this.announce([kot], orderId);
     return view;
@@ -227,15 +285,18 @@ export class KotsService {
           closedAt: new Date(),
         },
       });
-    });
-    await this.audit.record({
-      outletId: actor.outletId,
-      actorId: actor.id,
-      action: 'order.void',
-      entity: 'order',
-      entityId: orderId,
-      reason,
-      after: { requestedBy: requester.id, cancelKots: kots.length },
+      await this.audit.record(
+        {
+          outletId: actor.outletId,
+          actorId: actor.id,
+          action: 'order.void',
+          entity: 'order',
+          entityId: orderId,
+          reason,
+          after: { requestedBy: requester.id, cancelKots: kots.length },
+        },
+        tx,
+      );
     });
     await this.announce(kots, orderId);
     return view;

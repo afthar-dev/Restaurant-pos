@@ -240,14 +240,17 @@ export class OrdersService {
           closedAt: new Date(),
         },
       });
-    });
-    await this.audit.record({
-      outletId: actor.outletId,
-      actorId: actor.id,
-      action: 'order.cancel',
-      entity: 'order',
-      entityId: orderId,
-      reason,
+      await this.audit.record(
+        {
+          outletId: actor.outletId,
+          actorId: actor.id,
+          action: 'order.cancel',
+          entity: 'order',
+          entityId: orderId,
+          reason,
+        },
+        tx,
+      );
     });
     return view;
   }
