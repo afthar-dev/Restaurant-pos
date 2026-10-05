@@ -13,6 +13,16 @@ export async function seed(prisma: PrismaClient, env: SeedEnv): Promise<void> {
     (await prisma.outlet.findFirst({ orderBy: { createdAt: 'asc' } })) ??
     (await prisma.outlet.create({ data: { name: 'Main Outlet' } }));
 
+  if ((await prisma.station.count({ where: { outletId: outlet.id } })) === 0) {
+    await prisma.station.create({ data: { outletId: outlet.id, name: 'Kitchen' } });
+  }
+  if ((await prisma.taxRate.count({ where: { outletId: outlet.id } })) === 0) {
+    // Most standalone restaurants in India charge 5% GST: 2.5% CGST + 2.5% SGST.
+    await prisma.taxRate.create({
+      data: { outletId: outlet.id, name: 'GST 5%', cgstBp: 250, sgstBp: 250 },
+    });
+  }
+
   if (!env.OWNER_PHONE && !env.OWNER_PASSWORD) return;
 
   const phone = phoneSchema.safeParse(env.OWNER_PHONE);

@@ -32,6 +32,22 @@ enum ParcelPaymentTiming {
   PAY_AT_PICKUP
 }
 
+enum FoodType {
+  VEG
+  NON_VEG
+  EGG
+}
+
+enum PrinterPurpose {
+  KOT
+  BILL
+}
+
+enum PrinterMode {
+  BROWSER
+  AGENT
+}
+
 model Outlet {
   id                      String              @id @default(uuid()) @db.Uuid
   name                    String
@@ -52,29 +68,37 @@ model Outlet {
   users        User[]
   devices      Device[]
   auditEntries AuditEntry[]
+  taxRates     TaxRate[]
+  stations     Station[]
+  printers     Printer[]
+  areas        Area[]
+  tables       DiningTable[]
+  categories   Category[]
+  items        Item[]
+  addonGroups  AddonGroup[]
 
   @@map("outlets")
 }
 
 model User {
-  id               String    @id @default(uuid()) @db.Uuid
-  outletId         String    @map("outlet_id") @db.Uuid
-  name             String
-  phone            String    @unique
-  role             Role
-  passwordHash     String?   @map("password_hash")
-  pinHash          String?   @map("pin_hash")
+  id             String    @id @default(uuid()) @db.Uuid
+  outletId       String    @map("outlet_id") @db.Uuid
+  name           String
+  phone          String    @unique
+  role           Role
+  passwordHash   String?   @map("password_hash")
+  pinHash        String?   @map("pin_hash")
   /// Consecutive wrong PINs (sign-in or approval). Reset on success.
-  pinFailedCount   Int       @default(0) @map("pin_failed_count")
-  pinLockedUntil   DateTime? @map("pin_locked_until") @db.Timestamptz(3)
-  archivedAt       DateTime? @map("archived_at") @db.Timestamptz(3)
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  pinFailedCount Int       @default(0) @map("pin_failed_count")
+  pinLockedUntil DateTime? @map("pin_locked_until") @db.Timestamptz(3)
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  outlet          Outlet           @relation(fields: [outletId], references: [id])
-  refreshSessions RefreshSession[]
-  devicesCreated  Device[]
-  auditEntries    AuditEntry[]
+  outlet           Outlet            @relation(fields: [outletId], references: [id])
+  refreshSessions  RefreshSession[]
+  devicesCreated   Device[]
+  auditEntries     AuditEntry[]
   passwordAttempts PasswordAttempt[]
 
   @@index([outletId])
@@ -165,4 +189,223 @@ model UsedOverrideToken {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("used_override_tokens")
+}
+
+model TaxRate {
+  id         String    @id @default(uuid()) @db.Uuid
+  outletId   String    @map("outlet_id") @db.Uuid
+  name       String
+  cgstBp     Int       @map("cgst_bp")
+  sgstBp     Int       @map("sgst_bp")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+  items  Item[]
+
+  @@index([outletId])
+  @@map("tax_rates")
+}
+
+/// A kitchen section (main kitchen, tandoor, bar). KOTs are split per station.
+model Station {
+  id         String    @id @default(uuid()) @db.Uuid
+  outletId   String    @map("outlet_id") @db.Uuid
+  name       String
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet     Outlet     @relation(fields: [outletId], references: [id])
+  printers   Printer[]
+  categories Category[]
+
+  @@index([outletId])
+  @@map("stations")
+}
+
+model Printer {
+  id           String         @id @default(uuid()) @db.Uuid
+  outletId     String         @map("outlet_id") @db.Uuid
+  name         String
+  purpose      PrinterPurpose
+  stationId    String?        @map("station_id") @db.Uuid
+  mode         PrinterMode    @default(BROWSER)
+  paperWidthMm Int            @default(80) @map("paper_width_mm")
+  address      String?
+  archivedAt   DateTime?      @map("archived_at") @db.Timestamptz(3)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet  Outlet   @relation(fields: [outletId], references: [id])
+  station Station? @relation(fields: [stationId], references: [id])
+
+  @@index([outletId])
+  @@map("printers")
+}
+
+model Area {
+  id         String    @id @default(uuid()) @db.Uuid
+  outletId   String    @map("outlet_id") @db.Uuid
+  name       String
+  sortOrder  Int       @default(0) @map("sort_order")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet Outlet        @relation(fields: [outletId], references: [id])
+  tables DiningTable[]
+
+  @@index([outletId])
+  @@map("areas")
+}
+
+model DiningTable {
+  id         String    @id @default(uuid()) @db.Uuid
+  outletId   String    @map("outlet_id") @db.Uuid
+  areaId     String    @map("area_id") @db.Uuid
+  name       String
+  seats      Int
+  /// Secret printed in the table QR code (rotated from M4).
+  qrToken    String    @unique @map("qr_token")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+  area   Area   @relation(fields: [areaId], references: [id])
+
+  @@index([outletId])
+  @@index([areaId])
+  @@map("tables")
+}
+
+model Category {
+  id         String    @id @default(uuid()) @db.Uuid
+  outletId   String    @map("outlet_id") @db.Uuid
+  stationId  String    @map("station_id") @db.Uuid
+  name       String
+  sortOrder  Int       @default(0) @map("sort_order")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet  Outlet  @relation(fields: [outletId], references: [id])
+  station Station @relation(fields: [stationId], references: [id])
+  items   Item[]
+
+  @@index([outletId])
+  @@map("categories")
+}
+
+model Item {
+  id          String    @id @default(uuid()) @db.Uuid
+  outletId    String    @map("outlet_id") @db.Uuid
+  categoryId  String    @map("category_id") @db.Uuid
+  taxRateId   String    @map("tax_rate_id") @db.Uuid
+  name        String
+  description String?
+  foodType    FoodType  @map("food_type")
+  isCombo     Boolean   @default(false) @map("is_combo")
+  isAvailable Boolean   @default(true) @map("is_available")
+  sortOrder   Int       @default(0) @map("sort_order")
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet      Outlet           @relation(fields: [outletId], references: [id])
+  category    Category         @relation(fields: [categoryId], references: [id])
+  taxRate     TaxRate          @relation(fields: [taxRateId], references: [id])
+  variants    ItemVariant[]
+  addonGroups ItemAddonGroup[]
+  components  ComboComponent[] @relation("ComboItem")
+
+  @@index([outletId])
+  @@index([categoryId])
+  @@map("items")
+}
+
+model ItemVariant {
+  id              String    @id @default(uuid()) @db.Uuid
+  itemId          String    @map("item_id") @db.Uuid
+  name            String
+  dineInPrice     Int       @map("dine_in_price")
+  parcelPrice     Int       @map("parcel_price")
+  packagingCharge Int       @default(0) @map("packaging_charge")
+  sortOrder       Int       @default(0) @map("sort_order")
+  archivedAt      DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  item         Item             @relation(fields: [itemId], references: [id])
+  usedInCombos ComboComponent[] @relation("ComponentVariant")
+
+  @@index([itemId])
+  @@map("item_variants")
+}
+
+model AddonGroup {
+  id         String    @id @default(uuid()) @db.Uuid
+  outletId   String    @map("outlet_id") @db.Uuid
+  name       String
+  minSelect  Int       @default(0) @map("min_select")
+  maxSelect  Int       @default(1) @map("max_select")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet Outlet           @relation(fields: [outletId], references: [id])
+  addons Addon[]
+  items  ItemAddonGroup[]
+
+  @@index([outletId])
+  @@map("addon_groups")
+}
+
+model Addon {
+  id          String    @id @default(uuid()) @db.Uuid
+  groupId     String    @map("group_id") @db.Uuid
+  name        String
+  price       Int
+  isAvailable Boolean   @default(true) @map("is_available")
+  sortOrder   Int       @default(0) @map("sort_order")
+  archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  group AddonGroup @relation(fields: [groupId], references: [id])
+
+  @@index([groupId])
+  @@map("addons")
+}
+
+model ItemAddonGroup {
+  itemId    String   @map("item_id") @db.Uuid
+  groupId   String   @map("group_id") @db.Uuid
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  item  Item       @relation(fields: [itemId], references: [id])
+  group AddonGroup @relation(fields: [groupId], references: [id])
+
+  @@id([itemId, groupId])
+  @@map("item_addon_groups")
+}
+
+/// One line of a combo: N of a variant of another (non-combo) item.
+model ComboComponent {
+  id          String   @id @default(uuid()) @db.Uuid
+  comboItemId String   @map("combo_item_id") @db.Uuid
+  variantId   String   @map("variant_id") @db.Uuid
+  quantity    Int
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  comboItem Item        @relation("ComboItem", fields: [comboItemId], references: [id])
+  variant   ItemVariant @relation("ComponentVariant", fields: [variantId], references: [id])
+
+  @@index([comboItemId])
+  @@map("combo_components")
 }

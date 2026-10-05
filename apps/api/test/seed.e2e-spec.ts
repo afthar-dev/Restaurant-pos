@@ -45,4 +45,13 @@ describe('seed', () => {
       seed(prisma, { OWNER_PHONE: '12345', OWNER_PASSWORD: 'owner-pass-1' }),
     ).rejects.toThrow(/OWNER_PHONE/);
   });
+
+  it('creates the default kitchen station and GST 5% tax rate once', async () => {
+    await seed(prisma, {});
+    await seed(prisma, {});
+    const stations = await prisma.station.findMany();
+    const rates = await prisma.taxRate.findMany();
+    expect(stations.map((s) => s.name)).toEqual(['Kitchen']);
+    expect(rates.map((r) => [r.name, r.cgstBp, r.sgstBp])).toEqual([['GST 5%', 250, 250]]);
+  });
 });
