@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router';
 import { RequireAuth } from './auth/RequireAuth';
 import { AppShell } from './components/AppShell';
 import { AreaPlaceholder } from './pages/AreaPlaceholder';
+import { AvailabilityPage } from './pages/AvailabilityPage';
 import { ADMIN_PERMISSIONS, Home } from './pages/Home';
 import { LoginPage } from './pages/LoginPage';
 import { NotFound } from './pages/NotFound';
@@ -51,6 +52,14 @@ export const routes: RouteObject[] = [
               title="Captain app"
               description="Waiters will take table orders and send KOTs from their phones in milestone M2."
             />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'availability',
+        element: (
+          <RequireAuth anyOf={['menu.availability']}>
+            <AvailabilityPage />
           </RequireAuth>
         ),
       },
