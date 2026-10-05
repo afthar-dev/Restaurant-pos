@@ -4,6 +4,14 @@ import { afterEach, beforeEach, vi } from 'vitest';
 import { resetRefreshState } from '../auth/api';
 import { resetSessionStore } from '../auth/store';
 
+// No real sockets in tests. Tests that check realtime behaviour mock this module themselves.
+vi.mock('socket.io-client', () => ({
+  io: () => {
+    const socket = { on: () => socket, disconnect: () => undefined };
+    return socket;
+  },
+}));
+
 // React Router builds a Request (Node's) with an AbortSignal (jsdom's) on every navigation, and
 // Node rejects the foreign signal. Browsers do not have this split, so drop the signal in tests.
 const NodeRequest = globalThis.Request;
