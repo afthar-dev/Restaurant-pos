@@ -11,6 +11,7 @@ import { ConfigModule } from './config/config.module';
 import { DevicesModule } from './devices/devices.module';
 import { FloorModule } from './floor/floor.module';
 import { HealthModule } from './health/health.module';
+import { KotsModule } from './kots/kots.module';
 import { KitchenModule } from './kitchen/kitchen.module';
 import { MenuModule } from './menu/menu.module';
 import { OrdersModule } from './orders/orders.module';
@@ -38,6 +39,7 @@ import { UsersModule } from './users/users.module';
     MenuModule,
     BusinessDayModule,
     OrdersModule,
+    KotsModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: RposThrottlerGuard }],
