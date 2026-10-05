@@ -2,6 +2,8 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { ENV } from '../src/config/config.module';
+import { parseEnv } from '../src/config/env';
 import { configureApp } from '../src/configure-app';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -38,6 +40,35 @@ describe('GET /api/health', () => {
         .get('/api/health')
         .set('Origin', 'https://evil.example');
       expect(res.headers['access-control-allow-origin']).toBeUndefined();
+    });
+  });
+
+  describe('with an unreachable database at startup (real PrismaService)', () => {
+    let app: INestApplication;
+
+    beforeAll(async () => {
+      const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+        .overrideProvider(ENV)
+        .useValue({
+          ...parseEnv(process.env),
+          DATABASE_URL: 'postgresql://nobody:nothing@127.0.0.1:1/nowhere',
+        })
+        .compile();
+      app = configureApp(moduleRef.createNestApplication());
+      await app.init();
+    });
+
+    afterAll(async () => {
+      await app?.close();
+    });
+
+    it('boots anyway and reports 503 within about 3 seconds', async () => {
+      const started = Date.now();
+      await request(app.getHttpServer())
+        .get('/api/health')
+        .expect(503)
+        .expect({ status: 'error', db: 'down' });
+      expect(Date.now() - started).toBeLessThan(3500);
     });
   });
 

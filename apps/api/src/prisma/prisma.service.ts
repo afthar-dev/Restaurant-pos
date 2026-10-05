@@ -1,4 +1,4 @@
-import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { ENV } from '../config/config.module';
 import type { Env } from '../config/env';
@@ -9,11 +9,17 @@ import type { Env } from '../config/env';
  */
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleDestroy {
+  private readonly logger = new Logger(PrismaService.name);
+
   constructor(@Inject(ENV) env: Env) {
     super({ datasourceUrl: env.DATABASE_URL });
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.$disconnect();
+    // If the database was never reachable, the pending connect rejects here. Shutdown
+    // must still complete, so log and move on.
+    await this.$disconnect().catch((error: unknown) => {
+      this.logger.warn(`Prisma disconnect failed during shutdown: ${String(error)}`);
+    });
   }
 }

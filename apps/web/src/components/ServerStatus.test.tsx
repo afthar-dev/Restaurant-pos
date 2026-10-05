@@ -1,3 +1,4 @@
+import { onlineManager } from '@tanstack/react-query';
 import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '../test/render';
@@ -40,6 +41,21 @@ describe('ServerStatus', () => {
     expect(
       await screen.findByText('Server offline. Check the internet connection.'),
     ).toBeInTheDocument();
+  });
+
+  it('still checks, and shows offline, when the device reports no network', async () => {
+    onlineManager.setOnline(false);
+    try {
+      stubFetch(async () => {
+        throw new TypeError('Failed to fetch');
+      });
+      renderWithProviders(<ServerStatus />);
+      expect(
+        await screen.findByText('Server offline. Check the internet connection.'),
+      ).toBeInTheDocument();
+    } finally {
+      onlineManager.setOnline(true);
+    }
   });
 
   it('shows offline when the response is not the expected shape', async () => {
