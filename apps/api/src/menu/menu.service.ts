@@ -188,6 +188,19 @@ export class MenuService {
     }
     const keep = new Set(request.variants.map((v) => v.id).filter(Boolean));
 
+    // KOTs expand combos one level deep: an item inside an active combo cannot become a combo,
+    // and a size an active combo uses cannot be removed.
+    const usedInCombos = await this.prisma.comboComponent.findMany({
+      where: { variant: { itemId: id }, comboItem: { archivedAt: null } },
+      select: { variantId: true },
+    });
+    if (usedInCombos.length > 0 && request.isCombo) {
+      throw inUse('A combo includes this item, so it cannot become a combo itself.');
+    }
+    if (usedInCombos.some((c) => !keep.has(c.variantId))) {
+      throw inUse('A combo uses the size you removed. Edit the combo first.');
+    }
+
     await this.prisma.$transaction(async (tx) => {
       await tx.item.update({
         where: { id },

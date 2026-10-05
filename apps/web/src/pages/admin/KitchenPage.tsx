@@ -10,6 +10,7 @@ import {
   fieldErrors,
   inputClass,
   primaryButton,
+  RenameForm,
   secondaryButton,
   type FieldErrors,
 } from '../../components/ui';
@@ -42,19 +43,30 @@ function StationsSection() {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [confirming, setConfirming] = useState<Station | null>(null);
+  const [renaming, setRenaming] = useState<Station | null>(null);
 
+  const refresh = () => queryClient.invalidateQueries({ queryKey: stationsKey });
   const add = useMutation({
     mutationFn: (body: { name: string }) => apiFetch('/api/stations', { method: 'POST', body }),
     onSuccess: async () => {
       setName('');
-      await queryClient.invalidateQueries({ queryKey: stationsKey });
+      await refresh();
+    },
+  });
+  const rename = useMutation({
+    mutationFn: ({ id, name: newName }: { id: string; name: string }) =>
+      apiFetch(`/api/stations/${id}`, { method: 'PUT', body: { name: newName } }),
+    onSuccess: async () => {
+      setRenaming(null);
+      await refresh();
+      await queryClient.invalidateQueries({ queryKey: printersKey });
     },
   });
   const archive = useMutation({
     mutationFn: (s: Station) => apiFetch(`/api/stations/${s.id}/archive`, { method: 'POST' }),
     onSuccess: async () => {
       setConfirming(null);
-      await queryClient.invalidateQueries({ queryKey: stationsKey });
+      await refresh();
     },
   });
 
@@ -103,11 +115,39 @@ function StationsSection() {
       <ErrorNote message={archive.isError ? describeError(archive.error) : null} />
       <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
         {stations.data?.map((s) => (
-          <li key={s.id} className="flex items-center justify-between px-4 py-2">
-            <span className="font-medium">{s.name}</span>
-            <button type="button" className={secondaryButton} onClick={() => setConfirming(s)}>
-              Archive
-            </button>
+          <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2">
+            {renaming?.id === s.id ? (
+              <RenameForm
+                id={`station-rename-${s.id}`}
+                current={s.name}
+                busy={rename.isPending}
+                error={rename.isError ? describeError(rename.error) : null}
+                onSave={(newName) => rename.mutate({ id: s.id, name: newName })}
+                onCancel={() => setRenaming(null)}
+              />
+            ) : (
+              <>
+                <span className="font-medium">{s.name}</span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    aria-label={`Rename ${s.name}`}
+                    className={secondaryButton}
+                    onClick={() => setRenaming(s)}
+                  >
+                    Rename
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Archive ${s.name}`}
+                    className={secondaryButton}
+                    onClick={() => setConfirming(s)}
+                  >
+                    Archive
+                  </button>
+                </div>
+              </>
+            )}
           </li>
         ))}
       </ul>
@@ -115,22 +155,39 @@ function StationsSection() {
   );
 }
 
-function PrinterForm({ stations }: { stations: Station[] }) {
+function PrinterForm({
+  stations,
+  existing,
+  onDone,
+}: {
+  stations: Station[];
+  existing: Printer | null;
+  onDone: () => void;
+}) {
   const queryClient = useQueryClient();
-  const [name, setName] = useState('');
-  const [purpose, setPurpose] = useState<PrinterPurpose>('KOT');
-  const [stationId, setStationId] = useState(stations[0]?.id ?? '');
-  const [mode, setMode] = useState<PrinterMode>('BROWSER');
-  const [paperWidthMm, setPaperWidth] = useState<58 | 80>(80);
-  const [address, setAddress] = useState('');
+  const key = existing?.id ?? 'new';
+  const [name, setName] = useState(existing?.name ?? '');
+  const [purpose, setPurpose] = useState<PrinterPurpose>(existing?.purpose ?? 'KOT');
+  const [stationId, setStationId] = useState(existing?.station?.id ?? stations[0]?.id ?? '');
+  const [mode, setMode] = useState<PrinterMode>(existing?.mode ?? 'BROWSER');
+  const [paperWidthMm, setPaperWidth] = useState<58 | 80>(
+    (existing?.paperWidthMm as 58 | 80 | undefined) ?? 80,
+  );
+  const [address, setAddress] = useState(existing?.address ?? '');
   const [errors, setErrors] = useState<FieldErrors>({});
 
-  const add = useMutation({
-    mutationFn: (body: object) => apiFetch('/api/printers', { method: 'POST', body }),
+  const save = useMutation({
+    mutationFn: (body: object) =>
+      existing
+        ? apiFetch(`/api/printers/${existing.id}`, { method: 'PUT', body })
+        : apiFetch('/api/printers', { method: 'POST', body }),
     onSuccess: async () => {
-      setName('');
-      setAddress('');
+      if (!existing) {
+        setName('');
+        setAddress('');
+      }
       await queryClient.invalidateQueries({ queryKey: printersKey });
+      onDone();
     },
   });
 
@@ -149,7 +206,7 @@ function PrinterForm({ stations }: { stations: Station[] }) {
       return;
     }
     setErrors({});
-    add.mutate(parsed.data);
+    save.mutate(parsed.data);
   }
 
   return (
@@ -158,17 +215,18 @@ function PrinterForm({ stations }: { stations: Station[] }) {
       noValidate
       className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-3"
     >
-      <Field id="printer-name" label="Printer name" error={errors.name}>
+      {existing && <h4 className="font-semibold sm:col-span-3">Edit {existing.name}</h4>}
+      <Field id={`printer-${key}-name`} label="Printer name" error={errors.name}>
         <input
-          id="printer-name"
+          id={`printer-${key}-name`}
           className={inputClass}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
       </Field>
-      <Field id="printer-purpose" label="Prints">
+      <Field id={`printer-${key}-purpose`} label="Prints">
         <select
-          id="printer-purpose"
+          id={`printer-${key}-purpose`}
           className={inputClass}
           value={purpose}
           onChange={(e) => setPurpose(e.target.value as PrinterPurpose)}
@@ -178,9 +236,9 @@ function PrinterForm({ stations }: { stations: Station[] }) {
         </select>
       </Field>
       {purpose === 'KOT' && (
-        <Field id="printer-station" label="Station" error={errors.stationId}>
+        <Field id={`printer-${key}-station`} label="Station" error={errors.stationId}>
           <select
-            id="printer-station"
+            id={`printer-${key}-station`}
             className={inputClass}
             value={stationId}
             onChange={(e) => setStationId(e.target.value)}
@@ -195,12 +253,12 @@ function PrinterForm({ stations }: { stations: Station[] }) {
         </Field>
       )}
       <Field
-        id="printer-mode"
+        id={`printer-${key}-mode`}
         label="Connection"
         hint="Browser printing works with no extra software."
       >
         <select
-          id="printer-mode"
+          id={`printer-${key}-mode`}
           className={inputClass}
           value={mode}
           onChange={(e) => setMode(e.target.value as PrinterMode)}
@@ -209,9 +267,9 @@ function PrinterForm({ stations }: { stations: Station[] }) {
           <option value="AGENT">Print agent (network printer)</option>
         </select>
       </Field>
-      <Field id="printer-width" label="Paper width">
+      <Field id={`printer-${key}-width`} label="Paper width">
         <select
-          id="printer-width"
+          id={`printer-${key}-width`}
           className={inputClass}
           value={paperWidthMm}
           onChange={(e) => setPaperWidth(Number(e.target.value) as 58 | 80)}
@@ -222,26 +280,31 @@ function PrinterForm({ stations }: { stations: Station[] }) {
       </Field>
       {mode === 'AGENT' && (
         <Field
-          id="printer-address"
+          id={`printer-${key}-address`}
           label="Network address"
           error={errors.address}
           hint="For example 192.168.1.50"
         >
           <input
-            id="printer-address"
+            id={`printer-${key}-address`}
             className={inputClass}
             value={address}
             onChange={(e) => setAddress(e.target.value)}
           />
         </Field>
       )}
-      <div className="flex items-end sm:col-span-3">
-        <button type="submit" className={primaryButton} disabled={add.isPending}>
-          Add printer
+      <div className="flex items-end gap-2 sm:col-span-3">
+        <button type="submit" className={primaryButton} disabled={save.isPending}>
+          {existing ? 'Save printer' : 'Add printer'}
         </button>
+        {existing && (
+          <button type="button" className={secondaryButton} onClick={onDone}>
+            Cancel
+          </button>
+        )}
       </div>
       <div className="sm:col-span-3">
-        <ErrorNote message={add.isError ? describeError(add.error) : null} />
+        <ErrorNote message={save.isError ? describeError(save.error) : null} />
       </div>
     </form>
   );
@@ -258,6 +321,7 @@ function PrintersSection() {
     queryFn: () => apiFetch<Printer[]>('/api/printers'),
   });
   const [confirming, setConfirming] = useState<Printer | null>(null);
+  const [editing, setEditing] = useState<Printer | null>(null);
   const archive = useMutation({
     mutationFn: (p: Printer) => apiFetch(`/api/printers/${p.id}/archive`, { method: 'POST' }),
     onSuccess: async () => {
@@ -269,7 +333,9 @@ function PrintersSection() {
   return (
     <section className="flex flex-col gap-3">
       <h3 className="text-lg font-semibold">Printers</h3>
-      {stations.data && <PrinterForm stations={stations.data} />}
+      {stations.data && (
+        <PrinterForm stations={stations.data} existing={null} onDone={() => undefined} />
+      )}
       {confirming && (
         <ConfirmBar
           question={`Remove ${confirming.name}?`}
@@ -277,6 +343,14 @@ function PrintersSection() {
           onConfirm={() => archive.mutate(confirming)}
           onCancel={() => setConfirming(null)}
           busy={archive.isPending}
+        />
+      )}
+      {editing && stations.data && (
+        <PrinterForm
+          key={editing.id}
+          stations={stations.data}
+          existing={editing}
+          onDone={() => setEditing(null)}
         />
       )}
       <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
@@ -290,9 +364,24 @@ function PrintersSection() {
                 {p.mode === 'BROWSER' ? 'browser printing' : `agent at ${p.address}`}
               </span>
             </div>
-            <button type="button" className={secondaryButton} onClick={() => setConfirming(p)}>
-              Remove
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                aria-label={`Edit ${p.name}`}
+                className={secondaryButton}
+                onClick={() => setEditing(p)}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                aria-label={`Remove ${p.name}`}
+                className={secondaryButton}
+                onClick={() => setConfirming(p)}
+              >
+                Remove
+              </button>
+            </div>
           </li>
         ))}
         {printers.data?.length === 0 && (

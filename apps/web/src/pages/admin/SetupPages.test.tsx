@@ -98,3 +98,88 @@ describe('TablesPage', () => {
     expect(body(mock, 'POST', '/api/tables')).toEqual({ areaId: AREA, name: 'T2', seats: 6 });
   });
 });
+
+describe('editing setup data (review #3)', () => {
+  it('renames a station', async () => {
+    asOwner();
+    const mock = mockApi({
+      'GET /api/stations': () => json([{ id: STATION, name: 'Kitchen', archivedAt: null }]),
+      'GET /api/printers': () => json([]),
+      [`PUT /api/stations/${STATION}`]: ({ body: b }) => json({ id: STATION, ...(b as object) }),
+    });
+    renderRoute('/admin/kitchen');
+    fireEvent.click(await screen.findByRole('button', { name: 'Rename Kitchen' }));
+    fireEvent.change(screen.getByLabelText('New name for Kitchen'), {
+      target: { value: 'Main kitchen' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
+    await expect.poll(() => callsTo(mock, 'PUT', `/api/stations/${STATION}`).length).toBe(1);
+    expect(body(mock, 'PUT', `/api/stations/${STATION}`)).toEqual({ name: 'Main kitchen' });
+  });
+
+  it('edits a printer', async () => {
+    asOwner();
+    const printer = {
+      id: 'p1',
+      name: 'Kitchen printer',
+      purpose: 'KOT',
+      station: { id: STATION, name: 'Kitchen' },
+      mode: 'BROWSER',
+      paperWidthMm: 80,
+      address: null,
+    };
+    const mock = mockApi({
+      'GET /api/stations': () => json([{ id: STATION, name: 'Kitchen', archivedAt: null }]),
+      'GET /api/printers': () => json([printer]),
+      'PUT /api/printers/p1': ({ body: b }) => json({ ...printer, ...(b as object) }),
+    });
+    renderRoute('/admin/kitchen');
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Kitchen printer' }));
+    fireEvent.change(screen.getByLabelText('Paper width', { selector: '#printer-p1-width' }), {
+      target: { value: '58' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save printer' }));
+    await expect.poll(() => callsTo(mock, 'PUT', '/api/printers/p1').length).toBe(1);
+    expect(body(mock, 'PUT', '/api/printers/p1')).toEqual({
+      name: 'Kitchen printer',
+      purpose: 'KOT',
+      stationId: STATION,
+      mode: 'BROWSER',
+      paperWidthMm: 58,
+      address: null,
+    });
+  });
+
+  it('changes the seats of a table without recreating it', async () => {
+    asOwner();
+    const mock = mockApi({
+      'GET /api/floor': () =>
+        json([
+          { id: AREA, name: 'AC Hall', sortOrder: 0, tables: [{ id: 'x1', name: 'T1', seats: 4 }] },
+        ]),
+      'PUT /api/tables/x1': ({ body: b }) => json({ id: 'x1', ...(b as object) }),
+    });
+    renderRoute('/admin/tables');
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit table T1' }));
+    fireEvent.change(screen.getByLabelText('Seats for T1'), { target: { value: '6' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save table' }));
+    await expect.poll(() => callsTo(mock, 'PUT', '/api/tables/x1').length).toBe(1);
+    expect(body(mock, 'PUT', '/api/tables/x1')).toEqual({ areaId: AREA, name: 'T1', seats: 6 });
+  });
+
+  it('renames an area', async () => {
+    asOwner();
+    const mock = mockApi({
+      'GET /api/floor': () => json([{ id: AREA, name: 'AC Hall', sortOrder: 3, tables: [] }]),
+      [`PUT /api/areas/${AREA}`]: ({ body: b }) => json({ id: AREA, ...(b as object) }),
+    });
+    renderRoute('/admin/tables');
+    fireEvent.click(await screen.findByRole('button', { name: 'Rename AC Hall' }));
+    fireEvent.change(screen.getByLabelText('New name for AC Hall'), {
+      target: { value: 'AC Hall 1' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save name' }));
+    await expect.poll(() => callsTo(mock, 'PUT', `/api/areas/${AREA}`).length).toBe(1);
+    expect(body(mock, 'PUT', `/api/areas/${AREA}`)).toEqual({ name: 'AC Hall 1', sortOrder: 3 });
+  });
+});

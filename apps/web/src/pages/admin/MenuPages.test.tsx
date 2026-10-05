@@ -159,3 +159,33 @@ describe('AddonsPage', () => {
     });
   });
 });
+
+describe('MenuPage category editing (review #3)', () => {
+  it('renames a category and changes where its KOTs go', async () => {
+    asManager();
+    const OTHER = '00000000-0000-4000-8000-0000000000a2';
+    const mock = mockApi({
+      'GET /api/menu': () => json(menu),
+      'GET /api/tax-rates': () => json([]),
+      'GET /api/stations': () =>
+        json([
+          { id: STATION, name: 'Kitchen', archivedAt: null },
+          { id: OTHER, name: 'Tandoor', archivedAt: null },
+        ]),
+      'GET /api/menu/addon-groups': () => json([]),
+      [`PUT /api/menu/categories/${CAT}`]: ({ body }) => json({ id: CAT, ...(body as object) }),
+    });
+    renderRoute('/admin/menu');
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit category' }));
+    fireEvent.change(screen.getByLabelText('Category name'), { target: { value: 'Snacks' } });
+    fireEvent.change(screen.getByLabelText('KOTs go to'), { target: { value: OTHER } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save category' }));
+    await expect.poll(() => callsTo(mock, 'PUT', `/api/menu/categories/${CAT}`).length).toBe(1);
+    const [call] = callsTo(mock, 'PUT', `/api/menu/categories/${CAT}`);
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({
+      name: 'Snacks',
+      stationId: OTHER,
+      sortOrder: 0,
+    });
+  });
+});

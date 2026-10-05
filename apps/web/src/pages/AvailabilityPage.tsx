@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { apiFetch } from '../auth/api';
 import { describeError, ErrorNote, inputClass } from '../components/ui';
-import { FOOD_DOT, menuKey, type Menu, type MenuItem } from './admin/menu-types';
+import { FOOD_DOT, menuKey, type Menu, type MenuAddon, type MenuItem } from './admin/menu-types';
 
 function Switch({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
   return (
@@ -58,7 +58,55 @@ export function AvailabilityPage() {
     },
   });
 
+  const setAddon = (id: string, isAvailable: boolean) =>
+    queryClient.setQueryData<Menu>(
+      menuKey,
+      (old) =>
+        old && {
+          categories: old.categories.map((c) => ({
+            ...c,
+            items: c.items.map((i) => ({
+              ...i,
+              addonGroups: i.addonGroups.map((g) => ({
+                ...g,
+                addons: g.addons.map((a) => (a.id === id ? { ...a, isAvailable } : a)),
+              })),
+            })),
+          })),
+        },
+    );
+
+  const toggleAddon = useMutation({
+    mutationFn: (addon: MenuAddon) =>
+      apiFetch(`/api/menu/addons/${addon.id}/availability`, {
+        method: 'PATCH',
+        body: { isAvailable: !addon.isAvailable },
+      }),
+    onMutate: (addon) => {
+      setFailure(null);
+      setAddon(addon.id, !addon.isAvailable);
+    },
+    onError: (_error, addon) => {
+      setAddon(addon.id, addon.isAvailable);
+      setFailure(`Could not update ${addon.name}. Try again.`);
+    },
+  });
+
   const query = search.trim().toLowerCase();
+  // An add-on group is shared by many items: list each option once.
+  const addonGroups = new Map<string, { name: string; addons: Map<string, MenuAddon> }>();
+  for (const c of menu.data?.categories ?? []) {
+    for (const i of c.items) {
+      for (const g of i.addonGroups) {
+        const entry = addonGroups.get(g.id) ?? { name: g.name, addons: new Map() };
+        for (const a of g.addons) {
+          if (a.name.toLowerCase().includes(query)) entry.addons.set(a.id, a);
+        }
+        addonGroups.set(g.id, entry);
+      }
+    }
+  }
+  const addonSections = [...addonGroups.entries()].filter(([, g]) => g.addons.size > 0);
   const categories = (menu.data?.categories ?? [])
     .map((c) => ({ ...c, items: c.items.filter((i) => i.name.toLowerCase().includes(query)) }))
     .filter((c) => c.items.length > 0);
@@ -107,7 +155,30 @@ export function AvailabilityPage() {
           </ul>
         </section>
       ))}
-      {menu.data && categories.length === 0 && <p className="text-slate-500">No items match.</p>}
+      {addonSections.map(([id, group]) => (
+        <section key={id} className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            Add-ons: {group.name}
+          </h2>
+          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+            {[...group.addons.values()].map((addon) => (
+              <li key={addon.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                <span className={addon.isAvailable ? '' : 'text-slate-400 line-through'}>
+                  {addon.name}
+                </span>
+                <Switch
+                  on={addon.isAvailable}
+                  label={`${addon.name} available`}
+                  onToggle={() => toggleAddon.mutate(addon)}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+      {menu.data && categories.length === 0 && addonSections.length === 0 && (
+        <p className="text-slate-500">No items match.</p>
+      )}
     </section>
   );
 }

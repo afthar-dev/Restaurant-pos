@@ -256,6 +256,65 @@ describe('menu', () => {
       expect(nested.body).toMatchObject({ code: 'INVALID_REFERENCE', field: 'components' });
     });
 
+    it('will not turn a combo component into a combo (review #1)', async () => {
+      const cat = await category();
+      const tikka = (await createItem(itemBody(cat))).body;
+      const soup = (
+        await createItem(
+          itemBody(cat, { name: 'Soup', variants: [{ name: 'Regular', dineInPrice: 9000 }] }),
+        )
+      ).body;
+      await createItem(
+        itemBody(cat, {
+          name: 'Tikka Meal',
+          variants: [{ name: 'Regular', dineInPrice: 40000 }],
+          isCombo: true,
+          components: [{ variantId: tikka.variants[0].id, quantity: 1 }],
+        }),
+      );
+      const res = await ctx
+        .http()
+        .put(`/api/menu/items/${tikka.id}`)
+        .set(as(owner))
+        .send(
+          itemBody(cat, {
+            variants: tikka.variants.map(
+              (v: { id: string; name: string; dineInPrice: number }) => ({
+                id: v.id,
+                name: v.name,
+                dineInPrice: v.dineInPrice,
+              }),
+            ),
+            isCombo: true,
+            components: [{ variantId: soup.variants[0].id, quantity: 1 }],
+          }),
+        )
+        .expect(409);
+      expect(res.body.code).toBe('IN_USE');
+    });
+
+    it('will not remove a size that an active combo uses (review #2)', async () => {
+      const cat = await category();
+      const tikka = (await createItem(itemBody(cat))).body;
+      const half = tikka.variants.find((v: { name: string }) => v.name === 'Half');
+      const full = tikka.variants.find((v: { name: string }) => v.name === 'Full');
+      await createItem(
+        itemBody(cat, {
+          name: 'Tikka Meal',
+          variants: [{ name: 'Regular', dineInPrice: 40000 }],
+          isCombo: true,
+          components: [{ variantId: half.id, quantity: 1 }],
+        }),
+      );
+      const res = await ctx
+        .http()
+        .put(`/api/menu/items/${tikka.id}`)
+        .set(as(owner))
+        .send(itemBody(cat, { variants: [{ id: full.id, name: 'Full', dineInPrice: 32000 }] }))
+        .expect(409);
+      expect(res.body.code).toBe('IN_USE');
+    });
+
     it('will not archive an item that an active combo contains', async () => {
       const cat = await category();
       const tikka = (await createItem(itemBody(cat))).body;

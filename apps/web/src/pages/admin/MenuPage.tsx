@@ -80,6 +80,80 @@ function AddCategoryForm({ stations }: { stations: Station[] }) {
   );
 }
 
+function EditCategoryForm({
+  category,
+  stations,
+  onDone,
+}: {
+  category: MenuCategory;
+  stations: Station[];
+  onDone: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [name, setName] = useState(category.name);
+  const [stationId, setStationId] = useState(category.station.id);
+  const [error, setError] = useState<string | undefined>();
+  const save = useMutation({
+    mutationFn: (body: object) =>
+      apiFetch(`/api/menu/categories/${category.id}`, { method: 'PUT', body }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: menuKey });
+      onDone();
+    },
+  });
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    const parsed = categorySchema.safeParse({
+      name: name.trim(),
+      stationId,
+      sortOrder: category.sortOrder,
+    });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message);
+      return;
+    }
+    setError(undefined);
+    save.mutate(parsed.data);
+  }
+  return (
+    <form
+      onSubmit={onSubmit}
+      noValidate
+      className="flex flex-wrap items-end gap-3 rounded-lg border border-emerald-200 bg-white p-4"
+    >
+      <Field id="edit-category-name" label="Category name" error={error}>
+        <input
+          id="edit-category-name"
+          className={inputClass}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </Field>
+      <Field id="edit-category-station" label="KOTs go to">
+        <select
+          id="edit-category-station"
+          className={inputClass}
+          value={stationId}
+          onChange={(e) => setStationId(e.target.value)}
+        >
+          {stations.map((st) => (
+            <option key={st.id} value={st.id}>
+              {st.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <button type="submit" className={primaryButton} disabled={save.isPending}>
+        Save category
+      </button>
+      <button type="button" className={secondaryButton} onClick={onDone}>
+        Cancel
+      </button>
+      <ErrorNote message={save.isError ? describeError(save.error) : null} />
+    </form>
+  );
+}
+
 type Pending = { kind: 'item'; item: MenuItem } | { kind: 'category'; category: MenuCategory };
 
 export function MenuPage() {
@@ -100,6 +174,7 @@ export function MenuPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<MenuItem | 'new' | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [editingCategory, setEditingCategory] = useState(false);
 
   const archive = useMutation({
     mutationFn: (p: Pending) =>
@@ -146,6 +221,7 @@ export function MenuPage() {
                 onClick={() => {
                   setSelectedId(c.id);
                   setEditing(null);
+                  setEditingCategory(false);
                 }}
                 className={`flex items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
                   selected?.id === c.id
@@ -173,6 +249,13 @@ export function MenuPage() {
                   <button
                     type="button"
                     className={secondaryButton}
+                    onClick={() => setEditingCategory(true)}
+                  >
+                    Edit category
+                  </button>
+                  <button
+                    type="button"
+                    className={secondaryButton}
                     onClick={() => setPending({ kind: 'category', category: selected })}
                   >
                     Archive category
@@ -187,6 +270,15 @@ export function MenuPage() {
                   </button>
                 </div>
               </div>
+
+              {editingCategory && stations.data && (
+                <EditCategoryForm
+                  key={selected.id}
+                  category={selected}
+                  stations={stations.data}
+                  onDone={() => setEditingCategory(false)}
+                />
+              )}
 
               {editing && ready && (
                 <ItemEditor

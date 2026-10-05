@@ -85,3 +85,41 @@ describe('AvailabilityPage', () => {
     expect(screen.getByText('Veg Soup')).toBeInTheDocument();
   });
 });
+
+describe('AvailabilityPage add-ons (review #4)', () => {
+  it('marks an add-on out of stock', async () => {
+    asWaiter();
+    const withAddons = {
+      categories: [
+        {
+          ...menu.categories[0],
+          items: [
+            {
+              ...item('i1', 'Paneer Tikka'),
+              addonGroups: [
+                {
+                  id: 'g1',
+                  name: 'Extras',
+                  minSelect: 0,
+                  maxSelect: 1,
+                  addons: [{ id: 'a1', name: 'Extra cheese', price: 3000, isAvailable: true }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const mock = mockApi({
+      'GET /api/menu': () => json(withAddons),
+      'PATCH /api/menu/addons/a1/availability': () => json({ id: 'a1', isAvailable: false }),
+    });
+    renderRoute('/availability');
+    const toggle = await screen.findByRole('switch', { name: 'Extra cheese available' });
+    fireEvent.click(toggle);
+    await expect
+      .poll(() => callsTo(mock, 'PATCH', '/api/menu/addons/a1/availability').length)
+      .toBe(1);
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+  });
+});
