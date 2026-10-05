@@ -1,18 +1,67 @@
+import type { Permission } from '@rpos/shared';
 import { Link } from 'react-router';
+import { useSession } from '../auth/store';
 
-const areas = [
-  { to: '/pos', title: 'POS counter', body: 'Cashier billing, parcel orders and payments.' },
-  { to: '/captain', title: 'Captain app', body: 'Waiters take table orders on their phones.' },
-  { to: '/kds', title: 'Kitchen display', body: 'Live KOTs for the kitchen screen.' },
-  { to: '/admin', title: 'Admin', body: 'Menu, tables, stock, expenses and reports.' },
+export const ADMIN_PERMISSIONS: Permission[] = [
+  'users.manage',
+  'settings.manage',
+  'devices.manage',
+  'menu.manage',
+  'audit.view',
 ];
 
+interface Area {
+  to: string;
+  title: string;
+  short: string;
+  body: string;
+  /** Shown when the user has any of these; empty means everyone. */
+  anyOf: Permission[];
+}
+
+export const AREAS: Area[] = [
+  {
+    to: '/pos',
+    title: 'POS counter',
+    short: 'POS',
+    body: 'Cashier billing, parcel orders and payments.',
+    anyOf: ['bill.print'],
+  },
+  {
+    to: '/captain',
+    title: 'Captain app',
+    short: 'Captain',
+    body: 'Waiters take table orders on their phones.',
+    anyOf: ['order.take'],
+  },
+  {
+    to: '/kds',
+    title: 'Kitchen display',
+    short: 'Kitchen',
+    body: 'Live KOTs for the kitchen screen.',
+    anyOf: [],
+  },
+  {
+    to: '/admin',
+    title: 'Admin',
+    short: 'Admin',
+    body: 'Staff, devices, outlet settings and the audit log.',
+    anyOf: ADMIN_PERMISSIONS,
+  },
+];
+
+export function visibleAreas(permissions: Permission[]): Area[] {
+  if (permissions.length === 0) return [];
+  return AREAS.filter((a) => a.anyOf.length === 0 || a.anyOf.some((p) => permissions.includes(p)));
+}
+
 export function Home() {
+  const permissions = useSession((s) => s.permissions);
   return (
     <section className="flex flex-col gap-6">
       <h1 className="text-3xl font-semibold">Restaurant POS</h1>
       <div className="grid gap-4 sm:grid-cols-2">
-        {areas.map((area) => (
+        {visibleAreas(permissions).map((area) => (
           <Link
             key={area.to}
             to={area.to}

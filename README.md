@@ -55,6 +55,10 @@ pnpm --filter @rpos/api test:e2e
 pnpm build
 ```
 
+## First owner (development)
+
+Set `OWNER_PHONE` and `OWNER_PASSWORD` in `apps/api/.env`, then run `pnpm --filter @rpos/api db:seed`. Sign in at http://localhost:5173/login.
+
 ## Production build (local)
 
 ```bash
@@ -63,3 +67,5 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build --w
 ```
 
 Open http://localhost:8080. Stop with `docker compose -f docker-compose.prod.yml --env-file .env.prod down`.
+
+For a real server with HTTPS and backups, follow `docs/deploy.md`.

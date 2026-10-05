@@ -13,13 +13,156 @@ enum TaxScheme {
   NONE
 }
 
+enum Role {
+  OWNER
+  MANAGER
+  CASHIER
+  WAITER
+}
+
+enum DeviceType {
+  POS
+  CAPTAIN
+  KDS
+  PRINT_AGENT
+}
+
+enum ParcelPaymentTiming {
+  PAY_FIRST
+  PAY_AT_PICKUP
+}
+
 model Outlet {
+  id                      String              @id @default(uuid()) @db.Uuid
+  name                    String
+  gstin                   String?
+  taxScheme               TaxScheme           @default(REGULAR) @map("tax_scheme")
+  address                 String?
+  phone                   String?
+  fssaiNumber             String?             @map("fssai_number")
+  billHeader              String?             @map("bill_header")
+  billFooter              String?             @map("bill_footer")
+  /// Highest discount a cashier may give without a manager, in basis points (1000 = 10%).
+  cashierDiscountCapBp    Int                 @default(1000) @map("cashier_discount_cap_bp")
+  waiterCanCollectPayment Boolean             @default(false) @map("waiter_can_collect_payment")
+  parcelPaymentTiming     ParcelPaymentTiming @default(PAY_FIRST) @map("parcel_payment_timing")
+  createdAt               DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  users        User[]
+  devices      Device[]
+  auditEntries AuditEntry[]
+
+  @@map("outlets")
+}
+
+model User {
+  id               String    @id @default(uuid()) @db.Uuid
+  outletId         String    @map("outlet_id") @db.Uuid
+  name             String
+  phone            String    @unique
+  role             Role
+  passwordHash     String?   @map("password_hash")
+  pinHash          String?   @map("pin_hash")
+  /// Consecutive wrong PINs (sign-in or approval). Reset on success.
+  pinFailedCount   Int       @default(0) @map("pin_failed_count")
+  pinLockedUntil   DateTime? @map("pin_locked_until") @db.Timestamptz(3)
+  archivedAt       DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet          Outlet           @relation(fields: [outletId], references: [id])
+  refreshSessions RefreshSession[]
+  devicesCreated  Device[]
+  auditEntries    AuditEntry[]
+  passwordAttempts PasswordAttempt[]
+
+  @@index([outletId])
+  @@map("users")
+}
+
+model Device {
+  id          String     @id @default(uuid()) @db.Uuid
+  outletId    String     @map("outlet_id") @db.Uuid
+  name        String
+  type        DeviceType
+  tokenHash   String     @unique @map("token_hash")
+  createdById String     @map("created_by_id") @db.Uuid
+  lastSeenAt  DateTime?  @map("last_seen_at") @db.Timestamptz(3)
+  revokedAt   DateTime?  @map("revoked_at") @db.Timestamptz(3)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet          Outlet           @relation(fields: [outletId], references: [id])
+  createdBy       User             @relation(fields: [createdById], references: [id])
+  refreshSessions RefreshSession[]
+
+  @@index([outletId])
+  @@map("devices")
+}
+
+model RefreshSession {
   id        String    @id @default(uuid()) @db.Uuid
-  name      String
-  gstin     String?
-  taxScheme TaxScheme @default(REGULAR) @map("tax_scheme")
+  userId    String    @map("user_id") @db.Uuid
+  familyId  String    @map("family_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  deviceId  String?   @map("device_id") @db.Uuid
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  rotatedAt DateTime? @map("rotated_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  @@map("outlets")
+  user   User    @relation(fields: [userId], references: [id])
+  device Device? @relation(fields: [deviceId], references: [id])
+
+  @@index([familyId])
+  @@index([userId])
+  @@map("refresh_sessions")
+}
+
+model AuditEntry {
+  id        String   @id @default(uuid()) @db.Uuid
+  outletId  String   @map("outlet_id") @db.Uuid
+  actorId   String?  @map("actor_id") @db.Uuid
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  reason    String?
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet Outlet @relation(fields: [outletId], references: [id])
+  actor  User?  @relation(fields: [actorId], references: [id])
+
+  @@index([outletId, createdAt(sort: Desc)])
+  @@map("audit_entries")
+}
+
+/// Wrong-password counter per user and client address, so a stranger cannot lock an owner
+/// out of every network by guessing from one.
+model PasswordAttempt {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  ip          String
+  failedCount Int       @default(0) @map("failed_count")
+  lockedUntil DateTime? @map("locked_until") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, ip])
+  @@map("password_attempts")
+}
+
+/// Manager override tokens already used. Each token authorises one action.
+model UsedOverrideToken {
+  jti       String   @id @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("used_override_tokens")
 }
