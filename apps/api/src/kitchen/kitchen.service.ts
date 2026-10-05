@@ -15,7 +15,11 @@ import { PrismaService } from '../prisma/prisma.service';
 
 const stationView = (s: Station) => ({ id: s.id, name: s.name, archivedAt: s.archivedAt });
 
-type PrinterWithStation = Printer & { station: Station | null };
+type PrinterWithStation = Printer & {
+  station: Station | null;
+  device: { id: string; name: string } | null;
+};
+const PRINTER_INCLUDE = { station: true, device: { select: { id: true, name: true } } } as const;
 const printerView = (p: PrinterWithStation) => ({
   id: p.id,
   name: p.name,
@@ -24,6 +28,7 @@ const printerView = (p: PrinterWithStation) => ({
   mode: p.mode,
   paperWidthMm: p.paperWidthMm,
   address: p.address,
+  device: p.device,
   archivedAt: p.archivedAt,
 });
 
@@ -97,7 +102,7 @@ export class KitchenService {
   async listPrinters(outletId: string, include?: string) {
     const printers = await this.prisma.printer.findMany({
       where: { outletId, ...archivedFilter(include) },
-      include: { station: true },
+      include: PRINTER_INCLUDE,
       orderBy: { name: 'asc' },
     });
     return printers.map(printerView);
@@ -108,7 +113,7 @@ export class KitchenService {
     const data = await this.printerData(actor.outletId, request);
     const printer = await this.prisma.printer.create({
       data: { outletId: actor.outletId, ...data },
-      include: { station: true },
+      include: PRINTER_INCLUDE,
     });
     await this.record(
       actor,
@@ -128,7 +133,7 @@ export class KitchenService {
     const printer = await this.prisma.printer.update({
       where: { id },
       data,
-      include: { station: true },
+      include: PRINTER_INCLUDE,
     });
     await this.record(
       actor,
@@ -146,7 +151,7 @@ export class KitchenService {
     const printer = await this.prisma.printer.update({
       where: { id },
       data: { archivedAt: new Date() },
-      include: { station: true },
+      include: PRINTER_INCLUDE,
     });
     await this.record(actor, 'printer.archive', 'printer', id, printerView(current), undefined);
     return printerView(printer);
@@ -161,10 +166,19 @@ export class KitchenService {
       if (!station) throw invalidReference('stationId');
       stationId = station.id;
     }
+    let deviceId: string | null = null;
+    if (request.deviceId) {
+      const device = await this.prisma.device.findFirst({
+        where: { id: request.deviceId, outletId, revokedAt: null },
+      });
+      if (!device) throw invalidReference('deviceId');
+      deviceId = device.id;
+    }
     return {
       name: request.name,
       purpose: request.purpose,
       stationId,
+      deviceId,
       mode: request.mode,
       paperWidthMm: request.paperWidthMm,
       address: request.mode === 'AGENT' ? (request.address ?? null) : null,
@@ -180,7 +194,7 @@ export class KitchenService {
   private async findPrinter(outletId: string, id: string): Promise<PrinterWithStation> {
     const printer = await this.prisma.printer.findFirst({
       where: { id, outletId },
-      include: { station: true },
+      include: PRINTER_INCLUDE,
     });
     if (!printer) throw notFound('Printer');
     return printer;

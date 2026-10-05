@@ -16,6 +16,7 @@ import { KitchenModule } from './kitchen/kitchen.module';
 import { MenuModule } from './menu/menu.module';
 import { OrdersModule } from './orders/orders.module';
 import { OutletModule } from './outlet/outlet.module';
+import { PrintModule } from './print/print.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { TaxModule } from './tax/tax.module';
 import { UsersModule } from './users/users.module';
@@ -40,6 +41,7 @@ import { UsersModule } from './users/users.module';
     BusinessDayModule,
     OrdersModule,
     KotsModule,
+    PrintModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: RposThrottlerGuard }],

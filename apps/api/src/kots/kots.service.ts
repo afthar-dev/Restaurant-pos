@@ -114,7 +114,7 @@ export class KotsService {
         }
       },
     );
-    if (created) this.announce(kots, orderId);
+    if (created) await this.announce(kots, orderId);
     return { order, kots: kots.map(summary) };
   }
 
@@ -189,7 +189,7 @@ export class KotsService {
       reason,
       after: { ...cancelled!, requestedBy: requester.id },
     });
-    if (kot) this.announce([kot], orderId);
+    if (kot) await this.announce([kot], orderId);
     return view;
   }
 
@@ -237,7 +237,7 @@ export class KotsService {
       reason,
       after: { requestedBy: requester.id, cancelKots: kots.length },
     });
-    this.announce(kots, orderId);
+    await this.announce(kots, orderId);
     return view;
   }
 
@@ -316,7 +316,7 @@ export class KotsService {
   async reprint(user: AuthUser, kotId: string) {
     const kot = await this.prisma.kot.findFirst({ where: { id: kotId, outletId: user.outletId } });
     if (!kot) throw notFound('KOT');
-    this.events.emit('kot.print', { outletId: kot.outletId, kotId: kot.id });
+    await this.events.emitAsync('kot.print', { outletId: kot.outletId, kotId: kot.id });
     return { id: kot.id, queued: true };
   }
 
@@ -401,9 +401,9 @@ export class KotsService {
     });
   }
 
-  private announce(kots: Kot[], orderId: string) {
+  private async announce(kots: Kot[], orderId: string) {
     for (const kot of kots) {
-      this.events.emit('kot.created', {
+      await this.events.emitAsync('kot.created', {
         outletId: kot.outletId,
         kotId: kot.id,
         orderId,
