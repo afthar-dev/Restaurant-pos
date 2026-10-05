@@ -26,6 +26,11 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://${POSTGRES_USER:-rpos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-rpos}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.prod (at least 32 characters)}
+      # Only read by `pnpm db:seed` to create the first owner.
+      OWNER_NAME: ${OWNER_NAME:-}
+      OWNER_PHONE: ${OWNER_PHONE:-}
+      OWNER_PASSWORD: ${OWNER_PASSWORD:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -39,6 +44,26 @@ services:
       - '${HTTP_PORT:-80}:80'
     depends_on:
       - api
+
+  backup:
+    build:
+      context: .
+      dockerfile: docker/backup/Dockerfile
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-rpos}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-rpos}
+      TZ: ${TZ:-Asia/Kolkata}
+      BACKUP_HOUR: ${BACKUP_HOUR:-02}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:-}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:

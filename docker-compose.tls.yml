@@ -1,0 +1,31 @@
+# HTTPS overlay. Use together with docker-compose.prod.yml once a certificate exists:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.tls.yml --env-file .env.prod up -d
+# HTTP_PORT must be 80 so Let's Encrypt can reach the challenge path. See docs/deploy.md.
+
+services:
+  web:
+    ports:
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env.prod}
+    volumes:
+      - ./docker/nginx/tls.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - certbot-www:/var/www/certbot:ro
+      - certbot-conf:/etc/letsencrypt:ro
+
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    volumes:
+      - certbot-www:/var/www/certbot
+      - certbot-conf:/etc/letsencrypt
+    # Renew twice a day through the webroot nginx serves; certbot only renews near expiry.
+    # nginx picks up a renewed certificate on reload (weekly host cron in docs/deploy.md).
+    entrypoint: >-
+      /bin/sh -c 'trap exit TERM; while :; do
+      certbot renew --webroot -w /var/www/certbot --quiet;
+      sleep 12h & wait $${!}; done'
+
+volumes:
+  certbot-www:
+  certbot-conf:
