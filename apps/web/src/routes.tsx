@@ -9,6 +9,9 @@ import { PinPage } from './pages/PinPage';
 import { AdminIndex, AdminLayout } from './pages/admin/AdminLayout';
 import { AuditPage } from './pages/admin/AuditPage';
 import { DevicesPage } from './pages/admin/DevicesPage';
+import { KitchenPage } from './pages/admin/KitchenPage';
+import { TablesPage } from './pages/admin/TablesPage';
+import { TaxPage } from './pages/admin/TaxPage';
 import { SettingsPage } from './pages/admin/SettingsPage';
 import { StaffPage } from './pages/admin/StaffPage';
 
@@ -80,6 +83,30 @@ export const routes: RouteObject[] = [
             element: (
               <RequireAuth anyOf={['settings.manage']}>
                 <SettingsPage />
+              </RequireAuth>
+            ),
+          },
+          {
+            path: 'tables',
+            element: (
+              <RequireAuth anyOf={['settings.manage']}>
+                <TablesPage />
+              </RequireAuth>
+            ),
+          },
+          {
+            path: 'kitchen',
+            element: (
+              <RequireAuth anyOf={['settings.manage']}>
+                <KitchenPage />
+              </RequireAuth>
+            ),
+          },
+          {
+            path: 'tax',
+            element: (
+              <RequireAuth anyOf={['settings.manage']}>
+                <TaxPage />
               </RequireAuth>
             ),
           },
