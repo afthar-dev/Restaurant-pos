@@ -10,7 +10,8 @@ import { PrismaService } from '../src/prisma/prisma.service';
 /** Empties every table, children first. Keep in sync with prisma/schema.prisma. */
 export async function resetDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE combo_components, item_addon_groups, addons, addon_groups, item_variants, ' +
+    'TRUNCATE TABLE idempotency_keys, print_jobs, kot_lines, order_items, kots, orders, ' +
+      'counters, business_days, combo_components, item_addon_groups, addons, addon_groups, item_variants, ' +
       'items, categories, printers, stations, tax_rates, tables, areas, used_override_tokens, ' +
       'password_attempts, audit_entries, refresh_sessions, devices, users, outlets ' +
       'RESTART IDENTITY CASCADE',

@@ -76,6 +76,8 @@ model Outlet {
   categories   Category[]
   items        Item[]
   addonGroups  AddonGroup[]
+  businessDays BusinessDay[]
+  orders       Order[]
 
   @@map("outlets")
 }
@@ -100,6 +102,10 @@ model User {
   devicesCreated   Device[]
   auditEntries     AuditEntry[]
   passwordAttempts PasswordAttempt[]
+  daysOpened       BusinessDay[]     @relation("DayOpenedBy")
+  ordersAsWaiter   Order[]           @relation("OrderWaiter")
+  ordersCreated    Order[]           @relation("OrderCreatedBy")
+  kotsCreated      Kot[]             @relation("KotCreatedBy")
 
   @@index([outletId])
   @@map("users")
@@ -120,6 +126,7 @@ model Device {
   outlet          Outlet           @relation(fields: [outletId], references: [id])
   createdBy       User             @relation(fields: [createdById], references: [id])
   refreshSessions RefreshSession[]
+  printers        Printer[]
 
   @@index([outletId])
   @@map("devices")
@@ -234,12 +241,16 @@ model Printer {
   mode         PrinterMode    @default(BROWSER)
   paperWidthMm Int            @default(80) @map("paper_width_mm")
   address      String?
+  /// The device (browser or print agent) that prints this printer's jobs.
+  deviceId     String?        @map("device_id") @db.Uuid
   archivedAt   DateTime?      @map("archived_at") @db.Timestamptz(3)
   createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  outlet  Outlet   @relation(fields: [outletId], references: [id])
-  station Station? @relation(fields: [stationId], references: [id])
+  outlet  Outlet     @relation(fields: [outletId], references: [id])
+  station Station?   @relation(fields: [stationId], references: [id])
+  device  Device?    @relation(fields: [deviceId], references: [id])
+  jobs    PrintJob[]
 
   @@index([outletId])
   @@map("printers")
@@ -273,8 +284,9 @@ model DiningTable {
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  outlet Outlet @relation(fields: [outletId], references: [id])
-  area   Area   @relation(fields: [areaId], references: [id])
+  outlet Outlet  @relation(fields: [outletId], references: [id])
+  area   Area    @relation(fields: [areaId], references: [id])
+  orders Order[]
 
   @@index([outletId])
   @@index([areaId])
@@ -340,6 +352,7 @@ model ItemVariant {
 
   item         Item             @relation(fields: [itemId], references: [id])
   usedInCombos ComboComponent[] @relation("ComponentVariant")
+  orderItems   OrderItem[]
 
   @@index([itemId])
   @@map("item_variants")
@@ -408,4 +421,240 @@ model ComboComponent {
 
   @@index([comboItemId])
   @@map("combo_components")
+}
+
+enum BusinessDayStatus {
+  OPEN
+  CLOSED
+}
+
+enum OrderType {
+  DINE_IN
+  PARCEL
+}
+
+enum OrderSource {
+  POS
+  CAPTAIN
+  QR
+}
+
+enum OrderStatus {
+  PENDING_APPROVAL
+  OPEN
+  BILLED
+  CLOSED
+  CANCELLED
+}
+
+enum OrderItemStatus {
+  NEW
+  SENT
+  CANCELLED
+}
+
+enum KotType {
+  NEW
+  CANCEL
+}
+
+enum KotStatus {
+  NEW
+  PREPARING
+  READY
+  SERVED
+}
+
+enum PrintJobKind {
+  KOT
+  BILL
+}
+
+enum PrintJobStatus {
+  PENDING
+  PRINTED
+  FAILED
+}
+
+model BusinessDay {
+  id          String            @id @default(uuid()) @db.Uuid
+  outletId    String            @map("outlet_id") @db.Uuid
+  status      BusinessDayStatus @default(OPEN)
+  openingCash Int               @map("opening_cash")
+  openedById  String            @map("opened_by_id") @db.Uuid
+  openedAt    DateTime          @default(now()) @map("opened_at") @db.Timestamptz(3)
+  closedById  String?           @map("closed_by_id") @db.Uuid
+  closedAt    DateTime?         @map("closed_at") @db.Timestamptz(3)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet   Outlet  @relation(fields: [outletId], references: [id])
+  openedBy User    @relation("DayOpenedBy", fields: [openedById], references: [id])
+  orders   Order[]
+  kots     Kot[]
+
+  @@index([outletId, status])
+  @@map("business_days")
+}
+
+/// Gap-free sequence numbers (KOT, parcel token, bill) per outlet, key and period.
+model Counter {
+  id        String   @id @default(uuid()) @db.Uuid
+  outletId  String   @map("outlet_id") @db.Uuid
+  key       String
+  period    String
+  value     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([outletId, key, period])
+  @@map("counters")
+}
+
+model Order {
+  id            String      @id @default(uuid()) @db.Uuid
+  outletId      String      @map("outlet_id") @db.Uuid
+  businessDayId String      @map("business_day_id") @db.Uuid
+  type          OrderType
+  source        OrderSource
+  status        OrderStatus @default(OPEN)
+  tableId       String?     @map("table_id") @db.Uuid
+  tokenNo       Int?        @map("token_no")
+  guests        Int?
+  customerName  String?     @map("customer_name")
+  waiterId      String?     @map("waiter_id") @db.Uuid
+  createdById   String      @map("created_by_id") @db.Uuid
+  version       Int         @default(0)
+  cancelReason  String?     @map("cancel_reason")
+  cancelledById String?     @map("cancelled_by_id") @db.Uuid
+  closedAt      DateTime?   @map("closed_at") @db.Timestamptz(3)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet      Outlet       @relation(fields: [outletId], references: [id])
+  businessDay BusinessDay  @relation(fields: [businessDayId], references: [id])
+  table       DiningTable? @relation(fields: [tableId], references: [id])
+  waiter      User?        @relation("OrderWaiter", fields: [waiterId], references: [id])
+  createdBy   User         @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  items       OrderItem[]
+  kots        Kot[]
+
+  @@index([outletId, status])
+  @@index([tableId, status])
+  @@index([businessDayId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String          @id @default(uuid()) @db.Uuid
+  orderId         String          @map("order_id") @db.Uuid
+  itemId          String          @map("item_id") @db.Uuid
+  variantId       String          @map("variant_id") @db.Uuid
+  itemName        String          @map("item_name")
+  variantName     String          @map("variant_name")
+  unitPrice       Int             @map("unit_price")
+  /// Per unit; parcel orders only.
+  packagingCharge Int             @default(0) @map("packaging_charge")
+  taxRateId       String          @map("tax_rate_id") @db.Uuid
+  cgstBp          Int             @map("cgst_bp")
+  sgstBp          Int             @map("sgst_bp")
+  quantity        Int
+  /// [{id, name, price}] at the time of ordering.
+  addons          Json            @default("[]")
+  /// [{itemName, variantName, quantity}] per one combo, for KOTs.
+  comboComponents Json            @default("[]") @map("combo_components")
+  note            String?
+  stationId       String          @map("station_id") @db.Uuid
+  status          OrderItemStatus @default(NEW)
+  kotId           String?         @map("kot_id") @db.Uuid
+  cancelReason    String?         @map("cancel_reason")
+  cancelledById   String?         @map("cancelled_by_id") @db.Uuid
+  createdById     String          @map("created_by_id") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  order   Order       @relation(fields: [orderId], references: [id])
+  variant ItemVariant @relation(fields: [variantId], references: [id])
+  kot     Kot?        @relation("KotItems", fields: [kotId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Kot {
+  id            String    @id @default(uuid()) @db.Uuid
+  outletId      String    @map("outlet_id") @db.Uuid
+  businessDayId String    @map("business_day_id") @db.Uuid
+  orderId       String    @map("order_id") @db.Uuid
+  kotNo         Int       @map("kot_no")
+  type          KotType   @default(NEW)
+  stationId     String    @map("station_id") @db.Uuid
+  stationName   String    @map("station_name")
+  status        KotStatus @default(NEW)
+  createdById   String    @map("created_by_id") @db.Uuid
+  readyAt       DateTime? @map("ready_at") @db.Timestamptz(3)
+  servedAt      DateTime? @map("served_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  businessDay BusinessDay @relation(fields: [businessDayId], references: [id])
+  order       Order       @relation(fields: [orderId], references: [id])
+  createdBy   User        @relation("KotCreatedBy", fields: [createdById], references: [id])
+  lines       KotLine[]
+  items       OrderItem[] @relation("KotItems")
+
+  @@index([outletId, businessDayId, status])
+  @@index([orderId])
+  @@map("kots")
+}
+
+model KotLine {
+  id              String   @id @default(uuid()) @db.Uuid
+  kotId           String   @map("kot_id") @db.Uuid
+  orderItemId     String   @map("order_item_id") @db.Uuid
+  itemName        String   @map("item_name")
+  variantName     String   @map("variant_name")
+  quantity        Int
+  addons          Json     @default("[]")
+  comboComponents Json     @default("[]") @map("combo_components")
+  note            String?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  kot Kot @relation(fields: [kotId], references: [id])
+
+  @@index([kotId])
+  @@map("kot_lines")
+}
+
+model PrintJob {
+  id        String         @id @default(uuid()) @db.Uuid
+  outletId  String         @map("outlet_id") @db.Uuid
+  printerId String         @map("printer_id") @db.Uuid
+  deviceId  String?        @map("device_id") @db.Uuid
+  kind      PrintJobKind
+  payload   Json
+  status    PrintJobStatus @default(PENDING)
+  attempts  Int            @default(0)
+  printedAt DateTime?      @map("printed_at") @db.Timestamptz(3)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  printer Printer @relation(fields: [printerId], references: [id])
+
+  @@index([deviceId, status])
+  @@map("print_jobs")
+}
+
+/// Stored responses for retried requests (Idempotency-Key header).
+model IdempotencyKey {
+  id        String   @id @default(uuid()) @db.Uuid
+  outletId  String   @map("outlet_id") @db.Uuid
+  key       String
+  response  Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([outletId, key])
+  @@map("idempotency_keys")
 }
