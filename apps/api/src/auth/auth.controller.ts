@@ -9,6 +9,7 @@ import {
   type PinLoginRequest,
 } from '@rpos/shared';
 import type { Response } from 'express';
+import { ThrottleAuth } from '../common/throttle';
 import { DeviceGuard } from '../devices/device.guard';
 import { ZodBody } from '../common/zod-body.pipe';
 import { CurrentUser, type AuthUser, type RequestContext } from '../common/request-context';
@@ -28,6 +29,7 @@ export class AuthController {
   ) {}
 
   @Public()
+  @ThrottleAuth()
   @Post('login')
   @HttpCode(200)
   async login(
@@ -45,6 +47,7 @@ export class AuthController {
   }
 
   @Public()
+  @ThrottleAuth()
   @UseGuards(DeviceGuard)
   @Post('pin-login')
   @HttpCode(200)
@@ -56,6 +59,7 @@ export class AuthController {
     return this.respond(await this.auth.pinLogin(req.device!, body), res);
   }
 
+  @ThrottleAuth()
   @Post('override')
   override(
     @CurrentUser() user: AuthUser,
