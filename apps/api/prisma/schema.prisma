@@ -64,8 +64,9 @@ model User {
   role             Role
   passwordHash     String?   @map("password_hash")
   pinHash          String?   @map("pin_hash")
-  failedLoginCount Int       @default(0) @map("failed_login_count")
-  lockedUntil      DateTime? @map("locked_until") @db.Timestamptz(3)
+  /// Consecutive wrong PINs (sign-in or approval). Reset on success.
+  pinFailedCount   Int       @default(0) @map("pin_failed_count")
+  pinLockedUntil   DateTime? @map("pin_locked_until") @db.Timestamptz(3)
   archivedAt       DateTime? @map("archived_at") @db.Timestamptz(3)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -74,6 +75,7 @@ model User {
   refreshSessions RefreshSession[]
   devicesCreated  Device[]
   auditEntries    AuditEntry[]
+  passwordAttempts PasswordAttempt[]
 
   @@index([outletId])
   @@map("users")
@@ -137,4 +139,30 @@ model AuditEntry {
 
   @@index([outletId, createdAt(sort: Desc)])
   @@map("audit_entries")
+}
+
+/// Wrong-password counter per user and client address, so a stranger cannot lock an owner
+/// out of every network by guessing from one.
+model PasswordAttempt {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  ip          String
+  failedCount Int       @default(0) @map("failed_count")
+  lockedUntil DateTime? @map("locked_until") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, ip])
+  @@map("password_attempts")
+}
+
+/// Manager override tokens already used. Each token authorises one action.
+model UsedOverrideToken {
+  jti       String   @id @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("used_override_tokens")
 }

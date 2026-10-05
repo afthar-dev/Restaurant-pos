@@ -1,7 +1,8 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma, type User } from '@prisma/client';
-import type { CreateUserRequest, UpdateUserRequest } from '@rpos/shared';
+import { PASSWORD_ROLES, type CreateUserRequest, type UpdateUserRequest } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
+import { LockoutService } from '../auth/lockout.service';
 import { PasswordService } from '../auth/password.service';
 import { SessionService } from '../auth/session.service';
 import { ApiError } from '../common/api-error';
@@ -28,7 +29,8 @@ function toStaff(user: User): StaffView {
     hasPassword: user.passwordHash !== null,
     hasPin: user.pinHash !== null,
     archivedAt: user.archivedAt,
-    lockedUntil: user.lockedUntil && user.lockedUntil > new Date() ? user.lockedUntil : null,
+    lockedUntil:
+      user.pinLockedUntil && user.pinLockedUntil > new Date() ? user.pinLockedUntil : null,
   };
 }
 
@@ -49,6 +51,7 @@ export class UsersService {
     private readonly passwords: PasswordService,
     private readonly sessions: SessionService,
     private readonly audit: AuditService,
+    private readonly lockout: LockoutService,
   ) {}
 
   async list(outletId: string): Promise<StaffView[]> {
@@ -89,6 +92,18 @@ export class UsersService {
     const user = await this.findInOutlet(actor.outletId, userId);
     if (request.role && request.role !== 'OWNER') await this.assertNotLastOwner(user);
 
+    // Owners and managers always sign in with a password, so they must keep one.
+    const finalRole = request.role ?? user.role;
+    const keepsPassword =
+      request.password === undefined ? user.passwordHash !== null : request.password !== null;
+    if (PASSWORD_ROLES.includes(finalRole) && !keepsPassword) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        'PASSWORD_REQUIRED',
+        'Owners and managers need a password. Set one before saving.',
+      );
+    }
+
     const credentialsChanged = request.password !== undefined || request.pin !== undefined;
     const data: Prisma.UserUpdateInput = {
       name: request.name,
@@ -101,11 +116,8 @@ export class UsersService {
     if (request.pin !== undefined) {
       data.pinHash = request.pin ? await this.passwords.hash(request.pin) : null;
     }
-    if (credentialsChanged) {
-      data.failedLoginCount = 0;
-      data.lockedUntil = null;
-    }
 
+    if (credentialsChanged) await this.lockout.unlock(user.id);
     let updated: User;
     try {
       updated = await this.prisma.user.update({ where: { id: user.id }, data });
@@ -170,8 +182,9 @@ export class UsersService {
     if (!user.archivedAt) return toStaff(user);
     const updated = await this.prisma.user.update({
       where: { id: user.id },
-      data: { archivedAt: null, failedLoginCount: 0, lockedUntil: null },
+      data: { archivedAt: null },
     });
+    await this.lockout.unlock(user.id);
     await this.audit.record({
       outletId: actor.outletId,
       actorId: actor.id,

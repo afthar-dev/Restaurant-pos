@@ -134,6 +134,11 @@ describe('auth: password login, sessions', () => {
       .set('Cookie', `rpos_rt=${first.refreshCookie}`)
       .expect(200);
     const rotated = readCookie(res, 'rpos_rt');
+    // Outside the 30 s grace window that absorbs two tabs refreshing together.
+    await ctx.prisma.refreshSession.updateMany({
+      where: { rotatedAt: { not: null } },
+      data: { rotatedAt: new Date(Date.now() - 60_000) },
+    });
 
     const replay = await ctx
       .http()

@@ -78,4 +78,27 @@ describe('apiFetch', () => {
     mockApi({ 'POST /api/auth/logout': () => new Response(null, { status: 204 }) });
     await expect(apiFetch('/api/auth/logout', { method: 'POST' })).resolves.toBeUndefined();
   });
+
+  it('keeps the session when refresh fails because the server is unreachable', async () => {
+    useSession.getState().setSession(sessionBody('CASHIER', []));
+    mockApi({
+      'GET /api/things': () => json({ code: 'UNAUTHENTICATED' }, 401),
+      'POST /api/auth/refresh': () => json({ message: 'Bad gateway' }, 502),
+    });
+    const error = await apiFetch('/api/things').catch((e: unknown) => e);
+    expect(error).toMatchObject({ code: 'OFFLINE' });
+    expect(useSession.getState().status).toBe('authenticated');
+  });
+
+  it('keeps the session when the refresh request itself fails', async () => {
+    useSession.getState().setSession(sessionBody('CASHIER', []));
+    mockApi({
+      'GET /api/things': () => json({ code: 'UNAUTHENTICATED' }, 401),
+      'POST /api/auth/refresh': () => {
+        throw new TypeError('Failed to fetch');
+      },
+    });
+    await apiFetch('/api/things').catch(() => undefined);
+    expect(useSession.getState().status).toBe('authenticated');
+  });
 });

@@ -107,7 +107,7 @@ describe('devices, PIN login and manager override', () => {
     expect(missing.body.code).toBe('DEVICE_NOT_REGISTERED');
   });
 
-  it('lists only active staff who have a PIN', async () => {
+  it('lists only active PIN staff, not owners or managers', async () => {
     await createUser(ctx.prisma, outlet.id, { role: 'OWNER', password: 'owner-pass-1' });
     const gone = await createUser(ctx.prisma, outlet.id, { role: 'WAITER', pin: '5555' });
     await ctx.prisma.user.update({ where: { id: gone.id }, data: { archivedAt: new Date() } });
@@ -118,7 +118,7 @@ describe('devices, PIN login and manager override', () => {
       .set('Cookie', `rpos_dt=${deviceCookie}`)
       .expect(200);
     const names = (res.body as { name: string }[]).map((s) => s.name).sort();
-    expect(names).toEqual(['Arun', 'Meera']);
+    expect(names).toEqual(['Arun']);
   });
 
   it('signs a cashier in with the right PIN on a registered device', async () => {

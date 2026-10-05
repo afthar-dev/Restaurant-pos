@@ -33,10 +33,11 @@ export class AuthController {
   @Post('login')
   @HttpCode(200)
   async login(
+    @Req() req: RequestContext,
     @Body(new ZodBody(loginSchema)) body: LoginRequest,
     @Res({ passthrough: true }) res: Response,
   ): Promise<SessionBody> {
-    return this.respond(await this.auth.login(body), res);
+    return this.respond(await this.auth.login(body, req.ip ?? 'unknown'), res);
   }
 
   @Public()

@@ -20,7 +20,10 @@ interface SessionState {
   accessToken: string | null;
   user: SessionUser | null;
   permissions: Permission[];
+  /** The last session check could not reach the server (network down, 5xx). */
+  unreachable: boolean;
   setSession: (body: SessionBody) => void;
+  setUnreachable: (unreachable: boolean) => void;
   clear: () => void;
 }
 
@@ -29,6 +32,7 @@ const initial = {
   accessToken: null,
   user: null,
   permissions: [] as Permission[],
+  unreachable: false,
 };
 
 /** The access token lives only in memory; the refresh token is an httpOnly cookie. */
@@ -40,8 +44,17 @@ export const useSession = create<SessionState>()((set) => ({
       accessToken: body.accessToken,
       user: body.user,
       permissions: body.permissions as Permission[],
+      unreachable: false,
     }),
-  clear: () => set({ status: 'anonymous', accessToken: null, user: null, permissions: [] }),
+  setUnreachable: (unreachable) => set({ unreachable }),
+  clear: () =>
+    set({
+      status: 'anonymous',
+      accessToken: null,
+      user: null,
+      permissions: [],
+      unreachable: false,
+    }),
 }));
 
 export function resetSessionStore(): void {

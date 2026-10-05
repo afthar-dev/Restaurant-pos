@@ -100,4 +100,14 @@ describe('routes', () => {
     renderRoute('/kds');
     expect(await screen.findByText('Checking server…')).toBeInTheDocument();
   });
+
+  it('says the server is unreachable instead of signing out when restore fails', async () => {
+    mockApi({
+      'POST /api/auth/refresh': () => {
+        throw new TypeError('Failed to fetch');
+      },
+    });
+    renderRoute('/pos');
+    expect(await screen.findByText('Cannot reach the server. Retrying…')).toBeInTheDocument();
+  });
 });

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { Permission, Role } from '@rpos/shared';
@@ -19,6 +20,8 @@ export interface OverrideClaims {
   /** User who asked for the override. */
   req: string;
   typ: 'override';
+  /** Unique id; the token is consumed on first use. */
+  jti: string;
 }
 
 @Injectable()
@@ -46,16 +49,19 @@ export class TokenService {
   }
 
   signOverride(
-    claims: Omit<OverrideClaims, 'typ'>,
+    claims: Omit<OverrideClaims, 'typ' | 'jti'>,
     ttlSeconds = OVERRIDE_TOKEN_TTL_SECONDS,
   ): string {
-    return this.jwt.sign({ ...claims, typ: 'override' }, { expiresIn: ttlSeconds });
+    return this.jwt.sign(
+      { ...claims, typ: 'override' },
+      { expiresIn: ttlSeconds, jwtid: randomUUID() },
+    );
   }
 
   verifyOverride(token: string): OverrideClaims | null {
     try {
       const claims = this.jwt.verify<OverrideClaims>(token);
-      return claims.typ === 'override' ? claims : null;
+      return claims.typ === 'override' && typeof claims.jti === 'string' ? claims : null;
     } catch {
       return null;
     }

@@ -4,11 +4,27 @@ import { useEffect } from 'react';
 import { apiFetch, ApiError, refreshSession } from './api';
 import { useSession } from './store';
 
-/** On first render, try to restore the session from the refresh cookie. */
+const BOOT_RETRY_MS = 5000;
+
+/**
+ * On first render, restore the session from the refresh cookie. If the server cannot be
+ * reached, keep trying every few seconds instead of sending staff to the sign-in screen.
+ */
 export function useBootSession(): void {
   const status = useSession((s) => s.status);
   useEffect(() => {
-    if (status === 'loading') void refreshSession();
+    if (status !== 'loading') return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const attempt = async () => {
+      const outcome = await refreshSession();
+      if (!cancelled && outcome === 'unavailable') timer = setTimeout(attempt, BOOT_RETRY_MS);
+    };
+    void attempt();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [status]);
 }
 

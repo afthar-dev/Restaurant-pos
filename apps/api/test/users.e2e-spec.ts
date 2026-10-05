@@ -125,7 +125,7 @@ describe('staff management', () => {
     const waiter = await createUser(ctx.prisma, outlet.id, { role: 'WAITER', pin: '1234' });
     await ctx.prisma.user.update({
       where: { id: waiter.id },
-      data: { lockedUntil: new Date(Date.now() + 600_000) },
+      data: { pinLockedUntil: new Date(Date.now() + 600_000) },
     });
     const res = await ctx
       .http()

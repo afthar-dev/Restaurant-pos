@@ -16,32 +16,49 @@ BACKUP_DIR="${BACKUP_DIR:-/backups}"
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-30}"
 BACKUP_HOUR="${BACKUP_HOUR:-02}"
 
+# Every step returns on failure explicitly: `set -e` is ignored inside a function called from
+# an `if`, which is how the scheduler calls this.
 run_backup() {
-  mkdir -p "$BACKUP_DIR"
+  mkdir -p "$BACKUP_DIR" || return 1
   stamp="$(date +%Y%m%d-%H%M%S)"
   base="$BACKUP_DIR/rpos-$stamp.dump"
   partial="$base.partial"
 
-  pg_dump --format=custom --file="$partial"
+  if ! pg_dump --format=custom --file="$partial"; then
+    rm -f "$partial"
+    return 1
+  fi
+  # A dump that pg_restore cannot read is not a backup.
+  if [ ! -s "$partial" ] || ! pg_restore --list "$partial" > /dev/null; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') dump is empty or unreadable" >&2
+    rm -f "$partial"
+    return 1
+  fi
 
   if [ -n "${BACKUP_PASSPHRASE:-}" ]; then
     # Passphrase goes through a pipe, not argv, so it never shows up in `ps`.
-    printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
-      --passphrase-fd 0 --symmetric --cipher-algo AES256 --output "$base.gpg" "$partial"
+    if ! printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --pinentry-mode loopback \
+      --passphrase-fd 0 --symmetric --cipher-algo AES256 --output "$base.gpg" "$partial"; then
+      rm -f "$partial" "$base.gpg"
+      return 1
+    fi
     rm -f "$partial"
     final="$base.gpg"
   else
-    mv "$partial" "$base"
+    mv "$partial" "$base" || return 1
     final="$base"
   fi
+  [ -s "$final" ] || return 1
 
+  # Prune only after a verified new backup exists.
   find "$BACKUP_DIR" -type f -name 'rpos-*.dump*' -mtime +"$RETENTION_DAYS" -delete
-  echo "$(date '+%Y-%m-%d %H:%M:%S') backup written: $final ($(du -h "$final" | cut -f1))"
+  echo "$(date '+%Y-%m-%d %H:%M:%S') backup written: $final ($(wc -c < "$final" | tr -d " ") bytes)"
 }
 
 if [ "${1:-}" = "--once" ]; then
-  run_backup
-  exit 0
+  if run_backup; then exit 0; fi
+  echo "$(date '+%Y-%m-%d %H:%M:%S') backup FAILED" >&2
+  exit 1
 fi
 
 echo "Backup scheduler started: daily at ${BACKUP_HOUR}:00 (${TZ:-UTC}), keeping ${RETENTION_DAYS} days."

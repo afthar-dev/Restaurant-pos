@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { Prisma } from '@prisma/client';
 import { hasPermission, type Permission } from '@rpos/shared';
 import { ApiError } from '../common/api-error';
 import type { RequestContext } from '../common/request-context';
@@ -77,11 +78,25 @@ export class PermissionsGuard implements CanActivate {
     });
     if (!approver || approver.archivedAt) return null;
     if (!hasPermission(approver.role, permission, approver.outlet)) return null;
+    if (!(await this.consume(claims.jti))) return null;
     return {
       id: approver.id,
       name: approver.name,
       role: approver.role,
       outletId: approver.outletId,
     };
+  }
+
+  /** Marks an override token as used. False when it was used before. */
+  private async consume(jti: string): Promise<boolean> {
+    try {
+      await this.prisma.usedOverrideToken.create({ data: { jti } });
+      return true;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        return false;
+      }
+      throw error;
+    }
   }
 }

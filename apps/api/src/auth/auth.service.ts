@@ -65,10 +65,15 @@ export class AuthService {
     private readonly audit: AuditService,
   ) {}
 
-  /** Staff who can sign in with a PIN on this device. */
+  /** Staff who can sign in with a PIN on this device (owners and managers use passwords). */
   staffFor(device: AuthDevice) {
     return this.prisma.user.findMany({
-      where: { outletId: device.outletId, archivedAt: null, pinHash: { not: null } },
+      where: {
+        outletId: device.outletId,
+        archivedAt: null,
+        pinHash: { not: null },
+        role: { notIn: [...PASSWORD_ROLES] },
+      },
       select: { id: true, name: true, role: true },
       orderBy: { name: 'asc' },
     });
@@ -79,23 +84,24 @@ export class AuthService {
       where: { id: request.userId, outletId: device.outletId },
       include: { outlet: true },
     });
-    if (!user || user.archivedAt || !user.pinHash) {
+    // An owner's or manager's PIN only approves actions; it never opens a session.
+    if (!user || user.archivedAt || !user.pinHash || PASSWORD_ROLES.includes(user.role)) {
       await this.passwords.verify(null, request.pin);
       throw wrongPin();
     }
-    this.lockout.assertNotLocked(user);
+    const attempt = await this.lockout.reservePinAttempt(user);
     if (!(await this.passwords.verify(user.pinHash, request.pin))) {
-      await this.lockout.recordFailure(user.id);
+      await this.lockout.pinFailed(user, attempt);
       throw wrongPin();
     }
-    await this.lockout.recordSuccess(user.id);
+    await this.lockout.pinSucceeded(user.id);
     const refresh = await this.sessions.create(user.id, PIN_SESSION_TTL_MS, device.id);
     return { body: this.sessionBody(user, user.outlet), refresh };
   }
 
   /**
    * A manager (or owner) types their PIN on someone else's screen to approve one action.
-   * Wrong PINs count towards the approver's lockout.
+   * Wrong PINs count towards the approver's PIN lockout, never their password sign-in.
    */
   async issueOverride(requester: AuthUser, request: OverrideRequest) {
     const approver = await this.prisma.user.findFirst({
@@ -106,12 +112,12 @@ export class AuthService {
       await this.passwords.verify(null, request.pin);
       throw overrideDenied();
     }
-    this.lockout.assertNotLocked(approver);
+    const attempt = await this.lockout.reservePinAttempt(approver);
     if (!(await this.passwords.verify(approver.pinHash, request.pin))) {
-      await this.lockout.recordFailure(approver.id);
+      await this.lockout.pinFailed(approver, attempt);
       throw overrideDenied();
     }
-    await this.lockout.recordSuccess(approver.id);
+    await this.lockout.pinSucceeded(approver.id);
     if (!hasPermission(approver.role, request.permission, approver.outlet)) throw overrideDenied();
 
     await this.audit.record({
@@ -133,7 +139,7 @@ export class AuthService {
     };
   }
 
-  async login(request: LoginRequest): Promise<SessionResult> {
+  async login(request: LoginRequest, ip: string): Promise<SessionResult> {
     const user = await this.prisma.user.findUnique({
       where: { phone: request.phone },
       include: { outlet: true },
@@ -144,12 +150,12 @@ export class AuthService {
       await this.passwords.verify(null, request.password);
       throw invalidCredentials();
     }
-    this.lockout.assertNotLocked(user);
+    const attempt = await this.lockout.reservePasswordAttempt(user, ip);
     if (!(await this.passwords.verify(user.passwordHash, request.password))) {
-      await this.lockout.recordFailure(user.id);
+      await this.lockout.passwordFailed(user, ip, attempt);
       throw invalidCredentials();
     }
-    await this.lockout.recordSuccess(user.id);
+    await this.lockout.passwordSucceeded(user.id, ip);
     const refresh = await this.sessions.create(user.id, PASSWORD_SESSION_TTL_MS);
     return { body: this.sessionBody(user, user.outlet), refresh };
   }

@@ -20,28 +20,56 @@ export interface ApiRequest {
   skipRefresh?: boolean;
 }
 
-let refreshInFlight: Promise<boolean> | null = null;
+export type RefreshOutcome = 'ok' | 'expired' | 'unavailable';
 
-/** Restores or renews the session from the refresh cookie. Concurrent callers share one request. */
-export function refreshSession(): Promise<boolean> {
-  refreshInFlight ??= (async () => {
+let refreshInFlight: Promise<RefreshOutcome> | null = null;
+
+const REFRESH_TIMEOUT_MS = 10_000;
+
+/** Test hook: forget a refresh left pending by a previous test. */
+export function resetRefreshState(): void {
+  refreshInFlight = null;
+}
+
+/**
+ * Restores or renews the session from the refresh cookie. Concurrent callers share one request.
+ * Only a definite "no" from the server (4xx) signs the user out. A network failure or a 5xx
+ * keeps the session: a cashier must not be thrown out by a 4G failover or a deploy.
+ */
+export function refreshSession(): Promise<RefreshOutcome> {
+  refreshInFlight ??= (async (): Promise<RefreshOutcome> => {
+    const session = useSession.getState();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REFRESH_TIMEOUT_MS);
     try {
-      const res = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
-      if (!res.ok) {
-        useSession.getState().clear();
-        return false;
+      const res = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        credentials: 'include',
+        signal: controller.signal,
+      });
+      if (res.ok) {
+        session.setSession((await res.json()) as SessionBody);
+        return 'ok';
       }
-      useSession.getState().setSession((await res.json()) as SessionBody);
-      return true;
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+        session.clear();
+        return 'expired';
+      }
+      session.setUnreachable(true);
+      return 'unavailable';
     } catch {
-      useSession.getState().clear();
-      return false;
+      session.setUnreachable(true);
+      return 'unavailable';
     } finally {
+      clearTimeout(timer);
       refreshInFlight = null;
     }
   })();
   return refreshInFlight;
 }
+
+const offline = () =>
+  new ApiError(503, 'OFFLINE', 'Cannot reach the server. Check the internet connection.');
 
 async function toApiError(res: Response): Promise<ApiError> {
   let body: Record<string, unknown> = {};
@@ -69,9 +97,16 @@ export async function apiFetch<T>(path: string, request: ApiRequest = {}): Promi
     });
   };
 
-  let res = await send();
-  if (res.status === 401 && !request.skipRefresh && (await refreshSession())) {
+  let res: Response;
+  try {
     res = await send();
+  } catch {
+    throw offline();
+  }
+  if (res.status === 401 && !request.skipRefresh) {
+    const outcome = await refreshSession();
+    if (outcome === 'unavailable') throw offline();
+    if (outcome === 'ok') res = await send();
   }
   if (!res.ok) throw await toApiError(res);
   if (res.status === 204) return undefined as T;

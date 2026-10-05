@@ -8,19 +8,25 @@ export function LoadingScreen() {
   return <p className="text-slate-600">Loading…</p>;
 }
 
+export function UnreachableScreen() {
+  return <p className="text-slate-700">Cannot reach the server. Retrying…</p>;
+}
+
 /**
  * Renders children only for a signed-in user. `anyOf`: at least one of the permissions.
  * Signed-out users go to the PIN pad on a registered device, otherwise to manager sign-in.
  */
 export function RequireAuth({ anyOf, children }: { anyOf?: Permission[]; children: ReactNode }) {
   const status = useSession((s) => s.status);
+  const unreachable = useSession((s) => s.unreachable);
   const permissions = useSession((s) => s.permissions);
   const location = useLocation();
   const device = useCurrentDevice();
 
-  if (status === 'loading') return <LoadingScreen />;
+  if (status === 'loading') return unreachable ? <UnreachableScreen /> : <LoadingScreen />;
   if (status === 'anonymous') {
     if (device.isPending) return <LoadingScreen />;
+    if (device.isError) return <UnreachableScreen />;
     return (
       <Navigate to={device.data ? '/pin' : '/login'} replace state={{ from: location.pathname }} />
     );

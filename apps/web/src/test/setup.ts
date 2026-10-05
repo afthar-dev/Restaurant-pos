@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
+import { resetRefreshState } from '../auth/api';
 import { resetSessionStore } from '../auth/store';
 
 // React Router builds a Request (Node's) with an AbortSignal (jsdom's) on every navigation, and
@@ -20,6 +21,7 @@ beforeEach(() => {
     vi.fn(() => new Promise<Response>(() => undefined)),
   );
   resetSessionStore();
+  resetRefreshState();
 });
 
 afterEach(() => {
