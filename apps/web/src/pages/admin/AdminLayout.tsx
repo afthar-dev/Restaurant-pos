@@ -3,6 +3,8 @@ import { Navigate, NavLink, Outlet } from 'react-router';
 import { useSession } from '../../auth/store';
 
 export const ADMIN_TABS: { to: string; label: string; permission: Permission }[] = [
+  { to: 'menu', label: 'Menu', permission: 'menu.manage' },
+  { to: 'addons', label: 'Add-ons', permission: 'menu.manage' },
   { to: 'staff', label: 'Staff', permission: 'users.manage' },
   { to: 'settings', label: 'Settings', permission: 'settings.manage' },
   { to: 'tables', label: 'Tables', permission: 'settings.manage' },

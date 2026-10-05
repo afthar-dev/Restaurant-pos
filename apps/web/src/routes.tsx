@@ -6,7 +6,9 @@ import { ADMIN_PERMISSIONS, Home } from './pages/Home';
 import { LoginPage } from './pages/LoginPage';
 import { NotFound } from './pages/NotFound';
 import { PinPage } from './pages/PinPage';
+import { AddonsPage } from './pages/admin/AddonsPage';
 import { AdminIndex, AdminLayout } from './pages/admin/AdminLayout';
+import { MenuPage } from './pages/admin/MenuPage';
 import { AuditPage } from './pages/admin/AuditPage';
 import { DevicesPage } from './pages/admin/DevicesPage';
 import { KitchenPage } from './pages/admin/KitchenPage';
@@ -70,6 +72,22 @@ export const routes: RouteObject[] = [
         ),
         children: [
           { index: true, element: <AdminIndex /> },
+          {
+            path: 'menu',
+            element: (
+              <RequireAuth anyOf={['menu.manage']}>
+                <MenuPage />
+              </RequireAuth>
+            ),
+          },
+          {
+            path: 'addons',
+            element: (
+              <RequireAuth anyOf={['menu.manage']}>
+                <AddonsPage />
+              </RequireAuth>
+            ),
+          },
           {
             path: 'staff',
             element: (
