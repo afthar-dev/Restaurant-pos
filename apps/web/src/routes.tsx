@@ -1,9 +1,9 @@
 import type { RouteObject } from 'react-router';
 import { RequireAuth } from './auth/RequireAuth';
 import { AppShell } from './components/AppShell';
-import { AreaPlaceholder } from './pages/AreaPlaceholder';
 import { AvailabilityPage } from './pages/AvailabilityPage';
 import { CaptainPage } from './pages/CaptainPage';
+import { KdsPage } from './pages/KdsPage';
 import { PosPage } from './pages/PosPage';
 import { ADMIN_PERMISSIONS, Home } from './pages/Home';
 import { LoginPage } from './pages/LoginPage';
@@ -61,12 +61,7 @@ export const routes: RouteObject[] = [
       },
       {
         path: 'kds',
-        element: (
-          <AreaPlaceholder
-            title="Kitchen display"
-            description="Live kitchen order tickets with preparing and ready states arrive in milestone M2."
-          />
-        ),
+        element: <KdsPage />,
       },
       {
         path: 'admin',
