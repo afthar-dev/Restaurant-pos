@@ -7,6 +7,7 @@ import { apiThrottleLimit, THROTTLE_WINDOW_MS } from './common/throttle';
 import { RposThrottlerGuard } from './common/throttler.guard';
 import { ConfigModule } from './config/config.module';
 import { DevicesModule } from './devices/devices.module';
+import { FloorModule } from './floor/floor.module';
 import { HealthModule } from './health/health.module';
 import { KitchenModule } from './kitchen/kitchen.module';
 import { OutletModule } from './outlet/outlet.module';
@@ -28,6 +29,7 @@ import { UsersModule } from './users/users.module';
     OutletModule,
     TaxModule,
     KitchenModule,
+    FloorModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: RposThrottlerGuard }],
