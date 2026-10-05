@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import type { z } from 'zod';
 
 export const inputClass =
   'rounded-md border border-slate-300 bg-white px-3 py-2 text-base disabled:bg-slate-100';
@@ -13,7 +12,9 @@ export const dangerButton =
 export type FieldErrors = Record<string, string>;
 
 /** First message per top-level field from a failed Zod parse. */
-export function fieldErrors(error: z.ZodError): FieldErrors {
+export function fieldErrors(error: {
+  issues: readonly { path: readonly PropertyKey[]; message: string }[];
+}): FieldErrors {
   const errors: FieldErrors = {};
   for (const issue of error.issues) {
     const key = String(issue.path[0] ?? 'form');
