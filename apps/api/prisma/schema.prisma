@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TaxScheme {
+  REGULAR
+  COMPOSITION
+  NONE
+}
+
+model Outlet {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String
+  gstin     String?
+  taxScheme TaxScheme @default(REGULAR) @map("tax_scheme")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("outlets")
+}
