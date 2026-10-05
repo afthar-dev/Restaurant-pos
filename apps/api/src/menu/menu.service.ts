@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Category, ItemVariant, Prisma } from '@prisma/client';
 import type { AddonGroupRequest, CategoryRequest, ItemRequest } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
@@ -45,6 +46,7 @@ export class MenuService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly events: EventEmitter2,
   ) {}
 
   async menu(outletId: string) {
@@ -255,6 +257,7 @@ export class MenuService {
     const item = await this.prisma.item.findFirst({ where: { id, outletId, archivedAt: null } });
     if (!item) throw notFound('Item');
     await this.prisma.item.update({ where: { id }, data: { isAvailable } });
+    this.events.emit('menu.availability', { outletId, itemId: id, isAvailable });
     return { id, isAvailable };
   }
 
@@ -364,6 +367,7 @@ export class MenuService {
     });
     if (!addon) throw notFound('Add-on');
     await this.prisma.addon.update({ where: { id }, data: { isAvailable } });
+    this.events.emit('menu.availability', { outletId, addonId: id, isAvailable });
     return { id, isAvailable };
   }
 

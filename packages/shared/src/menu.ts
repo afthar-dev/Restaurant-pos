@@ -66,6 +66,8 @@ export const printerSchema = z
     mode: z.enum(PRINTER_MODES),
     paperWidthMm: z.union([z.literal(58), z.literal(80)]),
     address: z.string().trim().max(200).nullable().optional(),
+    /** The registered device (counter PC, kitchen screen or print agent) that prints this. */
+    deviceId: z.uuid().nullable().optional(),
   })
   .superRefine((p, ctx) => {
     if (p.purpose === 'KOT' && !p.stationId) {

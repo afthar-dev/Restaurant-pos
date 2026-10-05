@@ -1,0 +1,96 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
+import {
+  addItemsSchema,
+  cancelOrderSchema,
+  createOrderSchema,
+  updateOrderItemSchema,
+  type AddItemsRequest,
+  type CancelOrderRequest,
+  type CreateOrderRequest,
+  type UpdateOrderItemRequest,
+} from '@rpos/shared';
+import { DEVICE_COOKIE } from '../auth/cookies';
+import { RequirePermissions } from '../auth/decorators';
+import { CurrentUser, type AuthUser, type RequestContext } from '../common/request-context';
+import { ZodBody } from '../common/zod-body.pipe';
+import { OrdersService } from './orders.service';
+
+@Controller('orders')
+@RequirePermissions('order.take')
+export class OrdersController {
+  constructor(private readonly orders: OrdersService) {}
+
+  @Post()
+  async create(
+    @CurrentUser() user: AuthUser,
+    @Req() req: RequestContext,
+    @Body(new ZodBody(createOrderSchema)) body: CreateOrderRequest,
+  ) {
+    const source = await this.orders.sourceForDevice(req.cookies?.[DEVICE_COOKIE]);
+    return this.orders.create(user, body, source);
+  }
+
+  @Get()
+  list(@CurrentUser() user: AuthUser, @Query('status') status?: string) {
+    void status; // only "active" is supported for now
+    return this.orders.active(user.outletId);
+  }
+
+  @Get(':id')
+  get(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.orders.get(user.outletId, id);
+  }
+
+  @Post(':id/items')
+  addItems(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Body(new ZodBody(addItemsSchema)) body: AddItemsRequest,
+  ) {
+    return this.orders.addItems(user, id, ifMatch, body);
+  }
+
+  @Patch(':id/items/:itemId')
+  updateItem(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Body(new ZodBody(updateOrderItemSchema)) body: UpdateOrderItemRequest,
+  ) {
+    return this.orders.updateItem(user, id, itemId, ifMatch, body);
+  }
+
+  @Delete(':id/items/:itemId')
+  removeItem(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
+    @Headers('if-match') ifMatch: string | undefined,
+  ) {
+    return this.orders.removeItem(user, id, itemId, ifMatch);
+  }
+
+  @Post(':id/cancel')
+  cancel(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Body(new ZodBody(cancelOrderSchema)) body: CancelOrderRequest,
+  ) {
+    return this.orders.cancel(user, id, ifMatch, body.reason);
+  }
+}
