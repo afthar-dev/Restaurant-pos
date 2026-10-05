@@ -35,6 +35,13 @@ export const AREAS: Area[] = [
     anyOf: ['order.take'],
   },
   {
+    to: '/availability',
+    title: 'Item availability',
+    short: 'Stock',
+    body: 'Mark dishes out of stock.',
+    anyOf: ['menu.availability'],
+  },
+  {
     to: '/kds',
     title: 'Kitchen display',
     short: 'Kitchen',
