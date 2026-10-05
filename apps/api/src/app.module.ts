@@ -8,8 +8,10 @@ import { RposThrottlerGuard } from './common/throttler.guard';
 import { ConfigModule } from './config/config.module';
 import { DevicesModule } from './devices/devices.module';
 import { HealthModule } from './health/health.module';
+import { KitchenModule } from './kitchen/kitchen.module';
 import { OutletModule } from './outlet/outlet.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { TaxModule } from './tax/tax.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -24,6 +26,8 @@ import { UsersModule } from './users/users.module';
     DevicesModule,
     UsersModule,
     OutletModule,
+    TaxModule,
+    KitchenModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: RposThrottlerGuard }],
