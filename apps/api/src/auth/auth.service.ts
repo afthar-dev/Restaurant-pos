@@ -65,6 +65,20 @@ export class AuthService {
     private readonly audit: AuditService,
   ) {}
 
+  /** Owners and managers with an approval PIN, for the "manager approval" dialog. */
+  approvers(outletId: string) {
+    return this.prisma.user.findMany({
+      where: {
+        outletId,
+        archivedAt: null,
+        pinHash: { not: null },
+        role: { in: [...PASSWORD_ROLES] },
+      },
+      select: { id: true, name: true, role: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
   /** Staff who can sign in with a PIN on this device (owners and managers use passwords). */
   staffFor(device: AuthDevice) {
     return this.prisma.user.findMany({

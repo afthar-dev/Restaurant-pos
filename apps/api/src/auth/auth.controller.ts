@@ -60,6 +60,11 @@ export class AuthController {
     return this.respond(await this.auth.pinLogin(req.device!, body), res);
   }
 
+  @Get('approvers')
+  approvers(@CurrentUser() user: AuthUser) {
+    return this.auth.approvers(user.outletId);
+  }
+
   @ThrottleAuth()
   @Post('override')
   override(
