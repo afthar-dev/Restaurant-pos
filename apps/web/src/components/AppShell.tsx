@@ -4,6 +4,7 @@ import { apiFetch } from '../auth/api';
 import { useBootSession, useCurrentDevice } from '../auth/hooks';
 import { useSession } from '../auth/store';
 import { visibleAreas } from '../pages/Home';
+import { PrintWorker } from '../print/PrintWorker';
 import { RealtimeProvider } from '../realtime/RealtimeProvider';
 import { ServerStatus } from './ServerStatus';
 
@@ -77,6 +78,8 @@ export function AppShell() {
         <main className={wide ? 'w-full px-3 py-4' : 'mx-auto max-w-5xl px-4 py-8'}>
           <Outlet />
         </main>
+        {/* Any registered screen may own a browser printer, so every one watches for jobs. */}
+        {device.data && <PrintWorker />}
       </div>
     </RealtimeProvider>
   );
