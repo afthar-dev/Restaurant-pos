@@ -102,4 +102,10 @@ export class BillsController {
   ) {
     return this.bills.void(actor, user, id, body.reason);
   }
+
+  @Post('bills/:id/print')
+  @RequirePermissions('bill.print')
+  reprint(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.bills.reprint(user, id);
+  }
 }

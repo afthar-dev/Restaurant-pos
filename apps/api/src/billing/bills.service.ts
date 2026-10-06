@@ -148,6 +148,7 @@ export class BillsService {
       if (await settleBill(tx, bill.id)) await closeOrderIfSettled(tx, orderId);
     });
     this.changed(actor.outletId, billId, orderId);
+    await this.events.emitAsync('bill.print', { outletId: actor.outletId, billId });
     return this.get(actor.outletId, billId);
   }
 
@@ -435,6 +436,14 @@ export class BillsService {
     return this.get(user.outletId, billId);
   }
 
+  /** Queues the bill on the bill printers again (paper jam, customer copy). */ async reprint(
+    user: AuthUser,
+    billId: string,
+  ) {
+    await this.orderOf(user.outletId, billId);
+    await this.events.emitAsync('bill.print', { outletId: user.outletId, billId });
+    return { id: billId, queued: true };
+  }
   changed(outletId: string, billId: string, orderId: string) {
     this.events.emit('bill.updated', { outletId, billId, orderId });
   }

@@ -269,6 +269,63 @@ describe('print jobs', () => {
     expect(await printState(sent.order.id)).toBe('PRINTED');
   });
 
+  it('prints the bill on the bill printer and reprints it on request', async () => {
+    const cashier = await signIn(ctx, outlet.id, 'CASHIER', 'Kavya');
+    await kitchenPrinter(counter.id).expect(201);
+    await ctx
+      .http()
+      .post('/api/printers')
+      .set(owner.auth)
+      .send({
+        name: 'Bill printer',
+        purpose: 'BILL',
+        mode: 'BROWSER',
+        paperWidthMm: 58,
+        deviceId: counter.id,
+      })
+      .expect(201);
+    const sent = await sendPaneerKot();
+    const bill = (
+      await ctx
+        .http()
+        .post(`/api/orders/${sent.order.id}/bills`)
+        .set(cashier.auth)
+        .send({})
+        .expect(201)
+    ).body;
+
+    const jobs = (await claimFor(counter).expect(201)).body;
+    expect(jobs.map((j: { kind: string }) => j.kind).sort()).toEqual(['BILL', 'KOT']);
+    const billJob = jobs.find((j: { kind: string }) => j.kind === 'BILL');
+    expect(billJob.payload).toMatchObject({
+      kind: 'BILL',
+      title: 'Tax Invoice',
+      billNo: 1,
+      status: 'OPEN',
+      tableName: 'T1',
+      waiterName: 'Arun',
+      cashierName: 'Kavya',
+      paperWidthMm: 58,
+      total: bill.total,
+      outlet: { name: outlet.name },
+      lines: [
+        {
+          itemName: 'Paneer Tikka',
+          variantName: 'Half',
+          addons: ['Cheese'],
+          quantity: 2,
+          unitPrice: 21000,
+          amount: 42000,
+        },
+      ],
+      taxBreakup: [{ ratePercent: '5%', taxable: 42000, cgst: 1050, sgst: 1050 }],
+    });
+
+    await ctx.http().post(`/api/bills/${bill.id}/print`).set(cashier.auth).expect(201);
+    const again = (await claimFor(counter).expect(201)).body;
+    expect(again.map((j: { kind: string }) => j.kind)).toEqual(['BILL']);
+  });
+
   it('queues another job on reprint', async () => {
     await kitchenPrinter(counter.id).expect(201);
     const sent = await sendPaneerKot();

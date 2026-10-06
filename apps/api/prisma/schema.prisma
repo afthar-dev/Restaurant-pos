@@ -654,6 +654,7 @@ model PrintJob {
   printerId  String         @map("printer_id") @db.Uuid
   deviceId   String?        @map("device_id") @db.Uuid
   kotId      String?        @map("kot_id") @db.Uuid
+  billId     String?        @map("bill_id") @db.Uuid
   kind       PrintJobKind
   payload    Json
   status     PrintJobStatus @default(PENDING)
@@ -666,8 +667,10 @@ model PrintJob {
 
   printer Printer @relation(fields: [printerId], references: [id])
   kot     Kot?    @relation(fields: [kotId], references: [id], onDelete: SetNull)
+  bill    Bill?   @relation(fields: [billId], references: [id], onDelete: SetNull)
 
   @@index([kotId])
+  @@index([billId])
   @@index([deviceId, status])
   @@map("print_jobs")
 }
@@ -743,6 +746,7 @@ model Bill {
   createdBy   User        @relation("BillCreatedBy", fields: [createdById], references: [id])
   items       BillItem[]
   payments    Payment[]
+  printJobs   PrintJob[]
 
   @@unique([outletId, financialYear, billNo])
   @@index([orderId])
