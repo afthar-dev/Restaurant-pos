@@ -364,4 +364,30 @@ describe('QR ordering', () => {
       expect(list.body).toEqual([]);
     });
   });
+
+  describe('table QR codes', () => {
+    it('lists every table code for printing stickers, to owners only', async () => {
+      const res = await ctx.http().get('/api/tables/qr').set(owner.auth).expect(200);
+      expect(res.body).toEqual([
+        { id: r.t1.id, name: 'T1', areaName: 'AC Hall', qrToken: r.t1.qrToken },
+        { id: r.t2.id, name: 'T2', areaName: 'AC Hall', qrToken: r.t2.qrToken },
+      ]);
+      await ctx.http().get('/api/tables/qr').set(cashier.auth).expect(403);
+    });
+
+    it('replaces a lost sticker: the old code stops working and its sessions end', async () => {
+      const token = await scan();
+      const res = await ctx
+        .http()
+        .post(`/api/tables/${r.t1.id}/qr/rotate`)
+        .set(owner.auth)
+        .expect(201);
+      expect(res.body.qrToken).not.toBe(r.t1.qrToken);
+      expect(res.body.qrToken.length).toBeGreaterThanOrEqual(40);
+      await start(r.t1.qrToken).expect(404);
+      await menu(token).expect(401);
+      await menu(await scan(res.body.qrToken)).expect(200);
+      await ctx.http().post(`/api/tables/${r.t1.id}/qr/rotate`).set(waiter.auth).expect(403);
+    });
+  });
 });

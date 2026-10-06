@@ -36,6 +36,19 @@ export class FloorController {
     return this.floor.archiveArea(user, id);
   }
 
+  // Before tables/:id so "qr" is not read as a table id.
+  @Get('tables/qr')
+  @RequirePermissions('settings.manage')
+  qrCodes(@CurrentUser() user: AuthUser) {
+    return this.floor.qrCodes(user.outletId);
+  }
+
+  @Post('tables/:id/qr/rotate')
+  @RequirePermissions('settings.manage')
+  rotateQr(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.floor.rotateQr(user, id);
+  }
+
   @Get('tables/:id')
   @RequirePermissions('settings.manage')
   getTable(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {

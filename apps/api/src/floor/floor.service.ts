@@ -86,6 +86,37 @@ export class FloorService {
     return areaView(area);
   }
 
+  /** Every table's QR code, for printing the stickers. */
+  async qrCodes(outletId: string) {
+    const tables = await this.prisma.diningTable.findMany({
+      where: { outletId, archivedAt: null },
+      include: { area: { select: { name: true, sortOrder: true } } },
+    });
+    return tables
+      .sort(
+        (a, b) =>
+          a.area.sortOrder - b.area.sortOrder ||
+          a.area.name.localeCompare(b.area.name) ||
+          a.name.localeCompare(b.name, undefined, { numeric: true }),
+      )
+      .map((t) => ({ id: t.id, name: t.name, areaName: t.area.name, qrToken: t.qrToken }));
+  }
+
+  /** A new code for a lost or copied sticker: the old one stops working at once. */
+  async rotateQr(actor: AuthUser, id: string) {
+    await this.findTable(actor.outletId, id);
+    const qrToken = randomToken();
+    await this.prisma.$transaction([
+      this.prisma.diningTable.update({ where: { id }, data: { qrToken } }),
+      this.prisma.qrSession.updateMany({
+        where: { tableId: id, endedAt: null },
+        data: { endedAt: new Date() },
+      }),
+    ]);
+    await this.record(actor, 'table.qr.rotate', 'table', id, undefined, undefined);
+    return { id, qrToken };
+  }
+
   /** Includes the QR token, for printing table QR codes. */
   async getTable(outletId: string, id: string) {
     const table = await this.findTable(outletId, id);
