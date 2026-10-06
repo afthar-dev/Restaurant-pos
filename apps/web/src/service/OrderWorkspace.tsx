@@ -1,3 +1,4 @@
+import { BillArea } from './billing/BillArea';
 import { MenuBrowser } from './MenuBrowser';
 import { OrderPanel } from './OrderPanel';
 import { useOrder } from './queries';
@@ -14,6 +15,7 @@ export function OrderWorkspace({
 }) {
   const order = useOrder(orderId);
   const editable = order.data?.status === 'OPEN';
+  const billable = order.data && order.data.status !== 'CANCELLED';
   return (
     <div
       className={
@@ -22,7 +24,10 @@ export function OrderWorkspace({
           : 'flex flex-col gap-4'
       }
     >
-      <OrderPanel orderId={orderId} onClosed={onClosed} />
+      <div className="flex flex-col gap-4">
+        <OrderPanel orderId={orderId} onClosed={onClosed} />
+        {billable && <BillArea order={order.data!} />}
+      </div>
       {order.data && editable && <MenuBrowser orderId={orderId} orderType={order.data.type} />}
     </div>
   );

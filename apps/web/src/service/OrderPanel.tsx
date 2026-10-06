@@ -403,15 +403,25 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
         <span className="text-lg font-semibold tabular-nums">{rupees(o.subtotal)}</span>
       </div>
 
-      <ErrorNote message={send.isError ? describeError(send.error) : null} />
-      <button
-        type="button"
-        className={`${primaryButton} min-h-12 text-base`}
-        disabled={newLines.length === 0 || send.isPending}
-        onClick={sendToKitchen}
-      >
-        {send.isPending ? 'Sending…' : `Send to kitchen (${newLines.length})`}
-      </button>
+      {o.status === 'OPEN' ? (
+        <>
+          <ErrorNote message={send.isError ? describeError(send.error) : null} />
+          <button
+            type="button"
+            className={`${primaryButton} min-h-12 text-base`}
+            disabled={newLines.length === 0 || send.isPending}
+            onClick={sendToKitchen}
+          >
+            {send.isPending ? 'Sending…' : `Send to kitchen (${newLines.length})`}
+          </button>
+        </>
+      ) : (
+        <p role="status" className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">
+          {o.status === 'BILLED'
+            ? 'Bill printed. Waiting for payment.'
+            : 'Paid and closed. The table is free.'}
+        </p>
+      )}
 
       {sentLines.length === 0 && o.status === 'OPEN' && (
         <CancelOrder order={o} onClosed={onClosed} />
