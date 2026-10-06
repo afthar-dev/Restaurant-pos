@@ -7,6 +7,7 @@ import { ApiError } from '../common/api-error';
 import { notFound } from '../common/master-data';
 import type { AuthDevice, AuthUser } from '../common/request-context';
 import { billedQuantities, markBilledIfComplete } from '../billing/settle';
+import { endQrSessions } from '../qr/end-sessions';
 import { OrdersService } from '../orders/orders.service';
 import type { OrderView } from '../orders/orders.views';
 import { PrismaService } from '../prisma/prisma.service';
@@ -302,6 +303,7 @@ export class KotsService {
           closedAt: new Date(),
         },
       });
+      await endQrSessions(tx, order.tableId);
       await this.audit.record(
         {
           outletId: actor.outletId,

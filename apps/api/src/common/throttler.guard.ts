@@ -15,6 +15,10 @@ import { sha256 } from './crypto';
 @Injectable()
 export class RposThrottlerGuard extends ThrottlerGuard {
   protected override async getTracker(req: Record<string, unknown>): Promise<string> {
+    // Customers ordering from a table QR are counted per scan (phones share the restaurant Wi-Fi).
+    const headers = req.headers as Record<string, unknown> | undefined;
+    const qrSession = headers?.['x-qr-session'];
+    if (typeof qrSession === 'string' && qrSession.length > 0) return `qr:${sha256(qrSession)}`;
     const cookies = req.cookies as Record<string, unknown> | undefined;
     const deviceToken = cookies?.[DEVICE_COOKIE];
     const path = typeof req.path === 'string' ? req.path : '';

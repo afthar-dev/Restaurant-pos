@@ -3,6 +3,7 @@ import type { Order } from '@prisma/client';
 import { ApiError } from '../common/api-error';
 import { invalidReference } from '../common/master-data';
 import type { AuthUser } from '../common/request-context';
+import { endQrSessions } from '../qr/end-sessions';
 import { OrdersService, orderNotOpen, tableHolder } from './orders.service';
 import type { OrderView } from './orders.views';
 
@@ -44,6 +45,7 @@ export class TableMovesService {
       }
       from = order;
       await tx.order.update({ where: { id: orderId }, data: { tableId } });
+      await endQrSessions(tx, order.tableId);
     });
     // The old table frees up: tell screens watching it too.
     if (from) this.orders.changed(from);

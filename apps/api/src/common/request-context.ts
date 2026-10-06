@@ -16,12 +16,20 @@ export interface AuthDevice {
   outletId: string;
 }
 
+export interface QrContext {
+  sessionId: string;
+  outletId: string;
+  tableId: string;
+}
+
 export interface RequestContext extends Request {
   user?: AuthUser;
   permissions?: Permission[];
   /** The person accountable for the action: the user, or the manager who approved an override. */
   actor?: AuthUser;
   device?: AuthDevice;
+  /** Set by QrSessionGuard for customers ordering from a table QR. */
+  qr?: QrContext;
 }
 
 export const CurrentUser = createParamDecorator((_: unknown, ctx: ExecutionContext): AuthUser => {

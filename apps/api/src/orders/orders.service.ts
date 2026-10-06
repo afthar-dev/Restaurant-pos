@@ -9,6 +9,7 @@ import type {
 } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
 import { markBilledIfComplete } from '../billing/settle';
+import { endQrSessions } from '../qr/end-sessions';
 import { BusinessDayService } from '../business-day/business-day.service';
 import { CountersService } from '../business-day/counters.service';
 import { ApiError } from '../common/api-error';
@@ -21,33 +22,8 @@ import { ORDER_INCLUDE, orderSubtotal, orderView, type OrderView } from './order
 
 type Tx = Prisma.TransactionClient;
 
-/** Orders that hold a table. */
-export const ACTIVE_STATUSES = ['PENDING_APPROVAL', 'OPEN', 'BILLED'] as const;
-
-/**
- * The order holding a table right now, ignoring `exceptOrderId`: its own active order, or the
- * active order it was merged into (a merged table stays taken until that bill is paid).
- */
-export async function tableHolder(
-  tx: Tx,
-  tableId: string,
-  exceptOrderId?: string,
-): Promise<{ id: string } | null> {
-  const except = exceptOrderId ? { id: { not: exceptOrderId } } : {};
-  const own = await tx.order.findFirst({
-    where: { tableId, status: { in: [...ACTIVE_STATUSES] }, ...except },
-    select: { id: true },
-  });
-  if (own) return own;
-  const merged = await tx.order.findFirst({
-    where: {
-      tableId,
-      mergedInto: { status: { in: [...ACTIVE_STATUSES] }, ...except },
-    },
-    select: { mergedIntoId: true },
-  });
-  return merged?.mergedIntoId ? { id: merged.mergedIntoId } : null;
-}
+export { ACTIVE_STATUSES, tableHolder } from './table-holder';
+import { ACTIVE_STATUSES, tableHolder } from './table-holder';
 
 export const orderChanged = () =>
   new ApiError(
@@ -267,6 +243,7 @@ export class OrdersService {
           closedAt: new Date(),
         },
       });
+      await endQrSessions(tx, order.tableId);
       await this.audit.record(
         {
           outletId: actor.outletId,
