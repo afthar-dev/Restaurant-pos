@@ -1,4 +1,4 @@
-import { endQrSessions } from '../qr/end-sessions';
+import { qrOrderEnded } from '../qr/end-sessions';
 import type { Prisma } from '@prisma/client';
 
 type Tx = Prisma.TransactionClient;
@@ -32,7 +32,7 @@ export async function closeOrderIfSettled(tx: Tx, orderId: string): Promise<void
     where: { id: orderId },
     data: { status: 'CLOSED', closedAt: new Date() },
   });
-  await endQrSessions(tx, order.tableId);
+  await qrOrderEnded(tx, order);
 }
 
 /** Quantity of each order item already on a non-void bill. */

@@ -8,7 +8,7 @@ import { randomToken, sha256 } from '../common/crypto';
 import type { QrContext } from '../common/request-context';
 import { MenuService } from '../menu/menu.service';
 import { OrdersService } from '../orders/orders.service';
-import { tableHolder } from '../orders/table-holder';
+import { ACTIVE_STATUSES, tableHolder } from '../orders/table-holder';
 import { PrismaService } from '../prisma/prisma.service';
 import { submissionView, type QrLine, type QrSubmissionView } from './qr.views';
 
@@ -19,6 +19,12 @@ const MAX_PER_SESSION = 5;
 const RATE_WINDOW_MS = 10 * 60_000;
 /** Per table: requests waiting for staff before the next one is refused. */
 const MAX_PENDING_PER_TABLE = 3;
+
+/**
+ * Customers' request ids live in their own namespace, so a phone can never produce a key the
+ * staff side uses (an approval sends its KOT with the key "qr-<submissionId>").
+ */
+const customerKey = (qr: QrContext, key: string) => `qr:${qr.sessionId}:${key}`;
 
 type StaffMenu = Awaited<ReturnType<MenuService['menu']>>;
 type StaffItem = StaffMenu['categories'][number]['items'][number];
@@ -104,6 +110,10 @@ export class QrService {
           const replay = await this.replay(tx, qr, idempotencyKey);
           if (replay) return { replay };
         }
+        // Lock the table first: it serialises every submit for this table (and so for this
+        // phone), so the caps below hold even when requests arrive at once, and two phones
+        // on a free table get one order.
+        await tx.$queryRaw`SELECT id FROM tables WHERE id = ${qr.tableId}::uuid FOR UPDATE`;
         const recent = await tx.qrSubmission.count({
           where: {
             sessionId: qr.sessionId,
@@ -111,7 +121,11 @@ export class QrService {
           },
         });
         const waiting = await tx.qrSubmission.count({
-          where: { tableId: qr.tableId, status: 'PENDING' },
+          where: {
+            tableId: qr.tableId,
+            status: 'PENDING',
+            order: { status: { in: [...ACTIVE_STATUSES] } },
+          },
         });
         if (recent >= MAX_PER_SESSION || waiting >= MAX_PENDING_PER_TABLE) {
           throw new ApiError(
@@ -125,20 +139,17 @@ export class QrService {
         });
         const variants = await this.orders.loadVariants(tx, qr.outletId, request.lines);
 
-        // One order per table even when two phones submit at the same moment.
-        await tx.$queryRaw`SELECT id FROM tables WHERE id = ${qr.tableId}::uuid FOR UPDATE`;
-        const holder = await tableHolder(tx, qr.tableId);
+        const holder = await this.lockedHolder(tx, qr.tableId);
         let orderId: string;
         if (holder) {
-          const order = await tx.order.findUniqueOrThrow({ where: { id: holder.id } });
-          if (order.status === 'BILLED') {
+          if (holder.status === 'BILLED') {
             throw new ApiError(
               HttpStatus.CONFLICT,
               'QR_BILL_PRINTED',
               'The bill is already printed. Please call the waiter.',
             );
           }
-          orderId = order.id;
+          orderId = holder.id;
         } else {
           const order = await tx.order.create({
             data: {
@@ -183,7 +194,7 @@ export class QrService {
           await tx.idempotencyKey.create({
             data: {
               outletId: qr.outletId,
-              key: idempotencyKey,
+              key: customerKey(qr, idempotencyKey),
               response: { sessionId: qr.sessionId, submissionId: submission.id },
             },
           });
@@ -218,6 +229,22 @@ export class QrService {
     return submissionView(created);
   }
 
+  /**
+   * The table's current order, locked. Staff may be cancelling, billing or voiding it at this
+   * moment: after the lock its status is final for this transaction, and if it stopped being
+   * active the table's holder is looked up again.
+   */
+  private async lockedHolder(tx: Prisma.TransactionClient, tableId: string) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const holder = await tableHolder(tx, tableId);
+      if (!holder) return null;
+      await tx.$queryRaw`SELECT id FROM orders WHERE id = ${holder.id}::uuid FOR UPDATE`;
+      const order = await tx.order.findUniqueOrThrow({ where: { id: holder.id } });
+      if ((ACTIVE_STATUSES as readonly string[]).includes(order.status)) return order;
+    }
+    return null;
+  }
+
   /** This phone's submissions, newest first. */
   async mySubmissions(qr: QrContext): Promise<QrSubmissionView[]> {
     const submissions = await this.prisma.qrSubmission.findMany({
@@ -234,7 +261,7 @@ export class QrService {
     key: string,
   ): Promise<QrSubmissionView | null> {
     const stored = await db.idempotencyKey.findUnique({
-      where: { outletId_key: { outletId: qr.outletId, key } },
+      where: { outletId_key: { outletId: qr.outletId, key: customerKey(qr, key) } },
     });
     if (!stored) return null;
     const response = stored.response as { sessionId?: string; submissionId?: string };

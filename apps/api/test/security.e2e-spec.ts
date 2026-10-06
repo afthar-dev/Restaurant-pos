@@ -300,3 +300,67 @@ describe('PIN throttling per device (#8)', () => {
     expect((await attempt(phoneB)).status).toBe(200);
   });
 });
+
+describe('QR traffic and rate limits (M4a review #1, #8)', () => {
+  let ctx: TestContext;
+  const previous = {
+    auth: process.env.AUTH_THROTTLE_LIMIT,
+    qr: process.env.QR_SESSION_THROTTLE_LIMIT,
+  };
+
+  beforeAll(async () => {
+    process.env.AUTH_THROTTLE_LIMIT = '3';
+    process.env.QR_SESSION_THROTTLE_LIMIT = '5';
+    ctx = await createTestApp();
+  });
+
+  afterAll(async () => {
+    process.env.AUTH_THROTTLE_LIMIT = previous.auth;
+    process.env.QR_SESSION_THROTTLE_LIMIT = previous.qr;
+    await ctx.app.close();
+  });
+
+  beforeEach(async () => {
+    await resetDatabase(ctx.prisma);
+  });
+
+  const fake = (i: number) => `made-up-${i}-${'x'.repeat(30)}`;
+
+  it('does not give a made-up QR session header its own login budget', async () => {
+    const outlet = await createOutlet(ctx.prisma);
+    const owner = await createUser(ctx.prisma, outlet.id, {
+      role: 'OWNER',
+      password: 'owner-pass-1',
+    });
+    const attempt = (i: number) =>
+      ctx
+        .http()
+        .post('/api/auth/login')
+        .set('x-qr-session', fake(i))
+        .send({ phone: owner.phone, password: 'wrong-pass-1' });
+    for (let i = 0; i < 3; i += 1) expect((await attempt(i)).status).toBe(401);
+    expect((await attempt(99)).status).toBe(429);
+  });
+
+  it('lets a dinner rush scan on one Wi-Fi, but made-up headers do not lift the scan limit', async () => {
+    const outlet = await createOutlet(ctx.prisma);
+    const table = await ctx.prisma.diningTable.create({
+      data: {
+        outletId: outlet.id,
+        areaId: (await ctx.prisma.area.create({ data: { outletId: outlet.id, name: 'Hall' } })).id,
+        name: 'T1',
+        seats: 4,
+        qrToken: 'q'.repeat(43),
+      },
+    });
+    const scan = (i: number) =>
+      ctx
+        .http()
+        .post('/api/qr/sessions')
+        .set('x-qr-session', fake(i))
+        .send({ code: table.qrToken });
+    // More scans than the staff login limit (3) are fine.
+    for (let i = 0; i < 5; i += 1) expect((await scan(i)).status).toBe(201);
+    expect((await scan(99)).status).toBe(429);
+  });
+});

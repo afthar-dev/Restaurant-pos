@@ -54,6 +54,14 @@ export class BillsService {
         where: { orderId },
         orderBy: { createdAt: 'asc' },
       });
+      const waitingQr = await tx.qrSubmission.count({ where: { orderId, status: 'PENDING' } });
+      if (waitingQr > 0) {
+        throw new ApiError(
+          HttpStatus.CONFLICT,
+          'QR_PENDING',
+          'A customer sent dishes from the table QR. Approve or reject them before the bill.',
+        );
+      }
       if (items.some((i) => i.status === 'NEW')) {
         throw new ApiError(
           HttpStatus.CONFLICT,

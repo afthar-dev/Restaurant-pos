@@ -1,15 +1,29 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import type { QrApproveRequest, QrRejectRequest } from '@rpos/shared';
+import type { OrderLineRequest, QrApproveRequest, QrRejectRequest } from '@rpos/shared';
 import { ApiError } from '../common/api-error';
 import { notFound } from '../common/master-data';
 import type { AuthUser } from '../common/request-context';
 import { KotsService } from '../kots/kots.service';
 import { OrdersService, orderNotOpen } from '../orders/orders.service';
+import { ACTIVE_STATUSES } from '../orders/table-holder';
 import type { OrderView } from '../orders/orders.views';
 import { PrismaService } from '../prisma/prisma.service';
 import { pendingView, type QrLine, type QrPendingView } from './qr.views';
 
 type Tx = Parameters<Parameters<PrismaService['$transaction']>[0]>[0];
+
+const NOTE_MAX = 140;
+
+/**
+ * The customer's note for the whole order ("peanut allergy") rides on the first dish's note so
+ * it is printed on the KOT; a dish note of its own is kept in front of it.
+ */
+function withCustomerNote(lines: OrderLineRequest[], note: string | null): OrderLineRequest[] {
+  if (!note || lines.length === 0) return lines;
+  const [first, ...rest] = lines;
+  const combined = [first!.note, note].filter(Boolean).join(' · ').slice(0, NOTE_MAX);
+  return [{ ...first!, note: combined }, ...rest];
+}
 
 /** Staff side of QR ordering (spec §5.3 step 4): approve (optionally edited) or reject. */
 @Injectable()
@@ -23,7 +37,7 @@ export class QrApprovalService {
   /** Requests waiting for staff, oldest first. */
   async pending(outletId: string): Promise<QrPendingView[]> {
     const submissions = await this.prisma.qrSubmission.findMany({
-      where: { outletId, status: 'PENDING' },
+      where: { outletId, status: 'PENDING', order: { status: { in: [...ACTIVE_STATUSES] } } },
       orderBy: { createdAt: 'asc' },
       include: { table: { select: { name: true } } },
     });
@@ -42,6 +56,11 @@ export class QrApprovalService {
   ): Promise<OrderView> {
     const orderId = await this.orderOf(approver.outletId, submissionId);
     await this.orders.mutate(approver, orderId, undefined, async ({ tx, order }) => {
+      await tx.$queryRaw`SELECT id FROM qr_submissions WHERE id = ${submissionId}::uuid FOR UPDATE`;
+      const current = await tx.qrSubmission.findUniqueOrThrow({ where: { id: submissionId } });
+      // Approved already (a double tap, or a retry after the kitchen ticket failed): only the
+      // ticket below is repeated, with the same key, so the kitchen gets it exactly once.
+      if (current.status === 'APPROVED') return;
       const submission = await this.lockPending(tx, submissionId);
       if (order.status === 'PENDING_APPROVAL') {
         await tx.order.update({
@@ -59,7 +78,7 @@ export class QrApprovalService {
           addonIds: l.addonIds,
           ...(l.note ? { note: l.note } : {}),
         }));
-      await this.orders.addLines(tx, order, lines, approver.id);
+      await this.orders.addLines(tx, order, withCustomerNote(lines, submission.note), approver.id);
       await tx.qrSubmission.update({
         where: { id: submissionId },
         data: { status: 'APPROVED', decidedById: approver.id, decidedAt: new Date() },

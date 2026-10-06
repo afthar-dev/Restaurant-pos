@@ -212,7 +212,8 @@ describe('QR ordering', () => {
       expect(again.body.id).toBe(first.body.id);
       expect(await ctx.prisma.qrSubmission.count()).toBe(1);
       const stranger = await scan(r.t2.qrToken);
-      await submit(stranger, { lines: [paneerWithCheese()] }, 'try-1').expect(409);
+      // Another phone's ids are its own: the same id there is a separate request.
+      await submit(stranger, { lines: [paneerWithCheese()] }, 'try-1').expect(201);
     });
 
     it('gives a table one order when two phones submit at once', async () => {
@@ -293,8 +294,8 @@ describe('QR ordering', () => {
         status: 'APPROVED',
         message: 'Accepted — sent to the kitchen',
       });
-      const twice = await approve(submission.id).expect(409);
-      expect(twice.body.code).toBe('QR_ALREADY_DECIDED');
+      // A second tap is a safe retry: same order back, still one kitchen ticket.
+      await approve(submission.id).expect(201);
       expect(await ctx.prisma.kot.count()).toBe(1);
     });
 
@@ -388,6 +389,153 @@ describe('QR ordering', () => {
       await menu(token).expect(401);
       await menu(await scan(res.body.qrToken)).expect(200);
       await ctx.http().post(`/api/tables/${r.t1.id}/qr/rotate`).set(waiter.auth).expect(403);
+    });
+  });
+
+  describe('review fixes', () => {
+    const roti = (quantity = 1) => ({ variantId: r.roti.regular.id, quantity, addonIds: [] });
+    const approve = (id: string, body: object = {}) =>
+      ctx.http().post(`/api/qr/submissions/${id}/approve`).set(waiter.auth).send(body);
+    const seat = (tableId: string) =>
+      ctx
+        .http()
+        .post('/api/orders')
+        .set(waiter.auth)
+        .send({ type: 'DINE_IN', tableId, guests: 2 })
+        .expect(201);
+
+    it('keeps the caps when one phone fires many submits at once', async () => {
+      const token = await scan();
+      const results = await Promise.all(
+        Array.from({ length: 12 }, () => submit(token, { lines: [roti()] })),
+      );
+      expect(results.filter((res) => res.status === 201)).toHaveLength(3);
+      expect(results.filter((res) => res.status === 429)).toHaveLength(9);
+      expect(await ctx.prisma.qrSubmission.count({ where: { status: 'PENDING' } })).toBe(3);
+    });
+
+    it('settles waiting requests when staff cancel the order, so the table can order again', async () => {
+      const token = await scan();
+      const first = (await submit(token, { lines: [roti()] }).expect(201)).body;
+      const sub = await ctx.prisma.qrSubmission.findUniqueOrThrow({ where: { id: first.id } });
+      await ctx
+        .http()
+        .post(`/api/orders/${sub.orderId}/cancel`)
+        .set(waiter.auth)
+        .send({ reason: 'Guests left' })
+        .expect(201);
+      const mine = await ctx.http().get('/api/qr/orders').set('x-qr-session', token).expect(401);
+      expect(mine.body.code).toBe('QR_SESSION_ENDED');
+      const stored = await ctx.prisma.qrSubmission.findUniqueOrThrow({ where: { id: first.id } });
+      expect(stored.status).toBe('REJECTED');
+      const pending = await ctx.http().get('/api/qr/pending').set(waiter.auth).expect(200);
+      expect(pending.body).toEqual([]);
+      await submit(await scan(), { lines: [roti()] }).expect(201);
+    });
+
+    it('asks staff to decide on waiting requests before printing the bill', async () => {
+      const order = (await seat(r.t1.id)).body;
+      await ctx
+        .http()
+        .post(`/api/orders/${order.id}/items`)
+        .set(waiter.auth)
+        .send({ items: [roti()] })
+        .expect(201);
+      await ctx.http().post(`/api/orders/${order.id}/kot`).set(waiter.auth).expect(201);
+      await submit(await scan(), { lines: [roti(2)] }).expect(201);
+      const res = await ctx
+        .http()
+        .post(`/api/orders/${order.id}/bills`)
+        .set(cashier.auth)
+        .send({})
+        .expect(409);
+      expect(res.body.code).toBe('QR_PENDING');
+    });
+
+    it('carries waiting requests along when tables merge or move', async () => {
+      const a = (await seat(r.t1.id)).body;
+      const b = (await seat(r.t2.id)).body;
+      const fromB = (await submit(await scan(r.t2.qrToken), { lines: [roti()] }).expect(201)).body;
+      await ctx
+        .http()
+        .post(`/api/orders/${a.id}/merge`)
+        .set(waiter.auth)
+        .send({ fromOrderId: b.id })
+        .expect(201);
+      let pending = (await ctx.http().get('/api/qr/pending').set(waiter.auth)).body;
+      expect(pending).toEqual([expect.objectContaining({ id: fromB.id, orderId: a.id })]);
+      await approve(fromB.id).expect(201);
+
+      const t3 = await ctx.prisma.diningTable.create({
+        data: {
+          outletId: outlet.id,
+          areaId: r.area.id,
+          name: 'T3',
+          seats: 2,
+          qrToken: `${'t'.repeat(40)}3`,
+        },
+      });
+      const another = (await submit(await scan(r.t1.qrToken), { lines: [roti()] }).expect(201))
+        .body;
+      await ctx
+        .http()
+        .post(`/api/orders/${a.id}/move`)
+        .set(waiter.auth)
+        .send({ tableId: t3.id })
+        .expect(201);
+      pending = (await ctx.http().get('/api/qr/pending').set(waiter.auth)).body;
+      expect(pending).toEqual([expect.objectContaining({ id: another.id, tableName: 'T3' })]);
+    });
+
+    it('ends the phones of merged tables too when the bill is paid', async () => {
+      const a = (await seat(r.t1.id)).body;
+      const b = (await seat(r.t2.id)).body;
+      const phoneAtT2 = await scan(r.t2.qrToken);
+      for (const order of [a, b]) {
+        await ctx
+          .http()
+          .post(`/api/orders/${order.id}/items`)
+          .set(waiter.auth)
+          .send({ items: [roti()] })
+          .expect(201);
+        await ctx.http().post(`/api/orders/${order.id}/kot`).set(waiter.auth).expect(201);
+      }
+      await ctx
+        .http()
+        .post(`/api/orders/${a.id}/merge`)
+        .set(waiter.auth)
+        .send({ fromOrderId: b.id })
+        .expect(201);
+      const bill = (
+        await ctx.http().post(`/api/orders/${a.id}/bills`).set(cashier.auth).send({}).expect(201)
+      ).body;
+      await pay(ctx, cashier, bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+      await menu(phoneAtT2).expect(401);
+    });
+
+    it('cannot be blocked by a customer using the approval key, and a repeated approve is safe', async () => {
+      const token = await scan();
+      const first = (await submit(token, { lines: [roti()] }).expect(201)).body;
+      await submit(token, { lines: [roti(2)] }, `qr-${first.id}`).expect(201);
+      await approve(first.id).expect(201);
+      expect(await ctx.prisma.kot.count()).toBe(1);
+      const again = await approve(first.id).expect(201);
+      expect(again.body.status).toBe('OPEN');
+      expect(await ctx.prisma.kot.count()).toBe(1);
+    });
+
+    it('sends the customer note to the kitchen', async () => {
+      const kds = await createDevice(ctx.prisma, outlet.id, owner.user.id, 'KDS', 'Kitchen');
+      const first = (
+        await submit(await scan(), { lines: [roti()], note: 'peanut allergy' }).expect(201)
+      ).body;
+      await approve(first.id).expect(201);
+      const tickets = await ctx
+        .http()
+        .get('/api/kds/kots')
+        .set('Cookie', `rpos_dt=${kds.cookie}`)
+        .expect(200);
+      expect(tickets.body[0].lines[0].note).toContain('peanut allergy');
     });
   });
 });

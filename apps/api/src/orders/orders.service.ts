@@ -9,7 +9,7 @@ import type {
 } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
 import { markBilledIfComplete } from '../billing/settle';
-import { endQrSessions } from '../qr/end-sessions';
+import { qrOrderEnded } from '../qr/end-sessions';
 import { BusinessDayService } from '../business-day/business-day.service';
 import { CountersService } from '../business-day/counters.service';
 import { ApiError } from '../common/api-error';
@@ -251,7 +251,7 @@ export class OrdersService {
           closedAt: new Date(),
         },
       });
-      await endQrSessions(tx, order.tableId);
+      await qrOrderEnded(tx, order);
       await this.audit.record(
         {
           outletId: actor.outletId,

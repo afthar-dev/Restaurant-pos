@@ -7,7 +7,7 @@ import {
 } from '@rpos/shared';
 import { Public } from '../auth/decorators';
 import type { QrContext } from '../common/request-context';
-import { ThrottleAuth } from '../common/throttle';
+import { ThrottleQrSession } from '../common/throttle';
 import { ZodBody } from '../common/zod-body.pipe';
 import { CurrentQr, QrSessionGuard } from './qr-session.guard';
 import { QrService } from './qr.service';
@@ -19,7 +19,7 @@ export class QrController {
   constructor(private readonly qr: QrService) {}
 
   @Post('sessions')
-  @ThrottleAuth()
+  @ThrottleQrSession()
   start(@Body(new ZodBody(qrStartSchema)) body: QrStartRequest) {
     return this.qr.startSession(body.code);
   }
