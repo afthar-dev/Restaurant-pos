@@ -1,8 +1,10 @@
 import type { RouteObject } from 'react-router';
 import { RequireAuth } from './auth/RequireAuth';
 import { AppShell } from './components/AppShell';
-import { AreaPlaceholder } from './pages/AreaPlaceholder';
 import { AvailabilityPage } from './pages/AvailabilityPage';
+import { CaptainPage } from './pages/CaptainPage';
+import { KdsPage } from './pages/KdsPage';
+import { PosPage } from './pages/PosPage';
 import { ADMIN_PERMISSIONS, Home } from './pages/Home';
 import { LoginPage } from './pages/LoginPage';
 import { NotFound } from './pages/NotFound';
@@ -37,10 +39,7 @@ export const routes: RouteObject[] = [
         path: 'pos',
         element: (
           <RequireAuth anyOf={['bill.print']}>
-            <AreaPlaceholder
-              title="POS counter"
-              description="Table orders, parcel orders, billing and payments arrive in milestones M2 and M3."
-            />
+            <PosPage />
           </RequireAuth>
         ),
       },
@@ -48,10 +47,7 @@ export const routes: RouteObject[] = [
         path: 'captain',
         element: (
           <RequireAuth anyOf={['order.take']}>
-            <AreaPlaceholder
-              title="Captain app"
-              description="Waiters will take table orders and send KOTs from their phones in milestone M2."
-            />
+            <CaptainPage />
           </RequireAuth>
         ),
       },
@@ -65,12 +61,7 @@ export const routes: RouteObject[] = [
       },
       {
         path: 'kds',
-        element: (
-          <AreaPlaceholder
-            title="Kitchen display"
-            description="Live kitchen order tickets with preparing and ready states arrive in milestone M2."
-          />
-        ),
+        element: <KdsPage />,
       },
       {
         path: 'admin',

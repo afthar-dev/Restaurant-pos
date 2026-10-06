@@ -25,8 +25,9 @@ export function RequireAuth({ anyOf, children }: { anyOf?: Permission[]; childre
 
   if (status === 'loading') return unreachable ? <UnreachableScreen /> : <LoadingScreen />;
   if (status === 'anonymous') {
-    if (device.isPending) return <LoadingScreen />;
-    if (device.isError) return <UnreachableScreen />;
+    if (device.data === undefined) {
+      return device.isError ? <UnreachableScreen /> : <LoadingScreen />;
+    }
     return (
       <Navigate to={device.data ? '/pin' : '/login'} replace state={{ from: location.pathname }} />
     );

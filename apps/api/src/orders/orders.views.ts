@@ -7,11 +7,38 @@ export const ORDER_INCLUDE = {
   items: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
   kots: {
     orderBy: { createdAt: 'asc' },
-    select: { id: true, kotNo: true, type: true, status: true, stationName: true, createdAt: true },
+    select: {
+      id: true,
+      kotNo: true,
+      type: true,
+      status: true,
+      stationId: true,
+      stationName: true,
+      createdAt: true,
+      printJobs: {
+        orderBy: { createdAt: 'asc' },
+        select: { printerId: true, status: true },
+      },
+    },
   },
 } satisfies Prisma.OrderInclude;
 
 export type OrderWithDetails = Prisma.OrderGetPayload<{ include: typeof ORDER_INCLUDE }>;
+/**
+ * Whether a KOT reached paper. Uses each printer's latest job (a reprint supersedes a failure).
+ * NONE: no printer covers the station. WAITING: queued (or no device is set to print it).
+ */
+export function kotPrintState(
+  jobs: { printerId: string; status: string }[],
+): 'NONE' | 'WAITING' | 'PRINTED' | 'FAILED' {
+  if (jobs.length === 0) return 'NONE';
+  const latest = new Map<string, { status: string }>();
+  for (const job of jobs) latest.set(job.printerId, job);
+  const states = [...latest.values()];
+  if (states.some((j) => j.status === 'FAILED')) return 'FAILED';
+  if (states.some((j) => j.status === 'PENDING')) return 'WAITING';
+  return 'PRINTED';
+}
 
 export interface AddonSnapshot {
   id: string;
@@ -64,9 +91,11 @@ export function orderView(order: OrderWithDetails) {
       status: i.status,
       kotId: i.kotId,
       cancelReason: i.cancelReason,
+      stationId: i.stationId,
+      createdAt: i.createdAt,
       lineTotal: itemTotal(i),
     })),
-    kots: order.kots,
+    kots: order.kots.map(({ printJobs, ...kot }) => ({ ...kot, print: kotPrintState(printJobs) })),
     subtotal: orderSubtotal(order.items),
   };
 }

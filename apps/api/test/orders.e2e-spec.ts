@@ -294,6 +294,19 @@ describe('orders', () => {
       ]);
     });
 
+    it('includes the station and time of each item and refuses unknown list filters', async () => {
+      await openDay();
+      const order = (await dineIn()).body;
+      const res = await addItems(order.id, [
+        { variantId: r.roti.regular.id, quantity: 1, addonIds: [] },
+      ]);
+      expect(res.body.items[0]).toMatchObject({
+        stationId: r.tandoor.id,
+        createdAt: expect.any(String),
+      });
+      await ctx.http().get('/api/orders?status=closed').set(waiter.auth).expect(400);
+    });
+
     it('does not show another outlet its orders', async () => {
       await openDay();
       const order = (await dineIn()).body;

@@ -68,6 +68,14 @@ Sign-in cookies are marked Secure, so **staff must use the https:// address**. P
 2. **Admin → Settings**: restaurant name, GSTIN and GST scheme (from the GST certificate), FSSAI number, bill header/footer, cashier discount limit.
 3. **Admin → Staff**: add managers (password + optional approval PIN), cashiers and waiters (PIN).
 4. On each counter PC, waiter phone and kitchen screen: a manager signs in, goes to **Admin → Devices**, registers that device, and signs out. Staff then use **Staff PIN sign in** there.
+5. **Admin → Kitchen**: add the stations, then each thermal printer with its station, paper width and **Printed by** (the registered PC the printer is plugged into). Any open page of the app on that PC prints the tickets.
+6. On that PC, set the thermal printer as the Windows default printer and start Chrome with silent printing so tickets print without a dialog. Make a desktop shortcut with this target and use it every day:
+
+   ```
+   "C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk-printing https://pos.spicegarden.in/pos
+   ```
+
+   Send a test order. If a ticket does not come out, the order screen shows **Print failed** or **Not printed yet** next to the KOT, with a **Reprint** button.
 
 ## 7. Backups
 

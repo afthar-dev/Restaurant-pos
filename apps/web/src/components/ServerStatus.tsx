@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchHealth } from '../api/health';
+import { useRealtimeStatus } from '../realtime/RealtimeProvider';
 
 type Tone = 'muted' | 'good' | 'bad';
 
@@ -28,6 +29,7 @@ function Pill({ tone, label }: { tone: Tone; label: string }) {
 }
 
 export function ServerStatus() {
+  const live = useRealtimeStatus();
   const { data, isPending, isError } = useQuery({
     queryKey: ['health'],
     queryFn: ({ signal }) => fetchHealth(signal),
@@ -41,5 +43,7 @@ export function ServerStatus() {
   if (isPending) return <Pill tone="muted" label="Checking server…" />;
   if (isError) return <Pill tone="bad" label="Server offline. Check the internet connection." />;
   if (data.db === 'down') return <Pill tone="bad" label="Database unavailable" />;
+  // Screens still poll every 15 s, but staff should know updates may lag.
+  if (live === 'disconnected') return <Pill tone="muted" label="Online · live updates paused" />;
   return <Pill tone="good" label="Server online" />;
 }

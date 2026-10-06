@@ -118,6 +118,26 @@ describe('security fixes', () => {
     });
   });
 
+  describe('approvers', () => {
+    it('lists owners and managers with an approval PIN, for the approval dialog', async () => {
+      const cashierToken = (await pinLogin(cashier.id, '1234')).body.accessToken as string;
+      await createUser(ctx.prisma, outlet.id, {
+        role: 'MANAGER',
+        password: 'no-pin-mgr-1',
+        name: 'Nopin',
+      });
+      const res = await ctx
+        .http()
+        .get('/api/auth/approvers')
+        .set('Authorization', `Bearer ${cashierToken}`)
+        .expect(200);
+      expect((res.body as { name: string }[]).map((a) => a.name).sort()).toEqual([
+        'Meera',
+        'Priya',
+      ]);
+    });
+  });
+
   describe('override tokens are single use (#3)', () => {
     it('authorises exactly one action', async () => {
       const cashierToken = (await pinLogin(cashier.id, '1234')).body.accessToken as string;

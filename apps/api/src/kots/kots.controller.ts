@@ -84,9 +84,19 @@ export class KotsController {
 
   @Public()
   @UseGuards(DeviceGuard)
+  @Get('kds/stations')
+  kitchenStations(@Req() req: RequestContext) {
+    return this.kots.kitchenStations(req.device!);
+  }
+
+  @Public()
+  @UseGuards(DeviceGuard)
   @Get('kds/kots')
-  kitchenTickets(@Req() req: RequestContext, @Query('stationId') stationId?: string) {
-    return this.kots.kitchenTickets(req.device!, stationId || undefined);
+  kitchenTickets(
+    @Req() req: RequestContext,
+    @Query('stationId', new ParseUUIDPipe({ optional: true })) stationId?: string,
+  ) {
+    return this.kots.kitchenTickets(req.device!, stationId);
   }
 
   @Public()

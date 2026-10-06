@@ -127,6 +127,7 @@ describe('editing setup data (review #3)', () => {
       mode: 'BROWSER',
       paperWidthMm: 80,
       address: null,
+      device: null,
     };
     const mock = mockApi({
       'GET /api/stations': () => json([{ id: STATION, name: 'Kitchen', archivedAt: null }]),
@@ -147,6 +148,7 @@ describe('editing setup data (review #3)', () => {
       mode: 'BROWSER',
       paperWidthMm: 58,
       address: null,
+      deviceId: null,
     });
   });
 

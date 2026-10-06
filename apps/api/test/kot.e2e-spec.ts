@@ -61,6 +61,24 @@ describe('KOTs and the kitchen', () => {
     return order.id as string;
   }
 
+  async function orderWith2() {
+    const order = (
+      await ctx
+        .http()
+        .post('/api/orders')
+        .set(waiter.auth)
+        .send({ type: 'DINE_IN', tableId: r.t2.id, guests: 2 })
+        .expect(201)
+    ).body;
+    await ctx
+      .http()
+      .post(`/api/orders/${order.id}/items`)
+      .set(waiter.auth)
+      .send({ items: [{ variantId: r.roti.regular.id, quantity: 1, addonIds: [] }] })
+      .expect(201);
+    return order.id as string;
+  }
+
   const sendKot = (orderId: string, headers: Record<string, string> = {}) =>
     ctx
       .http()
@@ -223,6 +241,18 @@ describe('KOTs and the kitchen', () => {
   });
 
   describe('kitchen display', () => {
+    it('lists the outlet stations for the filter, even ones with no tickets', async () => {
+      const res = await ctx
+        .http()
+        .get('/api/kds/stations')
+        .set('Cookie', `rpos_dt=${kds.cookie}`)
+        .expect(200);
+      expect(res.body.map((s: { name: string }) => s.name)).toEqual(
+        expect.arrayContaining(['Kitchen']),
+      );
+      expect(res.body[0]).toEqual({ id: expect.any(String), name: expect.any(String) });
+    });
+
     it('lists active tickets and moves them through preparing and ready to served', async () => {
       const orderId = await orderWith([{ variantId: r.paneer.half.id, quantity: 1 }]);
       const kotId = (await sendKot(orderId).expect(201)).body.kots[0].id;
@@ -272,6 +302,47 @@ describe('KOTs and the kitchen', () => {
         .set('Cookie', `rpos_dt=${kds.cookie}`)
         .expect(200);
       expect(res.body.map((k: { stationName: string }) => k.stationName)).toEqual(['Tandoor']);
+    });
+
+    it('includes the station on KOT summaries and rejects a malformed station filter', async () => {
+      const orderId = await orderWith([{ variantId: r.paneer.half.id, quantity: 1 }]);
+      const sent = await sendKot(orderId).expect(201);
+      expect(sent.body.order.kots[0].stationId).toBe(r.kitchen.id);
+      await ctx
+        .http()
+        .get('/api/kds/kots?stationId=not-a-uuid')
+        .set('Cookie', `rpos_dt=${kds.cookie}`)
+        .expect(400);
+    });
+
+    it('lets staff mark a preparing ticket served but not dismiss a cancellation', async () => {
+      const orderId = await orderWith([{ variantId: r.paneer.half.id, quantity: 1 }]);
+      const kotId = (await sendKot(orderId).expect(201)).body.kots[0].id;
+      await ctx
+        .http()
+        .patch(`/api/kds/kots/${kotId}`)
+        .set('Cookie', `rpos_dt=${kds.cookie}`)
+        .send({ status: 'PREPARING' })
+        .expect(200);
+      await ctx.http().post(`/api/kots/${kotId}/served`).set(waiter.auth).expect(201);
+
+      const second = await orderWith2();
+      await sendKot(second).expect(201);
+      await ctx
+        .http()
+        .post(`/api/orders/${second}/void`)
+        .set(manager.auth)
+        .send({ reason: 'Mistake' })
+        .expect(201);
+      const cancel = await ctx.prisma.kot.findFirstOrThrow({
+        where: { type: 'CANCEL', orderId: second },
+      });
+      const res = await ctx
+        .http()
+        .post(`/api/kots/${cancel.id}/served`)
+        .set(waiter.auth)
+        .expect(409);
+      expect(res.body.code).toBe('INVALID_TRANSITION');
     });
 
     it('refuses devices that are not kitchen screens', async () => {

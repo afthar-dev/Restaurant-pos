@@ -29,6 +29,13 @@ interface Printer {
   mode: PrinterMode;
   paperWidthMm: number;
   address: string | null;
+  device: { id: string; name: string } | null;
+}
+
+interface DeviceOption {
+  id: string;
+  name: string;
+  revokedAt: string | null;
 }
 
 export const stationsKey = ['stations'];
@@ -174,6 +181,11 @@ function PrinterForm({
     (existing?.paperWidthMm as 58 | 80 | undefined) ?? 80,
   );
   const [address, setAddress] = useState(existing?.address ?? '');
+  const [deviceId, setDeviceId] = useState(existing?.device?.id ?? '');
+  const devices = useQuery({
+    queryKey: ['devices'],
+    queryFn: () => apiFetch<DeviceOption[]>('/api/devices'),
+  });
   const [errors, setErrors] = useState<FieldErrors>({});
 
   const save = useMutation({
@@ -200,6 +212,7 @@ function PrinterForm({
       mode,
       paperWidthMm,
       address: mode === 'AGENT' ? address.trim() || null : null,
+      deviceId: deviceId || null,
     });
     if (!parsed.success) {
       setErrors(fieldErrors(parsed.error));
@@ -276,6 +289,31 @@ function PrinterForm({
         >
           <option value={80}>80 mm</option>
           <option value={58}>58 mm</option>
+        </select>
+      </Field>
+      <Field
+        id={`printer-${key}-device`}
+        label="Printed by"
+        hint={
+          mode === 'BROWSER'
+            ? 'The counter or kitchen screen the printer is plugged into.'
+            : 'The registered print agent that reaches this printer.'
+        }
+      >
+        <select
+          id={`printer-${key}-device`}
+          className={inputClass}
+          value={deviceId}
+          onChange={(e) => setDeviceId(e.target.value)}
+        >
+          <option value="">Not set up yet</option>
+          {devices.data
+            ?.filter((d) => !d.revokedAt)
+            .map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
         </select>
       </Field>
       {mode === 'AGENT' && (
@@ -361,7 +399,9 @@ function PrintersSection() {
               <span className="text-sm text-slate-600">
                 {p.purpose === 'KOT' ? `KOTs for ${p.station?.name ?? '—'}` : 'Bills'} ·{' '}
                 {p.paperWidthMm} mm ·{' '}
-                {p.mode === 'BROWSER' ? 'browser printing' : `agent at ${p.address}`}
+                {p.mode === 'BROWSER'
+                  ? `browser printing on ${p.device?.name ?? 'no device yet'}`
+                  : `agent at ${p.address}`}
               </span>
             </div>
             <div className="flex gap-2">
