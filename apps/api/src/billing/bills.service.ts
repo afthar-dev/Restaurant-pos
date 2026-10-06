@@ -15,6 +15,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { calculateBill } from './bill-calc';
 import { BILL_INCLUDE, billView, type BillView } from './bill.views';
 import { financialYear } from './financial-year';
+import { closeOrderIfSettled, settleBill } from './settle';
 
 type Tx = Prisma.TransactionClient;
 
@@ -143,6 +144,8 @@ export class BillsService {
       if (sent.every((i) => left(i) - (billedNow.get(i.id) ?? 0) === 0)) {
         await tx.order.update({ where: { id: orderId }, data: { status: 'BILLED' } });
       }
+      // A bill for ₹0 (all free dishes) is settled at once.
+      if (await settleBill(tx, bill.id)) await closeOrderIfSettled(tx, orderId);
     });
     this.changed(actor.outletId, billId, orderId);
     return this.get(actor.outletId, billId);
@@ -361,6 +364,8 @@ export class BillsService {
         },
         tx,
       );
+      // A 100% discount leaves nothing to collect.
+      if (await settleBill(tx, billId)) await closeOrderIfSettled(tx, orderId);
     });
     this.changed(user.outletId, billId, orderId);
     return this.get(user.outletId, billId);

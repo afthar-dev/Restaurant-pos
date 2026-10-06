@@ -66,3 +66,27 @@ export async function overrideToken(
     .expect(201);
   return res.body.overrideToken;
 }
+
+/** Serves `lines` on `tableId` (waiter) and bills the whole order (cashier). Returns the bill. */
+export async function billFor(
+  ctx: TestContext,
+  r: Restaurant,
+  waiter: SignedIn,
+  cashier: SignedIn,
+  lines: Line[],
+  tableId = r.t1.id,
+) {
+  const orderId = await servedOrder(ctx, r, waiter, lines, tableId);
+  const res = await ctx
+    .http()
+    .post(`/api/orders/${orderId}/bills`)
+    .set(cashier.auth)
+    .send({})
+    .expect(201);
+  return res.body;
+}
+
+/** POST a payment; chain `.set('Idempotency-Key', …)` or `.expect(…)` on the result. */
+export function pay(ctx: TestContext, who: SignedIn, billId: string, body: object) {
+  return ctx.http().post(`/api/bills/${billId}/payments`).set(who.auth).send(body);
+}

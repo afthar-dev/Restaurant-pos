@@ -10,8 +10,10 @@ import {
   Req,
 } from '@nestjs/common';
 import {
+  addPaymentSchema,
   billDiscountSchema,
   createBillSchema,
+  type AddPaymentRequest,
   type BillDiscountRequest,
   type CreateBillRequest,
 } from '@rpos/shared';
@@ -20,10 +22,14 @@ import { OVERRIDE_HEADER } from '../auth/permissions.guard';
 import { CurrentUser, type AuthUser, type RequestContext } from '../common/request-context';
 import { ZodBody } from '../common/zod-body.pipe';
 import { BillsService } from './bills.service';
+import { PaymentsService } from './payments.service';
 
 @Controller()
 export class BillsController {
-  constructor(private readonly bills: BillsService) {}
+  constructor(
+    private readonly bills: BillsService,
+    private readonly payments: PaymentsService,
+  ) {}
 
   @Post('orders/:id/bills')
   @RequirePermissions('bill.print')
@@ -66,5 +72,16 @@ export class BillsController {
       typeof token === 'string' ? token : undefined,
       body,
     );
+  }
+
+  @Post('bills/:id/payments')
+  @RequirePermissions('payment.take')
+  pay(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body(new ZodBody(addPaymentSchema)) body: AddPaymentRequest,
+  ) {
+    return this.payments.add(user, id, idempotencyKey?.slice(0, 100) || undefined, body);
   }
 }
