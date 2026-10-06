@@ -26,6 +26,8 @@ export interface FloorTableStatus {
     itemCount: number;
     subtotal: number;
     openedAt: string;
+    /** Set when this table was merged into the order of another table (its name). */
+    mergedInto?: string;
   } | null;
 }
 
@@ -110,6 +112,7 @@ export interface Order {
   items: OrderLine[];
   kots: OrderKot[];
   bills: OrderBillSummary[];
+  mergedTables: { id: string; name: string }[];
   subtotal: number;
 }
 

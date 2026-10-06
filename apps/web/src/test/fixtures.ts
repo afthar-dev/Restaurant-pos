@@ -130,6 +130,7 @@ export function order(partial: Partial<Order> = {}): Order {
     items: [],
     kots: [],
     bills: [],
+    mergedTables: [],
     subtotal: 0,
     ...partial,
   };

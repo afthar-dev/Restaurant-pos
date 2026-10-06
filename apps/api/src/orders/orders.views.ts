@@ -4,6 +4,7 @@ import { lineTotal } from '@rpos/shared';
 export const ORDER_INCLUDE = {
   table: { select: { id: true, name: true } },
   waiter: { select: { id: true, name: true } },
+  mergedFrom: { select: { table: { select: { id: true, name: true } } } },
   items: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
   kots: {
     orderBy: { createdAt: 'asc' },
@@ -115,6 +116,7 @@ export function orderView(order: OrderWithDetails) {
       billedQuantity: billed.get(i.id) ?? 0,
     })),
     kots: order.kots.map(({ printJobs, ...kot }) => ({ ...kot, print: kotPrintState(printJobs) })),
+    mergedTables: order.mergedFrom.flatMap((m) => (m.table ? [m.table] : [])),
     bills: order.bills.map((b) => ({
       id: b.id,
       billNo: b.billNo,

@@ -23,20 +23,29 @@ type Tx = Prisma.TransactionClient;
 /** Orders that hold a table. */
 export const ACTIVE_STATUSES = ['PENDING_APPROVAL', 'OPEN', 'BILLED'] as const;
 
-/** The order that holds a table right now, if any (ignoring `exceptOrderId`). */
+/**
+ * The order holding a table right now, ignoring `exceptOrderId`: its own active order, or the
+ * active order it was merged into (a merged table stays taken until that bill is paid).
+ */
 export async function tableHolder(
   tx: Tx,
   tableId: string,
   exceptOrderId?: string,
 ): Promise<{ id: string } | null> {
-  return tx.order.findFirst({
-    where: {
-      tableId,
-      status: { in: [...ACTIVE_STATUSES] },
-      ...(exceptOrderId ? { id: { not: exceptOrderId } } : {}),
-    },
+  const except = exceptOrderId ? { id: { not: exceptOrderId } } : {};
+  const own = await tx.order.findFirst({
+    where: { tableId, status: { in: [...ACTIVE_STATUSES] }, ...except },
     select: { id: true },
   });
+  if (own) return own;
+  const merged = await tx.order.findFirst({
+    where: {
+      tableId,
+      mergedInto: { status: { in: [...ACTIVE_STATUSES] }, ...except },
+    },
+    select: { mergedIntoId: true },
+  });
+  return merged?.mergedIntoId ? { id: merged.mergedIntoId } : null;
 }
 
 export const orderChanged = () =>
@@ -299,6 +308,16 @@ export class OrdersService {
     });
     this.changed(order);
     return orderView(order);
+  }
+
+  /** Locks a second order inside a `mutate` transaction (bumping its version), e.g. for a merge. */
+  async lockAnother(tx: Tx, outletId: string, orderId: string): Promise<Order> {
+    const bumped = await tx.$queryRaw<{ id: string }[]>`
+      UPDATE orders SET version = version + 1, updated_at = now()
+       WHERE id = ${orderId}::uuid AND outlet_id = ${outletId}::uuid
+      RETURNING id`;
+    if (bumped.length === 0) throw notFound('Order');
+    return tx.order.findUniqueOrThrow({ where: { id: orderId } });
   }
 
   changed(order: Pick<Order, 'id' | 'outletId' | 'tableId'>) {
