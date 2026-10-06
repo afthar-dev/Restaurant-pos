@@ -10,6 +10,7 @@ const GUEST_CHOICES = Array.from({ length: 12 }, (_, i) => i + 1);
 
 function tileLabel(table: FloorTableStatus): string {
   if (!table.order) return `${table.name}, free`;
+  if (table.order.status === 'PENDING_APPROVAL') return `${table.name}, QR order waiting`;
   if (table.order.mergedInto) return `${table.name}, with ${table.order.mergedInto}`;
   const items = table.order.itemCount === 1 ? '1 item' : `${table.order.itemCount} items`;
   return `${table.name}, ${items}, ${rupees(table.order.subtotal)}`;

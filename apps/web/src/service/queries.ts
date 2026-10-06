@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../auth/api';
 import { menuKey, type Menu } from '../pages/admin/menu-types';
-import type { ActiveOrder, Bill, BusinessDay, FloorAreaStatus, Order } from './types';
+import type { ActiveOrder, Bill, BusinessDay, FloorAreaStatus, Order, QrRequest } from './types';
 
 /** Screens also poll, so they recover even if realtime notices are lost. */
 export const POLL_MS = 15_000;
@@ -48,5 +48,15 @@ export function useOrderBills(orderId: string) {
     queryKey: ['bills', orderId],
     queryFn: () => apiFetch<Bill[]>(`/api/orders/${orderId}/bills`),
     refetchInterval: POLL_MS,
+  });
+}
+
+/** QR requests waiting for staff (only for staff who may approve them). */
+export function useQrPending(enabled: boolean) {
+  return useQuery({
+    queryKey: ['qr-pending'],
+    queryFn: () => apiFetch<QrRequest[]>('/api/qr/pending'),
+    refetchInterval: POLL_MS,
+    enabled,
   });
 }

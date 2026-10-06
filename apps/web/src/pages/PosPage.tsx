@@ -3,6 +3,7 @@ import { DayGate } from '../service/DayGate';
 import { FloorGrid } from '../service/FloorGrid';
 import { OrderWorkspace } from '../service/OrderWorkspace';
 import { ParcelList } from '../service/ParcelList';
+import { QrInbox } from '../service/qr/QrInbox';
 import { ReadyAlerts } from '../service/ReadyAlerts';
 
 /** Counter screen: floor and parcels on the left, the selected order and menu on the right. */
@@ -17,6 +18,7 @@ export function PosPage() {
       <DayGate>
         <div className="grid gap-4 lg:grid-cols-[minmax(16rem,24rem)_minmax(0,1fr)]">
           <div className="flex flex-col gap-5">
+            <QrInbox onOpen={select} />
             <ParcelList selectedOrderId={orderId} onSelect={select} />
             <FloorGrid selectedOrderId={orderId} onSelect={select} />
           </div>

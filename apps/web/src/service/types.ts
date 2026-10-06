@@ -114,6 +114,8 @@ export interface Order {
   kots: OrderKot[];
   bills: OrderBillSummary[];
   mergedTables: { id: string; name: string }[];
+  /** Requests from the table QR waiting for staff. */
+  qrPending: QrRequest[];
   subtotal: number;
 }
 
@@ -286,4 +288,24 @@ export interface DayReport {
     counted: number | null;
     variance: number | null;
   };
+}
+
+/** A customer's request from the table QR, waiting for staff (mirrors pendingView() in the API). */
+export interface QrRequest {
+  id: string;
+  orderId: string;
+  tableName: string | null;
+  createdAt: string;
+  lines: {
+    variantId: string;
+    addonIds: string[];
+    quantity: number;
+    note: string | null;
+    itemName: string;
+    variantName: string;
+    addons: string[];
+    amount: number;
+  }[];
+  note: string | null;
+  total: number;
 }

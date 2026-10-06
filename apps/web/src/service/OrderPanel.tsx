@@ -15,6 +15,7 @@ import { ApproverFields, isPin, requestOverride } from '../components/ManagerApp
 import { rupees } from '../pages/admin/menu-types';
 import { useRefreshOrder } from './mutations';
 import { useOrder } from './queries';
+import { QrRequestCard } from './qr/QrRequestCard';
 import { TableActions } from './TableActions';
 import { orderLabel, type KotPrintState, type Order, type OrderKot, type OrderLine } from './types';
 
@@ -375,7 +376,13 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
           {o.waiter?.name}
         </span>
       </header>
-      <TableActions order={o} />
+      {o.status === 'PENDING_APPROVAL' && (
+        <p className="text-sm font-medium text-amber-900">QR order waiting for approval</p>
+      )}
+      {o.qrPending.map((request) => (
+        <QrRequestCard key={request.id} order={o} request={request} />
+      ))}
+      {o.status !== 'PENDING_APPROVAL' && <TableActions order={o} />}
 
       {kots.map((kot) => {
         const lines = sentLines.filter((l) => l.kotId === kot.id);
@@ -457,13 +464,13 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
             {send.isPending ? 'Sending…' : `Send to kitchen (${newLines.length})`}
           </button>
         </>
-      ) : (
+      ) : o.status === 'BILLED' || o.status === 'CLOSED' ? (
         <p role="status" className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">
           {o.status === 'BILLED'
             ? 'Bill printed. Waiting for payment.'
             : 'Paid and closed. The table is free.'}
         </p>
-      )}
+      ) : null}
 
       {sentLines.length === 0 && o.status === 'OPEN' && (
         <CancelOrder order={o} onClosed={onClosed} />
