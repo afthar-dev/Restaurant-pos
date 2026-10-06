@@ -15,11 +15,6 @@ const RETRY_BACKOFF_SECONDS = 20;
 /** Jobs older than this are not auto-printed; staff reprint from the order instead. */
 const STALE_AFTER_MINUTES = 30;
 
-interface BillEvent {
-  outletId: string;
-  billId: string;
-}
-
 interface KotEvent {
   outletId: string;
   kotId: string;
@@ -121,16 +116,6 @@ export class PrintService {
 
   private orderChanged(outletId: string, order: { id: string; tableId: string | null }) {
     this.events.emit('order.updated', { outletId, orderId: order.id, tableId: order.tableId });
-  }
-
-  @OnEvent('bill.print', { promisify: true })
-  async queueBill(event: BillEvent): Promise<void> {
-    try {
-      await this.queueBillJobs(event.billId);
-    } catch (error) {
-      // The bill is saved; staff can print from the screen or reprint.
-      this.logger.error(`Could not queue print for bill ${event.billId}: ${String(error)}`);
-    }
   }
 
   /** Queues the bill on every bill printer; returns how many jobs were queued (0: no printer). */

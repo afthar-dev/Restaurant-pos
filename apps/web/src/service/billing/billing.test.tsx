@@ -54,7 +54,8 @@ describe('billing an order', () => {
       'GET /api/orders/o1/bills': () => json(billed ? [bill()] : []),
       'POST /api/orders/o1/bills': () => {
         billed = true;
-        return json(bill(), 201);
+        // The server already queued it on the bill printer while creating it.
+        return json({ ...bill(), printQueued: 1 }, 201);
       },
       'POST /api/bills/b1/print': () => json({ id: 'b1', queued: 1 }, 201),
     });
@@ -67,8 +68,22 @@ describe('billing an order', () => {
     expect(within(shown).getByText('Tax Invoice')).toBeInTheDocument();
     expect(within(shown).getByText('CGST 2.5%')).toBeInTheDocument();
     expect(within(shown).getByText('₹473')).toBeInTheDocument();
-    await expect.poll(() => callsTo(mock, 'POST', '/api/bills/b1/print').length).toBe(1);
     expect(await screen.findByText('Sent to the bill printer.')).toBeInTheDocument();
+    // Printing it again would hand the customer a second copy.
+    expect(callsTo(mock, 'POST', '/api/bills/b1/print')).toHaveLength(0);
+  });
+
+  it('prints a new bill here when no bill printer is set up', async () => {
+    as(CASHIER);
+    const mock = mockApi({
+      'GET /api/orders/o1/bills': () => json([]),
+      'POST /api/orders/o1/bills': () => json({ ...bill(), printQueued: 0 }, 201),
+      'GET /api/bills/b1/print-payload': () => new Promise<Response>(() => undefined),
+    });
+    renderWithProviders(<BillArea order={sentOrder()} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Bill' }));
+    await expect.poll(() => callsTo(mock, 'GET', '/api/bills/b1/print-payload').length).toBe(1);
+    expect(callsTo(mock, 'POST', '/api/bills/b1/print')).toHaveLength(0);
   });
 
   it('blocks billing a table with dishes not sent to the kitchen', async () => {

@@ -77,7 +77,6 @@ function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
   const [counted, setCounted] = useState('');
   const [note, setNote] = useState('');
   const [confirming, setConfirming] = useState(false);
-  const [refused, setRefused] = useState<DayBlockers | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const close = useMutation({
@@ -92,8 +91,10 @@ function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
     onError: (failure) => {
       setConfirming(false);
       if (failure instanceof ApiError && failure.code === 'DAY_HAS_OPEN_WORK') {
-        setRefused(failure.body.blockers as DayBlockers);
-        void check.refetch();
+        // Show what the server found now; the next close-check poll replaces it as tables pay.
+        queryClient.setQueryData<CloseCheck>(['close-check'], (current) =>
+          current ? { ...current, blockers: failure.body.blockers as DayBlockers } : current,
+        );
       } else {
         setError(describeError(failure));
       }
@@ -103,7 +104,7 @@ function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
   if (!check.data) {
     return check.isError ? <ErrorNote message={describeError(check.error)} /> : null;
   }
-  const blockers = refused ?? check.data.blockers;
+  const blockers = check.data.blockers;
   const blocked = blockers.orders.length > 0 || blockers.bills.length > 0;
   const { cash } = check.data;
 

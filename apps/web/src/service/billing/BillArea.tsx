@@ -8,7 +8,7 @@ import { useRefreshOrder } from '../mutations';
 import { useOrderBills } from '../queries';
 import type { Bill, Order } from '../types';
 import { BillView, STATUS_LABEL } from './BillView';
-import { printBill } from './printBill';
+import { printBillHere } from './printBill';
 import { SplitSheet } from './SplitSheet';
 
 /**
@@ -48,7 +48,7 @@ export function BillArea({
         sendKey.current = null;
         sentNow = true;
       }
-      return apiFetch<Bill>(`/api/orders/${order.id}/bills`, {
+      return apiFetch<Bill & { printQueued?: number }>(`/api/orders/${order.id}/bills`, {
         method: 'POST',
         // After sending, the order version moved on; the server still checks dish quantities.
         headers: sentNow ? {} : { 'If-Match': String(order.version) },
@@ -59,8 +59,9 @@ export function BillArea({
       setSplitting(false);
       setExpanded(bill.id);
       try {
-        const where = await printBill(bill.id);
-        setNote(where === 'queued' ? 'Sent to the bill printer.' : null);
+        // The server queued it on the bill printer while creating it; print here only if none.
+        if ((bill.printQueued ?? 0) > 0) setNote('Sent to the bill printer.');
+        else await printBillHere(bill.id);
       } catch (error) {
         setNote(`Bill ${bill.billNo} is saved but did not print: ${describeError(error)}`);
       }

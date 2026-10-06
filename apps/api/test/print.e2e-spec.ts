@@ -280,6 +280,7 @@ describe('print jobs', () => {
         .send({})
         .expect(201)
     ).body;
+    expect(bill.printQueued).toBe(0);
     const reprint = await ctx
       .http()
       .post(`/api/bills/${bill.id}/print`)
@@ -328,6 +329,7 @@ describe('print jobs', () => {
         .expect(201)
     ).body;
 
+    expect(bill.printQueued).toBe(1);
     const jobs = (await claimFor(counter).expect(201)).body;
     expect(jobs.map((j: { kind: string }) => j.kind).sort()).toEqual(['BILL', 'KOT']);
     const billJob = jobs.find((j: { kind: string }) => j.kind === 'BILL');

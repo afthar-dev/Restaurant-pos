@@ -43,6 +43,8 @@ export function PaymentSheet({
   // One id per payment, kept after a failure so a retry cannot record it twice.
   const requestId = useRef<string | null>(null);
   const sending = useRef(false);
+  const [awaiting, setAwaiting] = useState<number | null>(null);
+  const catchingUp = awaiting !== null && bill.payments.length < awaiting;
 
   // After a part payment the bill comes back with less due: start the next one from there.
   useEffect(() => {
@@ -63,7 +65,7 @@ export function PaymentSheet({
 
   async function record(event: FormEvent) {
     event.preventDefault();
-    if (sending.current) return;
+    if (sending.current || catchingUp) return;
     if (amountPaise === null || amountPaise <= 0) return setError('Enter the amount received.');
     if (amountPaise > bill.due) return setError(`Only ${rupees(bill.due)} is due.`);
     if (cash && tendered.trim() !== '' && tenderedPaise === null) {
@@ -86,6 +88,13 @@ export function PaymentSheet({
         },
       });
       requestId.current = null;
+      if (updated.status !== 'PAID') {
+        // Show what is left at once; Record stays off until the refreshed bill arrives, so a
+        // quick second tap cannot record the same share again.
+        setAwaiting(updated.payments.length);
+        setAmount(paiseToRupeesInput(updated.due));
+        setTendered('');
+      }
       onPaid(updated);
     } catch (failure) {
       setError(describeError(failure));
@@ -215,7 +224,7 @@ export function PaymentSheet({
           <button
             type="submit"
             className={`${primaryButton} min-h-12 flex-1 text-base`}
-            disabled={busy || short > 0}
+            disabled={busy || short > 0 || catchingUp}
           >
             Record payment
           </button>

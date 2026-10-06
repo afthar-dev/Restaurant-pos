@@ -1,6 +1,6 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import type { Permission } from '@rpos/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { useSession } from '../auth/store';
 import { renderDayReport } from '../print/dayReport';
 import type { DayReport } from '../service/types';
@@ -159,6 +159,54 @@ describe('Day close', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Yes, close the day' }));
     const open = await screen.findByRole('list', { name: 'Still open' });
     expect(within(open).getByText('T9 — order open')).toBeInTheDocument();
+  });
+
+  it('lets the manager close once the refused-for table is settled', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'setInterval'] });
+    try {
+      as(MANAGER);
+      let refused = false;
+      let settled = false;
+      mockApi({
+        'GET /api/business-day/current': () => json(today),
+        'GET /api/business-day': () => json([]),
+        'GET /api/business-day/close-check': () =>
+          json(
+            refused && !settled
+              ? {
+                  ...clear,
+                  blockers: { orders: [{ id: 'o9', label: 'T9', status: 'OPEN' }], bills: [] },
+                }
+              : clear,
+          ),
+        'POST /api/business-day/close': () => {
+          refused = true;
+          return json(
+            {
+              code: 'DAY_HAS_OPEN_WORK',
+              message: 'Finish or cancel the open orders.',
+              blockers: { orders: [{ id: 'o9', label: 'T9', status: 'OPEN' }], bills: [] },
+            },
+            409,
+          );
+        },
+      });
+      renderRoute('/day');
+      fireEvent.change(await screen.findByLabelText('Counted cash (₹)'), {
+        target: { value: '1032' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Close day' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Yes, close the day' }));
+      await screen.findByRole('list', { name: 'Still open' });
+      expect(screen.getByRole('button', { name: 'Close day' })).toBeDisabled();
+
+      settled = true;
+      await act(() => vi.advanceTimersByTimeAsync(16_000));
+      await expect.poll(() => screen.queryByRole('list', { name: 'Still open' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Close day' })).toBeEnabled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('opens the report of a past day and lets the owner reopen the latest', async () => {

@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Bill, DiscountKind, OrderItem, Prisma } from '@prisma/client';
 import type { BillDiscountRequest, CreateBillRequest, Permission } from '@rpos/shared';
@@ -29,6 +29,7 @@ const discountOf = (kind: DiscountKind | null, value: number | null) =>
  */
 @Injectable()
 export class BillsService {
+  private readonly logger = new Logger(BillsService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
@@ -45,7 +46,7 @@ export class BillsService {
     orderId: string,
     ifMatch: string | undefined,
     request: CreateBillRequest,
-  ): Promise<BillView> {
+  ): Promise<BillView & { printQueued: number }> {
     let billId = '';
     await this.orders.mutate(actor, orderId, ifMatch, async ({ tx, order }) => {
       if (order.status !== 'OPEN' && order.status !== 'BILLED') throw orderNotOpen();
@@ -140,8 +141,10 @@ export class BillsService {
       if (await settleBill(tx, bill.id)) await closeOrderIfSettled(tx, orderId);
     });
     this.changed(actor.outletId, billId, orderId);
-    await this.events.emitAsync('bill.print', { outletId: actor.outletId, billId });
-    return this.get(actor.outletId, billId);
+    // Queued here (not through an event) so the counter learns whether a printer took it and
+    // prints on screen only when none did; printing it again would make a second copy.
+    const printQueued = await this.queueForPrint(billId);
+    return { ...(await this.get(actor.outletId, billId)), printQueued };
   }
 
   async get(outletId: string, billId: string): Promise<BillView> {
@@ -447,6 +450,16 @@ export class BillsService {
   async reprint(user: AuthUser, billId: string) {
     await this.orderOf(user.outletId, billId);
     return { id: billId, queued: await this.print.queueBillJobs(billId) };
+  }
+
+  /** Queues a new bill on the bill printers; a print problem never fails billing (§5.6.4). */
+  private async queueForPrint(billId: string): Promise<number> {
+    try {
+      return await this.print.queueBillJobs(billId);
+    } catch (error) {
+      this.logger.error(`Could not queue print for bill ${billId}: ${String(error)}`);
+      return 0;
+    }
   }
 
   /** The printable bill for printing on this screen. */

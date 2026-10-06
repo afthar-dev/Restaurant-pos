@@ -107,6 +107,50 @@ describe('PaymentSheet', () => {
     await expect.poll(() => callsTo(mock, 'POST', '/api/bills/b1/payments').length).toBe(1);
   });
 
+  it('does not record a part payment twice when the second tap lands after a fast reply', async () => {
+    asCashier();
+    const mock = mockApi({
+      'POST /api/bills/b1/payments': () =>
+        json(
+          bill({
+            total: 10000,
+            due: 6666,
+            paid: 3334,
+            payments: [
+              {
+                id: 'p1',
+                mode: 'UPI',
+                amount: 3334,
+                tendered: null,
+                change: null,
+                reference: null,
+                receivedBy: { id: 'c', name: 'Kavya' },
+                createdAt: '',
+              },
+            ],
+          }),
+          201,
+        ),
+    });
+    // The bill shown is the one from before the payment; the refreshed one has not arrived.
+    renderWithProviders(
+      <PaymentSheet
+        bill={bill({ total: 10000, due: 10000 })}
+        onPaid={() => undefined}
+        onClose={() => undefined}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'UPI' }));
+    fireEvent.change(screen.getByLabelText('Amount (₹)'), { target: { value: '33.34' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Record payment' }));
+    await expect.poll(() => callsTo(mock, 'POST', '/api/bills/b1/payments').length).toBe(1);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    fireEvent.click(screen.getByRole('button', { name: 'Record payment' }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(callsTo(mock, 'POST', '/api/bills/b1/payments')).toHaveLength(1);
+    expect(screen.getByLabelText('Amount (₹)')).toHaveValue('66.66');
+  });
+
   it('retries a failed payment with the same request id', async () => {
     asCashier();
     let attempt = 0;
