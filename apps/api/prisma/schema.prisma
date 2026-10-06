@@ -62,6 +62,8 @@ model Outlet {
   cashierDiscountCapBp    Int                 @default(1000) @map("cashier_discount_cap_bp")
   waiterCanCollectPayment Boolean             @default(false) @map("waiter_can_collect_payment")
   parcelPaymentTiming     ParcelPaymentTiming @default(PAY_FIRST) @map("parcel_payment_timing")
+  /// Paise added once to each parcel order's bill.
+  billPackagingCharge     Int                 @default(0) @map("bill_packaging_charge")
   createdAt               DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt               DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -78,6 +80,7 @@ model Outlet {
   addonGroups  AddonGroup[]
   businessDays BusinessDay[]
   orders       Order[]
+  bills        Bill[]
 
   @@map("outlets")
 }
@@ -106,6 +109,9 @@ model User {
   ordersAsWaiter   Order[]           @relation("OrderWaiter")
   ordersCreated    Order[]           @relation("OrderCreatedBy")
   kotsCreated      Kot[]             @relation("KotCreatedBy")
+  billsCreated     Bill[]            @relation("BillCreatedBy")
+  paymentsReceived Payment[]         @relation("PaymentReceivedBy")
+  daysClosed       BusinessDay[]     @relation("DayClosedBy")
 
   @@index([outletId])
   @@map("users")
@@ -477,21 +483,28 @@ enum PrintJobStatus {
 }
 
 model BusinessDay {
-  id          String            @id @default(uuid()) @db.Uuid
-  outletId    String            @map("outlet_id") @db.Uuid
-  status      BusinessDayStatus @default(OPEN)
-  openingCash Int               @map("opening_cash")
-  openedById  String            @map("opened_by_id") @db.Uuid
-  openedAt    DateTime          @default(now()) @map("opened_at") @db.Timestamptz(3)
-  closedById  String?           @map("closed_by_id") @db.Uuid
-  closedAt    DateTime?         @map("closed_at") @db.Timestamptz(3)
-  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id           String            @id @default(uuid()) @db.Uuid
+  outletId     String            @map("outlet_id") @db.Uuid
+  status       BusinessDayStatus @default(OPEN)
+  openingCash  Int               @map("opening_cash")
+  openedById   String            @map("opened_by_id") @db.Uuid
+  openedAt     DateTime          @default(now()) @map("opened_at") @db.Timestamptz(3)
+  closedById   String?           @map("closed_by_id") @db.Uuid
+  closedAt     DateTime?         @map("closed_at") @db.Timestamptz(3)
+  expectedCash Int?              @map("expected_cash")
+  countedCash  Int?              @map("counted_cash")
+  variance     Int?
+  closeNote    String?           @map("close_note")
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  outlet   Outlet  @relation(fields: [outletId], references: [id])
-  openedBy User    @relation("DayOpenedBy", fields: [openedById], references: [id])
+  outlet   Outlet    @relation(fields: [outletId], references: [id])
+  openedBy User      @relation("DayOpenedBy", fields: [openedById], references: [id])
+  closedBy User?     @relation("DayClosedBy", fields: [closedById], references: [id])
   orders   Order[]
   kots     Kot[]
+  bills    Bill[]
+  payments Payment[]
 
   @@index([outletId, status])
   @@map("business_days")
@@ -528,6 +541,8 @@ model Order {
   cancelReason  String?     @map("cancel_reason")
   cancelledById String?     @map("cancelled_by_id") @db.Uuid
   closedAt      DateTime?   @map("closed_at") @db.Timestamptz(3)
+  /// Set when this order was merged into another; its table stays held by that order.
+  mergedIntoId  String?     @map("merged_into_id") @db.Uuid
   createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -538,10 +553,14 @@ model Order {
   createdBy   User         @relation("OrderCreatedBy", fields: [createdById], references: [id])
   items       OrderItem[]
   kots        Kot[]
+  bills       Bill[]
+  mergedInto  Order?       @relation("OrderMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom  Order[]      @relation("OrderMerge")
 
   @@index([outletId, status])
   @@index([tableId, status])
   @@index([businessDayId])
+  @@index([mergedIntoId])
   @@map("orders")
 }
 
@@ -573,9 +592,10 @@ model OrderItem {
   createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  order   Order       @relation(fields: [orderId], references: [id])
-  variant ItemVariant @relation(fields: [variantId], references: [id])
-  kot     Kot?        @relation("KotItems", fields: [kotId], references: [id])
+  order     Order       @relation(fields: [orderId], references: [id])
+  variant   ItemVariant @relation(fields: [variantId], references: [id])
+  kot       Kot?        @relation("KotItems", fields: [kotId], references: [id])
+  billItems BillItem[]
 
   @@index([orderId])
   @@map("order_items")
@@ -634,6 +654,7 @@ model PrintJob {
   printerId  String         @map("printer_id") @db.Uuid
   deviceId   String?        @map("device_id") @db.Uuid
   kotId      String?        @map("kot_id") @db.Uuid
+  billId     String?        @map("bill_id") @db.Uuid
   kind       PrintJobKind
   payload    Json
   status     PrintJobStatus @default(PENDING)
@@ -646,8 +667,10 @@ model PrintJob {
 
   printer Printer @relation(fields: [printerId], references: [id])
   kot     Kot?    @relation(fields: [kotId], references: [id], onDelete: SetNull)
+  bill    Bill?   @relation(fields: [billId], references: [id], onDelete: SetNull)
 
   @@index([kotId])
+  @@index([billId])
   @@index([deviceId, status])
   @@map("print_jobs")
 }
@@ -663,4 +686,129 @@ model IdempotencyKey {
 
   @@unique([outletId, key])
   @@map("idempotency_keys")
+}
+
+enum BillStatus {
+  OPEN
+  PAID
+  VOID
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+}
+
+enum DiscountKind {
+  FLAT
+  PERCENT
+}
+
+/// One printed bill. Amounts are paise and are written only from bill-calc.ts.
+model Bill {
+  id             String        @id @default(uuid()) @db.Uuid
+  outletId       String        @map("outlet_id") @db.Uuid
+  businessDayId  String        @map("business_day_id") @db.Uuid
+  orderId        String        @map("order_id") @db.Uuid
+  billNo         Int           @map("bill_no")
+  financialYear  String        @map("financial_year")
+  status         BillStatus    @default(OPEN)
+  taxScheme      TaxScheme     @map("tax_scheme")
+  grossSubtotal  Int           @map("gross_subtotal")
+  itemDiscount   Int           @map("item_discount")
+  subtotal       Int
+  discountKind   DiscountKind? @map("discount_kind")
+  discountValue  Int?          @map("discount_value")
+  billDiscount   Int           @default(0) @map("bill_discount")
+  discountReason String?       @map("discount_reason")
+  discountById   String?       @map("discount_by_id") @db.Uuid
+  /// Bill-level packaging (outlet setting, first parcel bill of an order).
+  billPackaging  Int           @default(0) @map("bill_packaging")
+  packaging      Int
+  taxable        Int
+  cgst           Int
+  sgst           Int
+  roundOff       Int           @map("round_off")
+  total          Int
+  paidAt         DateTime?     @map("paid_at") @db.Timestamptz(3)
+  voidReason     String?       @map("void_reason")
+  voidedById     String?       @map("voided_by_id") @db.Uuid
+  voidedAt       DateTime?     @map("voided_at") @db.Timestamptz(3)
+  createdById    String        @map("created_by_id") @db.Uuid
+  version        Int           @default(0)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet      Outlet      @relation(fields: [outletId], references: [id])
+  businessDay BusinessDay @relation(fields: [businessDayId], references: [id])
+  order       Order       @relation(fields: [orderId], references: [id])
+  createdBy   User        @relation("BillCreatedBy", fields: [createdById], references: [id])
+  items       BillItem[]
+  payments    Payment[]
+  printJobs   PrintJob[]
+
+  @@unique([outletId, financialYear, billNo])
+  @@index([orderId])
+  @@index([businessDayId, status])
+  @@map("bills")
+}
+
+model BillItem {
+  id                String        @id @default(uuid()) @db.Uuid
+  billId            String        @map("bill_id") @db.Uuid
+  orderItemId       String        @map("order_item_id") @db.Uuid
+  itemName          String        @map("item_name")
+  variantName       String        @map("variant_name")
+  /// [{id, name, price}] copied from the order item.
+  addons            Json          @default("[]")
+  /// Per unit, add-ons included.
+  unitPrice         Int           @map("unit_price")
+  quantity          Int
+  packagingPerUnit  Int           @map("packaging_per_unit")
+  cgstBp            Int           @map("cgst_bp")
+  sgstBp            Int           @map("sgst_bp")
+  discountKind      DiscountKind? @map("discount_kind")
+  discountValue     Int?          @map("discount_value")
+  gross             Int
+  itemDiscount      Int           @map("item_discount")
+  lineTotal         Int           @map("line_total")
+  billDiscountShare Int           @map("bill_discount_share")
+  packaging         Int
+  taxable           Int
+  cgst              Int
+  sgst              Int
+  sortOrder         Int           @map("sort_order")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  bill      Bill      @relation(fields: [billId], references: [id])
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
+
+  @@index([billId])
+  @@index([orderItemId])
+  @@map("bill_items")
+}
+
+model Payment {
+  id            String      @id @default(uuid()) @db.Uuid
+  outletId      String      @map("outlet_id") @db.Uuid
+  billId        String      @map("bill_id") @db.Uuid
+  businessDayId String      @map("business_day_id") @db.Uuid
+  mode          PaymentMode
+  amount        Int
+  tendered      Int?
+  change        Int?
+  reference     String?
+  receivedById  String      @map("received_by_id") @db.Uuid
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  bill        Bill        @relation(fields: [billId], references: [id])
+  businessDay BusinessDay @relation(fields: [businessDayId], references: [id])
+  receivedBy  User        @relation("PaymentReceivedBy", fields: [receivedById], references: [id])
+
+  @@index([billId])
+  @@index([businessDayId, mode])
+  @@map("payments")
 }

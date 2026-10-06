@@ -4,6 +4,7 @@ import { lineTotal } from '@rpos/shared';
 export const ORDER_INCLUDE = {
   table: { select: { id: true, name: true } },
   waiter: { select: { id: true, name: true } },
+  mergedFrom: { select: { table: { select: { id: true, name: true } } } },
   items: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
   kots: {
     orderBy: { createdAt: 'asc' },
@@ -19,6 +20,17 @@ export const ORDER_INCLUDE = {
         orderBy: { createdAt: 'asc' },
         select: { printerId: true, status: true },
       },
+    },
+  },
+  bills: {
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      billNo: true,
+      status: true,
+      total: true,
+      payments: { select: { amount: true } },
+      items: { select: { orderItemId: true, quantity: true } },
     },
   },
 } satisfies Prisma.OrderInclude;
@@ -61,6 +73,13 @@ export function orderSubtotal(
 }
 
 export function orderView(order: OrderWithDetails) {
+  const billed = new Map<string, number>();
+  for (const bill of order.bills) {
+    if (bill.status === 'VOID') continue;
+    for (const line of bill.items) {
+      billed.set(line.orderItemId, (billed.get(line.orderItemId) ?? 0) + line.quantity);
+    }
+  }
   return {
     id: order.id,
     type: order.type,
@@ -94,8 +113,17 @@ export function orderView(order: OrderWithDetails) {
       stationId: i.stationId,
       createdAt: i.createdAt,
       lineTotal: itemTotal(i),
+      billedQuantity: billed.get(i.id) ?? 0,
     })),
     kots: order.kots.map(({ printJobs, ...kot }) => ({ ...kot, print: kotPrintState(printJobs) })),
+    mergedTables: order.mergedFrom.flatMap((m) => (m.table ? [m.table] : [])),
+    bills: order.bills.map((b) => ({
+      id: b.id,
+      billNo: b.billNo,
+      status: b.status,
+      total: b.total,
+      paid: b.payments.reduce((sum, p) => sum + p.amount, 0),
+    })),
     subtotal: orderSubtotal(order.items),
   };
 }

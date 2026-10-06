@@ -110,6 +110,8 @@ export const outletSettingsSchema = z.strictObject({
   cashierDiscountCapBp: z.number().int().min(0).max(10000).optional(),
   waiterCanCollectPayment: z.boolean().optional(),
   parcelPaymentTiming: z.enum(PARCEL_PAYMENT_TIMINGS).optional(),
+  /** Paise added once to each parcel order's bill (bag, cutlery). */
+  billPackagingCharge: z.number().int().min(0).max(100_000).optional(),
 });
 export type OutletSettingsUpdate = z.infer<typeof outletSettingsSchema>;
 

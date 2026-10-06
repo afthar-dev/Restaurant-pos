@@ -87,6 +87,21 @@ describe('outlet settings and audit', () => {
     expect(me.body.permissions).toContain('payment.take');
   });
 
+  it('stores the bill packaging charge', async () => {
+    await ctx
+      .http()
+      .patch('/api/outlet')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ billPackagingCharge: 1000 })
+      .expect(200);
+    const res = await ctx
+      .http()
+      .get('/api/outlet')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .expect(200);
+    expect(res.body.billPackagingCharge).toBe(1000);
+  });
+
   it('forbids a manager from changing settings', async () => {
     const manager = await createUser(ctx.prisma, outlet.id, {
       role: 'MANAGER',

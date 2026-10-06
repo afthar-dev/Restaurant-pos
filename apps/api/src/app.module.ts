@@ -4,6 +4,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
+import { BillingModule } from './billing/billing.module';
 import { BusinessDayModule } from './business-day/business-day.module';
 import { apiThrottleLimit, THROTTLE_WINDOW_MS } from './common/throttle';
 import { RposThrottlerGuard } from './common/throttler.guard';
@@ -42,6 +43,7 @@ import { UsersModule } from './users/users.module';
     BusinessDayModule,
     OrdersModule,
     KotsModule,
+    BillingModule,
     PrintModule,
     RealtimeModule,
     HealthModule,

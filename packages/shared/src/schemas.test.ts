@@ -98,3 +98,12 @@ describe('outletSettingsSchema', () => {
     expect(outletSettingsSchema.parse({ gstin: null })).toEqual({ gstin: null });
   });
 });
+
+describe('bill packaging setting', () => {
+  it('takes a charge in paise and refuses a negative one', () => {
+    expect(outletSettingsSchema.parse({ billPackagingCharge: 1000 })).toEqual({
+      billPackagingCharge: 1000,
+    });
+    expect(outletSettingsSchema.safeParse({ billPackagingCharge: -1 }).success).toBe(false);
+  });
+});

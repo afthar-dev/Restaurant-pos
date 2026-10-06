@@ -21,6 +21,7 @@ function toSettings(outlet: Outlet) {
     cashierDiscountCapBp: outlet.cashierDiscountCapBp,
     waiterCanCollectPayment: outlet.waiterCanCollectPayment,
     parcelPaymentTiming: outlet.parcelPaymentTiming,
+    billPackagingCharge: outlet.billPackagingCharge,
   };
 }
 

@@ -8,10 +8,12 @@ import type {
   UpdateOrderItemRequest,
 } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
+import { markBilledIfComplete } from '../billing/settle';
 import { BusinessDayService } from '../business-day/business-day.service';
 import { CountersService } from '../business-day/counters.service';
 import { ApiError } from '../common/api-error';
 import { sha256 } from '../common/crypto';
+import { parseVersion } from '../common/if-match';
 import { invalidReference, notFound } from '../common/master-data';
 import type { AuthUser } from '../common/request-context';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,14 +24,39 @@ type Tx = Prisma.TransactionClient;
 /** Orders that hold a table. */
 export const ACTIVE_STATUSES = ['PENDING_APPROVAL', 'OPEN', 'BILLED'] as const;
 
-const orderChanged = () =>
+/**
+ * The order holding a table right now, ignoring `exceptOrderId`: its own active order, or the
+ * active order it was merged into (a merged table stays taken until that bill is paid).
+ */
+export async function tableHolder(
+  tx: Tx,
+  tableId: string,
+  exceptOrderId?: string,
+): Promise<{ id: string } | null> {
+  const except = exceptOrderId ? { id: { not: exceptOrderId } } : {};
+  const own = await tx.order.findFirst({
+    where: { tableId, status: { in: [...ACTIVE_STATUSES] }, ...except },
+    select: { id: true },
+  });
+  if (own) return own;
+  const merged = await tx.order.findFirst({
+    where: {
+      tableId,
+      mergedInto: { status: { in: [...ACTIVE_STATUSES] }, ...except },
+    },
+    select: { mergedIntoId: true },
+  });
+  return merged?.mergedIntoId ? { id: merged.mergedIntoId } : null;
+}
+
+export const orderChanged = () =>
   new ApiError(
     HttpStatus.CONFLICT,
     'ORDER_CHANGED',
     'Someone else changed this order. It has been refreshed; check it and try again.',
   );
 
-const orderNotOpen = () =>
+export const orderNotOpen = () =>
   new ApiError(HttpStatus.CONFLICT, 'ORDER_NOT_OPEN', 'This order is no longer open for changes.');
 
 const itemAlreadySent = () =>
@@ -104,9 +131,7 @@ export class OrdersService {
              AND archived_at IS NULL
            FOR UPDATE`;
         if (locked.length === 0) throw invalidReference('tableId');
-        const busy = await tx.order.findFirst({
-          where: { tableId: request.tableId, status: { in: [...ACTIVE_STATUSES] } },
-        });
+        const busy = await tableHolder(tx, request.tableId);
         if (busy) {
           throw new ApiError(
             HttpStatus.CONFLICT,
@@ -212,6 +237,8 @@ export class OrdersService {
       const item = await this.findItem(tx, orderId, itemId);
       if (item.status !== 'NEW') throw itemAlreadySent();
       await tx.orderItem.delete({ where: { id: itemId } });
+      // Removing the last unsent dish of a part-billed order may leave it fully billed.
+      await markBilledIfComplete(tx, orderId);
     });
   }
 
@@ -265,7 +292,7 @@ export class OrdersService {
     ifMatch: string | undefined,
     fn: (context: MutationContext) => Promise<void>,
   ): Promise<OrderView> {
-    const expected = this.parseIfMatch(ifMatch);
+    const expected = parseVersion(ifMatch);
     const order = await this.prisma.$transaction(async (tx) => {
       const bumped = await tx.$queryRaw<{ version: number }[]>`
         UPDATE orders SET version = version + 1, updated_at = now()
@@ -286,25 +313,22 @@ export class OrdersService {
     return orderView(order);
   }
 
+  /** Locks a second order inside a `mutate` transaction (bumping its version), e.g. for a merge. */
+  async lockAnother(tx: Tx, outletId: string, orderId: string): Promise<Order> {
+    const bumped = await tx.$queryRaw<{ id: string }[]>`
+      UPDATE orders SET version = version + 1, updated_at = now()
+       WHERE id = ${orderId}::uuid AND outlet_id = ${outletId}::uuid
+      RETURNING id`;
+    if (bumped.length === 0) throw notFound('Order');
+    return tx.order.findUniqueOrThrow({ where: { id: orderId } });
+  }
+
   changed(order: Pick<Order, 'id' | 'outletId' | 'tableId'>) {
     this.events.emit('order.updated', {
       outletId: order.outletId,
       orderId: order.id,
       tableId: order.tableId,
     });
-  }
-
-  private parseIfMatch(ifMatch: string | undefined): number | null {
-    if (ifMatch === undefined || ifMatch === '') return null;
-    const value = Number(ifMatch.replace(/"/g, ''));
-    if (!Number.isInteger(value) || value < 0) {
-      throw new ApiError(
-        HttpStatus.BAD_REQUEST,
-        'VALIDATION',
-        'If-Match must be the order version.',
-      );
-    }
-    return value;
   }
 
   private async findItem(tx: Tx, orderId: string, itemId: string) {

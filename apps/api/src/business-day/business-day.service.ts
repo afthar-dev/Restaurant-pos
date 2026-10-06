@@ -74,10 +74,17 @@ export class BusinessDayService {
     return dayView(day);
   }
 
-  /** The open day, read inside a transaction; throws DAY_NOT_OPEN when there is none. */
+  /**
+   * The open day, read inside a transaction; throws DAY_NOT_OPEN when there is none. Holds a
+   * share lock on the day until commit, so closing the day waits for work that is landing on
+   * it, and work that starts after the close sees the day closed.
+   */
   async requireOpen(tx: Prisma.TransactionClient, outletId: string): Promise<BusinessDay> {
-    const day = await tx.businessDay.findFirst({ where: { outletId, status: 'OPEN' } });
-    if (!day) throw dayNotOpen();
-    return day;
+    const rows = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM business_days
+       WHERE outlet_id = ${outletId}::uuid AND status = 'OPEN'
+       FOR SHARE`;
+    if (rows.length === 0) throw dayNotOpen();
+    return tx.businessDay.findUniqueOrThrow({ where: { id: rows[0]!.id } });
   }
 }

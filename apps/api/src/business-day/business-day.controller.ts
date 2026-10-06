@@ -1,13 +1,34 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
-import { openDaySchema, type OpenDayRequest } from '@rpos/shared';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import {
+  closeDaySchema,
+  openDaySchema,
+  reopenDaySchema,
+  type CloseDayRequest,
+  type OpenDayRequest,
+  type ReopenDayRequest,
+} from '@rpos/shared';
 import { RequirePermissions } from '../auth/decorators';
 import { CurrentUser, type AuthUser } from '../common/request-context';
 import { ZodBody } from '../common/zod-body.pipe';
 import { BusinessDayService } from './business-day.service';
+import { DayCloseService } from './day-close.service';
 
 @Controller('business-day')
 export class BusinessDayController {
-  constructor(private readonly days: BusinessDayService) {}
+  constructor(
+    private readonly days: BusinessDayService,
+    private readonly closing: DayCloseService,
+  ) {}
+
+  @Get()
+  @RequirePermissions('reports.dayClose')
+  list(@CurrentUser() user: AuthUser, @Query('limit') limit?: string) {
+    const n = Number(limit ?? 30);
+    return this.closing.list(
+      user.outletId,
+      Number.isInteger(n) ? Math.min(Math.max(n, 1), 90) : 30,
+    );
+  }
 
   @Get('current')
   current(@CurrentUser() user: AuthUser) {
@@ -18,5 +39,33 @@ export class BusinessDayController {
   @RequirePermissions('day.openClose')
   open(@CurrentUser() user: AuthUser, @Body(new ZodBody(openDaySchema)) body: OpenDayRequest) {
     return this.days.open(user, body.openingCash);
+  }
+
+  @Get('close-check')
+  @RequirePermissions('day.openClose')
+  closeCheck(@CurrentUser() user: AuthUser) {
+    return this.closing.closeCheck(user.outletId);
+  }
+
+  @Post('close')
+  @RequirePermissions('day.openClose')
+  close(@CurrentUser() user: AuthUser, @Body(new ZodBody(closeDaySchema)) body: CloseDayRequest) {
+    return this.closing.close(user, body);
+  }
+
+  @Get(':id/report')
+  @RequirePermissions('reports.dayClose')
+  report(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.closing.report(user.outletId, id);
+  }
+
+  @Post(':id/reopen')
+  @RequirePermissions('day.reopen')
+  reopen(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodBody(reopenDaySchema)) body: ReopenDayRequest,
+  ) {
+    return this.closing.reopen(user, id, body.reason);
   }
 }

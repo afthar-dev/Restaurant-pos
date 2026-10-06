@@ -7,6 +7,7 @@ import { AccessGuard } from './access.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { LockoutService } from './lockout.service';
+import { OverrideService } from './override.service';
 import { PasswordService } from './password.service';
 import { PermissionsGuard } from './permissions.guard';
 import { SessionService } from './session.service';
@@ -31,10 +32,18 @@ import { TokenService } from './token.service';
     SessionService,
     TokenService,
     LockoutService,
+    OverrideService,
     // Order matters: authentication first, then permissions.
     { provide: APP_GUARD, useClass: AccessGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
-  exports: [AuthService, PasswordService, SessionService, TokenService, LockoutService],
+  exports: [
+    AuthService,
+    PasswordService,
+    SessionService,
+    TokenService,
+    LockoutService,
+    OverrideService,
+  ],
 })
 export class AuthModule {}

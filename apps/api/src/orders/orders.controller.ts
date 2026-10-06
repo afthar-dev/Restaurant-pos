@@ -16,10 +16,14 @@ import {
   addItemsSchema,
   cancelOrderSchema,
   createOrderSchema,
+  mergeOrderSchema,
+  moveOrderSchema,
   updateOrderItemSchema,
   type AddItemsRequest,
   type CancelOrderRequest,
   type CreateOrderRequest,
+  type MergeOrderRequest,
+  type MoveOrderRequest,
   type UpdateOrderItemRequest,
 } from '@rpos/shared';
 import { DEVICE_COOKIE } from '../auth/cookies';
@@ -28,11 +32,15 @@ import { ApiError } from '../common/api-error';
 import { CurrentUser, type AuthUser, type RequestContext } from '../common/request-context';
 import { ZodBody } from '../common/zod-body.pipe';
 import { OrdersService } from './orders.service';
+import { TableMovesService } from './table-moves.service';
 
 @Controller('orders')
 @RequirePermissions('order.take')
 export class OrdersController {
-  constructor(private readonly orders: OrdersService) {}
+  constructor(
+    private readonly orders: OrdersService,
+    private readonly moves: TableMovesService,
+  ) {}
 
   @Post()
   async create(
@@ -96,5 +104,27 @@ export class OrdersController {
     @Body(new ZodBody(cancelOrderSchema)) body: CancelOrderRequest,
   ) {
     return this.orders.cancel(user, id, ifMatch, body.reason);
+  }
+
+  @Post(':id/move')
+  @RequirePermissions('table.manage')
+  move(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Body(new ZodBody(moveOrderSchema)) body: MoveOrderRequest,
+  ) {
+    return this.moves.move(user, id, ifMatch, body.tableId);
+  }
+
+  @Post(':id/merge')
+  @RequirePermissions('table.manage')
+  merge(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('if-match') ifMatch: string | undefined,
+    @Body(new ZodBody(mergeOrderSchema)) body: MergeOrderRequest,
+  ) {
+    return this.moves.merge(user, id, ifMatch, body.fromOrderId);
   }
 }
