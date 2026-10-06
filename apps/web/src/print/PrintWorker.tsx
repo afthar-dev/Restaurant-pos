@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
-import { apiFetch } from '../auth/api';
+import { ApiError, apiFetch } from '../auth/api';
 import { POLL_MS } from '../service/queries';
 import { renderKotTicket, type KotPrintPayload } from './kotTicket';
 
@@ -19,6 +19,9 @@ export function printHtmlInIframe(html: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const frame = document.createElement('iframe');
     frame.setAttribute('aria-hidden', 'true');
+    // The ticket needs no scripts; allow-modals keeps print() working, allow-same-origin
+    // lets this page call it.
+    frame.setAttribute('sandbox', 'allow-modals allow-same-origin');
     frame.style.position = 'fixed';
     frame.style.width = '0';
     frame.style.height = '0';
@@ -39,9 +42,34 @@ export function printHtmlInIframe(html: string): Promise<void> {
   });
 }
 
+const OUTCOMES_KEY = 'rpos.print.unreported';
+
 /**
- * Runs on any browser that is a registered device. Prints this device's waiting jobs one at a
- * time and reports each back; the server stops offering a job after three failed attempts.
+ * Prints that happened but whose result has not reached the server yet. Kept in
+ * localStorage so a lost acknowledgement (Wi-Fi blip, reload) is retried instead of the
+ * ticket being printed again.
+ */
+function loadOutcomes(): Map<string, boolean> {
+  try {
+    const raw = localStorage.getItem(OUTCOMES_KEY);
+    return new Map(raw ? (JSON.parse(raw) as [string, boolean][]) : []);
+  } catch {
+    return new Map();
+  }
+}
+
+function saveOutcomes(outcomes: Map<string, boolean>) {
+  try {
+    localStorage.setItem(OUTCOMES_KEY, JSON.stringify([...outcomes]));
+  } catch {
+    // Storage blocked: acknowledgements are still retried while this tab stays open.
+  }
+}
+
+/**
+ * Runs on any browser that is a registered device. Claims this device's waiting jobs (the
+ * server leases each job to one claimer, so a second tab never prints it too), prints them
+ * one at a time and reports each result, retrying the report rather than the print.
  */
 export function PrintWorker({
   printHtml = printHtmlInIframe,
@@ -50,34 +78,59 @@ export function PrintWorker({
 }) {
   const queryClient = useQueryClient();
   const busy = useRef(false);
+  const outcomes = useRef<Map<string, boolean> | null>(null);
   const jobs = useQuery({
     queryKey: ['print-jobs'],
-    queryFn: () => apiFetch<PrintJob[]>('/api/print/jobs', { skipRefresh: true }),
+    queryFn: () =>
+      apiFetch<PrintJob[]>('/api/print/jobs/claim', { method: 'POST', skipRefresh: true }),
     refetchInterval: POLL_MS,
   });
 
   useEffect(() => {
-    if (busy.current || !jobs.data || jobs.data.length === 0) return;
+    if (busy.current || !jobs.data) return;
     busy.current = true;
-    void (async () => {
-      for (const job of jobs.data) {
-        let ok = true;
-        try {
-          if (job.kind !== 'KOT') throw new Error(`Unknown print job ${job.kind}`);
-          await printHtml(renderKotTicket(job.payload));
-        } catch {
-          ok = false;
-        }
-        await apiFetch(`/api/print/jobs/${job.id}/done`, {
+    const unreported = (outcomes.current ??= loadOutcomes());
+
+    async function report(jobId: string, ok: boolean) {
+      try {
+        await apiFetch(`/api/print/jobs/${jobId}/done`, {
           method: 'POST',
           body: { ok },
           skipRefresh: true,
-        }).catch(() => undefined);
+        });
+      } catch (error) {
+        // 404/409: the job is gone or already settled, so there is nothing left to report.
+        // Anything else (offline, server error): keep the result and retry next round.
+        const settled = error instanceof ApiError && (error.status === 404 || error.status === 409);
+        if (!settled) return;
       }
-      busy.current = false;
-      await queryClient.invalidateQueries({ queryKey: ['print-jobs'] });
+      unreported.delete(jobId);
+      saveOutcomes(unreported);
+    }
+
+    void (async () => {
+      try {
+        const printed = new Set(unreported.keys());
+        for (const [jobId, ok] of [...unreported]) await report(jobId, ok);
+        for (const job of jobs.data) {
+          if (printed.has(job.id)) continue;
+          let ok = true;
+          try {
+            if (job.kind !== 'KOT') throw new Error(`Unknown print job ${job.kind}`);
+            await printHtml(renderKotTicket(job.payload));
+          } catch {
+            ok = false;
+          }
+          unreported.set(job.id, ok);
+          saveOutcomes(unreported);
+          await report(job.id, ok);
+        }
+      } finally {
+        busy.current = false;
+      }
+      if (jobs.data.length > 0) await queryClient.invalidateQueries({ queryKey: ['print-jobs'] });
     })();
-  }, [jobs.data, printHtml, queryClient]);
+  }, [jobs.data, jobs.dataUpdatedAt, printHtml, queryClient]);
 
   return null;
 }

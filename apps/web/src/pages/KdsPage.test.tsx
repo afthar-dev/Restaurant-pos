@@ -1,5 +1,6 @@
-import { fireEvent, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { act, fireEvent, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DEVICE_RETRY_MS } from '../auth/hooks';
 import { callsTo, json, mockApi } from '../test/mock-api';
 import { renderRoute } from '../test/render';
 
@@ -49,6 +50,11 @@ const tickets = [
 ];
 
 const kdsDevice = () => json({ id: 'd1', name: 'Kitchen screen', type: 'KDS' });
+const stations = [
+  { id: 'kitchen', name: 'Kitchen' },
+  { id: 'tandoor', name: 'Tandoor' },
+  { id: 'bar', name: 'Bar' },
+];
 
 describe('Kitchen display', () => {
   it('explains how to set up an unregistered screen', async () => {
@@ -70,7 +76,11 @@ describe('Kitchen display', () => {
   });
 
   it('shows tickets in New, Preparing and Ready columns', async () => {
-    mockApi({ 'GET /api/devices/current': kdsDevice, 'GET /api/kds/kots': () => json(tickets) });
+    mockApi({
+      'GET /api/devices/current': kdsDevice,
+      'GET /api/kds/kots': () => json(tickets),
+      'GET /api/kds/stations': () => json(stations),
+    });
     renderRoute('/kds');
     const newColumn = await screen.findByRole('region', { name: 'New' });
     const first = within(newColumn).getByRole('article', { name: 'KOT 1, T1' });
@@ -103,10 +113,73 @@ describe('Kitchen display', () => {
   });
 
   it('filters to one station', async () => {
-    mockApi({ 'GET /api/devices/current': kdsDevice, 'GET /api/kds/kots': () => json(tickets) });
+    mockApi({
+      'GET /api/devices/current': kdsDevice,
+      'GET /api/kds/kots': () => json(tickets),
+      'GET /api/kds/stations': () => json(stations),
+    });
     renderRoute('/kds');
     fireEvent.change(await screen.findByLabelText('Station'), { target: { value: 'tandoor' } });
     expect(screen.queryByRole('article', { name: 'KOT 1, T1' })).toBeNull();
     expect(screen.getByRole('article', { name: 'KOT 2, Parcel #5' })).toBeInTheDocument();
+  });
+
+  it('offers stations that have no tickets yet', async () => {
+    mockApi({
+      'GET /api/devices/current': kdsDevice,
+      'GET /api/kds/kots': () => json(tickets),
+      'GET /api/kds/stations': () => json(stations),
+    });
+    renderRoute('/kds');
+    expect(await screen.findByRole('option', { name: 'Bar' })).toBeInTheDocument();
+  });
+
+  it('forgets a remembered station that no longer exists', async () => {
+    localStorage.setItem('rpos.kds.station', 'archived-station');
+    mockApi({
+      'GET /api/devices/current': kdsDevice,
+      'GET /api/kds/kots': () => json(tickets),
+      'GET /api/kds/stations': () => json(stations),
+    });
+    renderRoute('/kds');
+    await screen.findByRole('option', { name: 'Bar' });
+    await expect.poll(() => (screen.getByLabelText('Station') as HTMLSelectElement).value).toBe('');
+    expect(screen.getByRole('article', { name: 'KOT 1, T1' })).toBeInTheDocument();
+    expect(localStorage.getItem('rpos.kds.station')).toBe('');
+  });
+
+  it('keeps the tickets on screen when a refresh fails', async () => {
+    let fail = false;
+    mockApi({
+      'GET /api/devices/current': kdsDevice,
+      'GET /api/kds/kots': () =>
+        fail ? json({ code: 'SERVER_ERROR', message: 'Down' }, 500) : json(tickets),
+      'GET /api/kds/stations': () => json(stations),
+    });
+    const { queryClient } = renderRoute('/kds');
+    await screen.findByRole('article', { name: 'KOT 1, T1' });
+    fail = true;
+    await queryClient.refetchQueries({ queryKey: ['kds'], exact: true });
+    expect(screen.getByRole('article', { name: 'KOT 1, T1' })).toBeInTheDocument();
+  });
+});
+
+describe('Kitchen display start-up', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('keeps retrying when the server was unreachable at boot', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'setInterval'] });
+    let up = false;
+    mockApi({
+      'GET /api/devices/current': () =>
+        up ? kdsDevice() : json({ code: 'OFFLINE', message: 'Down' }, 503),
+      'GET /api/kds/kots': () => json(tickets),
+      'GET /api/kds/stations': () => json(stations),
+    });
+    renderRoute('/kds');
+    expect(await screen.findByText('Cannot reach the server. Retrying…')).toBeInTheDocument();
+    up = true;
+    await act(() => vi.advanceTimersByTimeAsync(DEVICE_RETRY_MS));
+    expect(await screen.findByRole('region', { name: 'New' })).toBeInTheDocument();
   });
 });

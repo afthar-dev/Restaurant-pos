@@ -62,8 +62,9 @@ export function DayGate({ children }: { children: ReactNode }) {
   const day = useBusinessDay();
   const canOpen = useCan('day.openClose');
 
-  if (day.isPending) return <LoadingScreen />;
-  if (day.isError) return <ErrorNote message={describeError(day.error)} />;
+  if (!day.data) {
+    return day.isError ? <ErrorNote message={describeError(day.error)} /> : <LoadingScreen />;
+  }
   if (!day.data.day) {
     return canOpen ? (
       <OpenDayForm />

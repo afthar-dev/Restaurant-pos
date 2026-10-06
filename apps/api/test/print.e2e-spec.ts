@@ -54,13 +54,13 @@ describe('print jobs', () => {
     });
   }
 
-  async function sendPaneerKot() {
+  async function sendPaneerKot(tableId = r.t1.id) {
     const order = (
       await ctx
         .http()
         .post('/api/orders')
         .set(waiter.auth)
-        .send({ type: 'DINE_IN', tableId: r.t1.id, guests: 3 })
+        .send({ type: 'DINE_IN', tableId, guests: 3 })
     ).body;
     await ctx
       .http()
@@ -183,6 +183,90 @@ describe('print jobs', () => {
     await sendPaneerKot();
     const job = await ctx.prisma.printJob.findFirstOrThrow();
     expect(job).toMatchObject({ deviceId: null, status: 'PENDING' });
+  });
+
+  const claimFor = (device: { cookie: string }) =>
+    ctx.http().post('/api/print/jobs/claim').set('Cookie', `rpos_dt=${device.cookie}`);
+
+  it('hands a job to only one claimer until its lease runs out', async () => {
+    await kitchenPrinter(counter.id).expect(201);
+    await sendPaneerKot();
+    const [first, second] = await Promise.all([claimFor(counter), claimFor(counter)]);
+    expect([first.body.length, second.body.length].sort()).toEqual([0, 1]);
+    expect((await claimFor(counter).expect(201)).body).toEqual([]);
+
+    await ctx.prisma.printJob.updateMany({ data: { leaseUntil: new Date(Date.now() - 1000) } });
+    expect((await claimFor(counter).expect(201)).body).toHaveLength(1);
+    expect((await claimFor(other).expect(201)).body).toEqual([]);
+  });
+
+  it('waits before offering a failed print again', async () => {
+    await kitchenPrinter(counter.id).expect(201);
+    await sendPaneerKot();
+    const [job] = (await claimFor(counter)).body;
+    await ctx
+      .http()
+      .post(`/api/print/jobs/${job.id}/done`)
+      .set('Cookie', `rpos_dt=${counter.cookie}`)
+      .send({ ok: false })
+      .expect(201);
+    expect((await claimFor(counter)).body).toEqual([]);
+    const stored = await ctx.prisma.printJob.findUniqueOrThrow({ where: { id: job.id } });
+    expect(stored.leaseUntil!.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('does not auto-print a job that waited too long', async () => {
+    await kitchenPrinter(counter.id).expect(201);
+    await sendPaneerKot();
+    await ctx.prisma.printJob.updateMany({ data: { createdAt: new Date(Date.now() - 3_600_000) } });
+    expect((await claimFor(counter)).body).toEqual([]);
+  });
+
+  it('counts concurrent failure reports against the cap', async () => {
+    await kitchenPrinter(counter.id).expect(201);
+    await sendPaneerKot();
+    const [job] = (await jobsFor(counter)).body;
+    const report = () =>
+      ctx
+        .http()
+        .post(`/api/print/jobs/${job.id}/done`)
+        .set('Cookie', `rpos_dt=${counter.cookie}`)
+        .send({ ok: false });
+    await Promise.all([report(), report(), report(), report()]);
+    const stored = await ctx.prisma.printJob.findUniqueOrThrow({ where: { id: job.id } });
+    expect(stored).toMatchObject({ status: 'FAILED', attempts: 3 });
+  });
+
+  it('shows on the order whether each KOT printed', async () => {
+    const printState = async (orderId: string) =>
+      (await ctx.http().get(`/api/orders/${orderId}`).set(waiter.auth).expect(200)).body.kots[0]
+        .print;
+    const noPrinter = await sendPaneerKot();
+    expect(await printState(noPrinter.order.id)).toBe('NONE');
+
+    await kitchenPrinter(counter.id).expect(201);
+    const sent = await sendPaneerKot(r.t2.id);
+    expect(await printState(sent.order.id)).toBe('WAITING');
+    const [job] = (await claimFor(counter)).body;
+    for (let i = 0; i < 3; i += 1) {
+      await ctx
+        .http()
+        .post(`/api/print/jobs/${job.id}/done`)
+        .set('Cookie', `rpos_dt=${counter.cookie}`)
+        .send({ ok: false });
+    }
+    expect(await printState(sent.order.id)).toBe('FAILED');
+
+    await ctx.http().post(`/api/kots/${sent.kots[0].id}/reprint`).set(waiter.auth).expect(201);
+    expect(await printState(sent.order.id)).toBe('WAITING');
+    const [again] = (await claimFor(counter)).body;
+    await ctx
+      .http()
+      .post(`/api/print/jobs/${again.id}/done`)
+      .set('Cookie', `rpos_dt=${counter.cookie}`)
+      .send({ ok: true })
+      .expect(201);
+    expect(await printState(sent.order.id)).toBe('PRINTED');
   });
 
   it('queues another job on reprint', async () => {

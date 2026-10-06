@@ -32,6 +32,22 @@ describe('MenuBrowser', () => {
     });
   });
 
+  it('counts every tap while earlier dishes are still saving', async () => {
+    asWaiter();
+    const mock = mockApi({
+      'GET /api/menu': () => json(MENU),
+      'POST /api/orders/o1/items': () => new Promise<Response>(() => undefined),
+    });
+    renderWithProviders(<MenuBrowser orderId="o1" orderType="DINE_IN" />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Breads' }));
+    const roti = screen.getByRole('button', { name: 'Tandoori Roti, ₹30' });
+    fireEvent.click(roti);
+    fireEvent.click(roti);
+    fireEvent.click(roti);
+    await expect.poll(() => callsTo(mock, 'POST', '/api/orders/o1/items').length).toBe(3);
+    expect(await screen.findByText('Adding 3 dishes…')).toBeInTheDocument();
+  });
+
   it('asks for a required choice before adding', async () => {
     asWaiter();
     const mock = mockApi({
@@ -117,6 +133,7 @@ describe('OrderPanel', () => {
         stationId: 'kitchen',
         stationName: 'Kitchen',
         createdAt: '',
+        print: 'FAILED',
       },
     ],
     subtotal: 39000,
@@ -180,6 +197,45 @@ describe('OrderPanel', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'One more Tandoori Roti' }));
     await expect.poll(() => callsTo(mock, 'PATCH', '/api/orders/o1/items/l1').length).toBe(1);
     expect(body(mock, 'PATCH', '/api/orders/o1/items/l1')).toEqual({ quantity: 2 });
+  });
+
+  it('sends the order version with a quantity change and shows a refusal', async () => {
+    asWaiter();
+    const mock = mockApi({
+      'GET /api/orders/o1': () => json(withItems),
+      'PATCH /api/orders/o1/items/l1': () =>
+        json({ code: 'ORDER_CHANGED', message: 'The order was changed on another screen.' }, 409),
+    });
+    renderWithProviders(<OrderPanel orderId="o1" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'One more Tandoori Roti' }));
+    expect(await screen.findByText('The order was changed on another screen.')).toBeInTheDocument();
+    const [, init] = callsTo(mock, 'PATCH', '/api/orders/o1/items/l1')[0]!;
+    expect(new Headers(init?.headers).get('If-Match')).toBe(String(withItems.version));
+  });
+
+  it('refreshes the order when sending fails', async () => {
+    asWaiter();
+    const mock = mockApi({
+      'GET /api/orders/o1': () => json(withItems),
+      'POST /api/orders/o1/kot': () =>
+        json({ code: 'NOTHING_TO_SEND', message: 'Nothing new to send.' }, 409),
+    });
+    renderWithProviders(<OrderPanel orderId="o1" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Send to kitchen (1)' }));
+    await screen.findByText('Nothing new to send.');
+    await expect.poll(() => callsTo(mock, 'GET', '/api/orders/o1').length).toBe(2);
+  });
+
+  it('shows a failed KOT print and reprints it', async () => {
+    asWaiter();
+    const mock = mockApi({
+      'GET /api/orders/o1': () => json(withItems),
+      'POST /api/kots/k1/reprint': () => json({ id: 'k1', queued: true }, 201),
+    });
+    renderWithProviders(<OrderPanel orderId="o1" />);
+    expect(await screen.findByText('Print failed')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reprint KOT 7' }));
+    await expect.poll(() => callsTo(mock, 'POST', '/api/kots/k1/reprint').length).toBe(1);
   });
 
   it('gets a manager approval to cancel a dish already in the kitchen', async () => {

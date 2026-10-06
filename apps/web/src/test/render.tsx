@@ -8,11 +8,15 @@ function testQueryClient(): QueryClient {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
-export function renderWithProviders(ui: ReactElement): RenderResult {
-  return render(<QueryClientProvider client={testQueryClient()}>{ui}</QueryClientProvider>);
+export type Rendered = RenderResult & { queryClient: QueryClient };
+
+export function renderWithProviders(ui: ReactElement): Rendered {
+  const queryClient = testQueryClient();
+  const result = render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+  return { ...result, queryClient };
 }
 
-export function renderRoute(path: string): RenderResult {
+export function renderRoute(path: string): Rendered {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   return renderWithProviders(<RouterProvider router={router} />);
 }

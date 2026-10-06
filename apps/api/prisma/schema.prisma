@@ -602,6 +602,7 @@ model Kot {
   createdBy   User        @relation("KotCreatedBy", fields: [createdById], references: [id])
   lines       KotLine[]
   items       OrderItem[] @relation("KotItems")
+  printJobs   PrintJob[]
 
   @@index([outletId, businessDayId, status])
   @@index([orderId])
@@ -628,20 +629,25 @@ model KotLine {
 }
 
 model PrintJob {
-  id        String         @id @default(uuid()) @db.Uuid
-  outletId  String         @map("outlet_id") @db.Uuid
-  printerId String         @map("printer_id") @db.Uuid
-  deviceId  String?        @map("device_id") @db.Uuid
-  kind      PrintJobKind
-  payload   Json
-  status    PrintJobStatus @default(PENDING)
-  attempts  Int            @default(0)
-  printedAt DateTime?      @map("printed_at") @db.Timestamptz(3)
-  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id         String         @id @default(uuid()) @db.Uuid
+  outletId   String         @map("outlet_id") @db.Uuid
+  printerId  String         @map("printer_id") @db.Uuid
+  deviceId   String?        @map("device_id") @db.Uuid
+  kotId      String?        @map("kot_id") @db.Uuid
+  kind       PrintJobKind
+  payload    Json
+  status     PrintJobStatus @default(PENDING)
+  attempts   Int            @default(0)
+  printedAt  DateTime?      @map("printed_at") @db.Timestamptz(3)
+  /// Claimed by a device (or backing off after a failure) until this time.
+  leaseUntil DateTime?      @map("lease_until") @db.Timestamptz(3)
+  createdAt  DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   printer Printer @relation(fields: [printerId], references: [id])
+  kot     Kot?    @relation(fields: [kotId], references: [id], onDelete: SetNull)
 
+  @@index([kotId])
   @@index([deviceId, status])
   @@map("print_jobs")
 }

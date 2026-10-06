@@ -34,6 +34,15 @@ function fire(event: string, payload?: unknown) {
   });
 }
 
+function authOf(index: number): unknown {
+  const { auth } = sockets[index]!.options as { auth: (cb: (data: unknown) => void) => void };
+  let sent: unknown;
+  auth((data) => {
+    sent = data;
+  });
+  return sent;
+}
+
 function setup(enabled = true) {
   const client = new QueryClient();
   const spy = vi.spyOn(client, 'invalidateQueries');
@@ -56,10 +65,8 @@ describe('RealtimeProvider', () => {
   it('connects at /api/socket.io with the access token', () => {
     setup();
     expect(sockets).toHaveLength(1);
-    expect(sockets[0]!.options).toMatchObject({
-      path: '/api/socket.io',
-      auth: { token: 'token-cashier' },
-    });
+    expect(sockets[0]!.options).toMatchObject({ path: '/api/socket.io' });
+    expect(authOf(0)).toEqual({ token: 'token-cashier' });
   });
 
   it('does not connect when disabled', () => {
@@ -90,14 +97,21 @@ describe('RealtimeProvider', () => {
     expect(spy).toHaveBeenCalledWith();
   });
 
-  it('reconnects with the new token after a refresh', () => {
+  it('keeps the socket on a token refresh and sends the new token when it reconnects', () => {
     setup();
     act(() => {
       useSession.getState().setSession({ ...sessionBody('CASHIER', []), accessToken: 'token-2' });
     });
+    expect(sockets).toHaveLength(1);
+    expect(authOf(0)).toEqual({ token: 'token-2' });
+  });
+
+  it('reconnects when the user signs out, to leave the staff rooms', () => {
+    setup();
+    act(() => useSession.getState().clear());
     expect(sockets).toHaveLength(2);
-    expect(sockets[1]!.options).toMatchObject({ auth: { token: 'token-2' } });
     expect(sockets[0]!.disconnect).toHaveBeenCalled();
+    expect(authOf(1)).toEqual({});
   });
 
   it('lets screens listen to events', () => {

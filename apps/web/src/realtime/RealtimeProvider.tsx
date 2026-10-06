@@ -46,7 +46,8 @@ function invalidate(client: QueryClient, keys: QueryKey[]) {
  */
 export function RealtimeProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
   const client = useQueryClient();
-  const token = useSession((s) => s.accessToken);
+  // Signing in or out changes which rooms this screen belongs to; a token refresh does not.
+  const signedIn = useSession((s) => Boolean(s.accessToken));
   const [status, setStatus] = useState<RealtimeStatus>('off');
   const listeners = useRef(new Map<string, Set<Listener>>());
   const everConnected = useRef(false);
@@ -59,7 +60,12 @@ export function RealtimeProvider({ enabled, children }: { enabled: boolean; chil
     setStatus('connecting');
     const socket = io({
       path: '/api/socket.io',
-      auth: token ? { token } : {},
+      // Read at every (re)connect, so a token refreshed since the last attempt is used and a
+      // refresh does not need a new socket.
+      auth: (cb) => {
+        const current = useSession.getState().accessToken;
+        cb(current ? { token: current } : {});
+      },
       withCredentials: true,
     });
     socket.on('connect', () => {
@@ -68,6 +74,7 @@ export function RealtimeProvider({ enabled, children }: { enabled: boolean; chil
       setStatus('connected');
     });
     socket.on('disconnect', () => setStatus('disconnected'));
+    socket.on('connect_error', () => setStatus('disconnected'));
     for (const [event, keys] of Object.entries(INVALIDATIONS)) {
       socket.on(event, (payload: unknown) => {
         invalidate(client, keys((payload ?? {}) as Record<string, unknown>));
@@ -77,7 +84,7 @@ export function RealtimeProvider({ enabled, children }: { enabled: boolean; chil
     return () => {
       socket.disconnect();
     };
-  }, [enabled, token, client]);
+  }, [enabled, signedIn, client]);
 
   const subscribe = useCallback((event: string, listener: Listener) => {
     const set = listeners.current.get(event) ?? new Set<Listener>();

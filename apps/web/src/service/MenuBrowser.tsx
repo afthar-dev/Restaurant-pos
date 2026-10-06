@@ -1,5 +1,5 @@
 import type { OrderType } from '@rpos/shared';
-import { useMutation } from '@tanstack/react-query';
+import { useIsMutating, useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { apiFetch } from '../auth/api';
 import { describeError, ErrorNote, inputClass } from '../components/ui';
@@ -24,17 +24,26 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
   const [search, setSearch] = useState('');
   const [picking, setPicking] = useState<MenuItem | null>(null);
 
+  const [addError, setAddError] = useState<string | null>(null);
+  // Every tap is its own request, so quick repeated taps all count (no tile is locked while
+  // an earlier dish is saving). The order refreshes in the background.
   const add = useMutation({
+    mutationKey: ['add-item', orderId],
     mutationFn: (line: NewLine) =>
       apiFetch(`/api/orders/${orderId}/items`, { method: 'POST', body: { items: [line] } }),
-    onSuccess: async () => {
+    onMutate: () => setAddError(null),
+    onSuccess: () => {
       setPicking(null);
-      await refresh(orderId);
+      void refresh(orderId);
     },
+    onError: (error) => setAddError(describeError(error)),
   });
+  const saving = useIsMutating({ mutationKey: ['add-item', orderId] });
 
-  if (menu.isPending) return <p className="text-slate-500">Loading menu…</p>;
-  if (menu.isError) return <ErrorNote message={describeError(menu.error)} />;
+  if (!menu.data) {
+    if (menu.isError) return <ErrorNote message={describeError(menu.error)} />;
+    return <p className="text-slate-500">Loading menu…</p>;
+  }
 
   const categories = menu.data.categories.filter((c) => c.items.length > 0);
   const active = categories.find((c) => c.id === categoryId) ?? categories[0];
@@ -81,7 +90,10 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
           ))}
         </div>
       )}
-      <ErrorNote message={add.isError ? describeError(add.error) : null} />
+      <ErrorNote message={addError} />
+      <p role="status" className="min-h-5 text-sm text-slate-500">
+        {saving > 0 ? `Adding ${saving} ${saving === 1 ? 'dish' : 'dishes'}…` : ''}
+      </p>
       {picking && (
         <ItemPicker
           item={picking}
@@ -99,7 +111,7 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
               key={item.id}
               type="button"
               aria-label={tileLabel(item, orderType)}
-              disabled={!item.isAvailable || add.isPending}
+              disabled={!item.isAvailable}
               onClick={() => choose(item)}
               className="flex min-h-20 flex-col items-start justify-between rounded-lg border border-slate-200 bg-white p-2 text-left active:bg-emerald-50 disabled:opacity-50"
             >

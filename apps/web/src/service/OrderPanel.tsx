@@ -14,7 +14,7 @@ import {
 import { rupees } from '../pages/admin/menu-types';
 import { useRefreshOrder } from './mutations';
 import { useOrder } from './queries';
-import { orderLabel, type Order, type OrderLine } from './types';
+import { orderLabel, type KotPrintState, type Order, type OrderKot, type OrderLine } from './types';
 
 function lineDetail(line: OrderLine): string {
   const parts = [
@@ -160,47 +160,96 @@ function CancelLineDialog({
 
 function NewLineRow({ order, line }: { order: Order; line: OrderLine }) {
   const refresh = useRefreshOrder();
+  // Quantities are absolute, so send the version we saw: if another screen changed the order
+  // meanwhile the server answers 409 and we refresh instead of overwriting its change.
   const change = useMutation({
-    mutationFn: (quantity: number) =>
-      quantity === 0
-        ? apiFetch(`/api/orders/${order.id}/items/${line.id}`, { method: 'DELETE' })
+    mutationFn: (quantity: number) => {
+      const headers = { 'If-Match': String(order.version) };
+      return quantity === 0
+        ? apiFetch(`/api/orders/${order.id}/items/${line.id}`, { method: 'DELETE', headers })
         : apiFetch(`/api/orders/${order.id}/items/${line.id}`, {
             method: 'PATCH',
+            headers,
             body: { quantity },
-          }),
+          });
+    },
     onSettled: () => refresh(order.id),
   });
   const detail = lineDetail(line);
   return (
-    <li className="flex items-center justify-between gap-2 py-2">
-      <div className="flex min-w-0 flex-col">
-        <span className="font-medium">{line.itemName}</span>
-        {detail && <span className="text-xs text-slate-500">{detail}</span>}
-        {line.note && <span className="text-xs italic text-slate-500">“{line.note}”</span>}
+    <li className="flex flex-col gap-1 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-col">
+          <span className="font-medium">{line.itemName}</span>
+          {detail && <span className="text-xs text-slate-500">{detail}</span>}
+          {line.note && <span className="text-xs italic text-slate-500">“{line.note}”</span>}
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            aria-label={`One less ${line.itemName}`}
+            className={`${secondaryButton} h-9 w-9`}
+            disabled={change.isPending}
+            onClick={() => change.mutate(line.quantity - 1)}
+          >
+            −
+          </button>
+          <span className="w-6 text-center tabular-nums">{line.quantity}</span>
+          <button
+            type="button"
+            aria-label={`One more ${line.itemName}`}
+            className={`${secondaryButton} h-9 w-9`}
+            disabled={change.isPending || line.quantity >= 99}
+            onClick={() => change.mutate(line.quantity + 1)}
+          >
+            +
+          </button>
+          <span className="w-16 text-right text-sm tabular-nums">{rupees(line.lineTotal)}</span>
+        </div>
       </div>
-      <div className="flex shrink-0 items-center gap-1">
-        <button
-          type="button"
-          aria-label={`One less ${line.itemName}`}
-          className={`${secondaryButton} h-9 w-9`}
-          disabled={change.isPending}
-          onClick={() => change.mutate(line.quantity - 1)}
-        >
-          −
-        </button>
-        <span className="w-6 text-center tabular-nums">{line.quantity}</span>
-        <button
-          type="button"
-          aria-label={`One more ${line.itemName}`}
-          className={`${secondaryButton} h-9 w-9`}
-          disabled={change.isPending || line.quantity >= 99}
-          onClick={() => change.mutate(line.quantity + 1)}
-        >
-          +
-        </button>
-        <span className="w-16 text-right text-sm tabular-nums">{rupees(line.lineTotal)}</span>
-      </div>
+      <ErrorNote message={change.isError ? describeError(change.error) : null} />
     </li>
+  );
+}
+
+const PRINT_LABEL: Record<Exclude<KotPrintState, 'NONE'>, string> = {
+  WAITING: 'Not printed yet',
+  PRINTED: 'Printed',
+  FAILED: 'Print failed',
+};
+
+/** Whether the paper ticket came out, with a reprint for a jammed or missing ticket. */
+function KotPrint({ kot, orderId }: { kot: OrderKot; orderId: string }) {
+  const refresh = useRefreshOrder();
+  const reprint = useMutation({
+    mutationFn: () => apiFetch(`/api/kots/${kot.id}/reprint`, { method: 'POST' }),
+    onSettled: () => refresh(orderId),
+  });
+  if (kot.print === 'NONE') return null;
+  return (
+    <span className="flex items-center gap-2 text-xs">
+      <span
+        className={
+          kot.print === 'FAILED'
+            ? 'font-semibold text-red-700'
+            : kot.print === 'WAITING'
+              ? 'text-amber-800'
+              : 'text-slate-500'
+        }
+      >
+        {PRINT_LABEL[kot.print]}
+      </span>
+      <button
+        type="button"
+        aria-label={`Reprint KOT ${kot.kotNo}`}
+        className="text-slate-700 underline disabled:opacity-50"
+        disabled={reprint.isPending}
+        onClick={() => reprint.mutate()}
+      >
+        {reprint.isPending ? 'Reprinting…' : 'Reprint'}
+      </button>
+      {reprint.isError && <span className="text-red-700">{describeError(reprint.error)}</span>}
+    </span>
   );
 }
 
@@ -276,12 +325,13 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
         headers: { 'Idempotency-Key': sendKey.current },
       });
     },
-    onSuccess: async () => {
+    onSuccess: () => {
       sendKey.current = null;
-      await refresh(orderId);
     },
-    onSettled: () => {
+    // Refresh on failure too: "nothing to send" usually means another screen already sent it.
+    onSettled: async () => {
       sending.current = false;
+      await refresh(orderId);
     },
   });
 
@@ -291,8 +341,10 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
     send.mutate();
   }
 
-  if (order.isPending) return <p className="text-slate-500">Loading order…</p>;
-  if (order.isError) return <ErrorNote message={describeError(order.error)} />;
+  if (!order.data) {
+    if (order.isError) return <ErrorNote message={describeError(order.error)} />;
+    return <p className="text-slate-500">Loading order…</p>;
+  }
   const o = order.data;
 
   if (o.status === 'CANCELLED') {
@@ -322,9 +374,12 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
         if (lines.length === 0) return null;
         return (
           <div key={kot.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              KOT {kot.kotNo} · {kot.stationName} · {kot.status.toLowerCase()}
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                KOT {kot.kotNo} · {kot.stationName} · {kot.status.toLowerCase()}
+              </p>
+              <KotPrint kot={kot} orderId={o.id} />
+            </div>
             <ul className="divide-y divide-slate-100">
               {lines.map((line) => (
                 <li key={line.id} className="flex flex-col gap-2 py-2">

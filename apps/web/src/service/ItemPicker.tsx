@@ -1,6 +1,6 @@
 import type { OrderType } from '@rpos/shared';
 import { useState } from 'react';
-import { inputClass, primaryButton, secondaryButton } from '../components/ui';
+import { inputClass, primaryButton, secondaryButton, Sheet } from '../components/ui';
 import {
   rupees,
   type MenuAddonGroup,
@@ -68,11 +68,7 @@ export function ItemPicker({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-label={item.name}
-      className="flex flex-col gap-4 rounded-lg border border-emerald-300 bg-white p-4 shadow-lg"
-    >
+    <Sheet label={item.name} onClose={onClose}>
       <h3 className="text-lg font-semibold">{item.name}</h3>
 
       {item.variants.length > 1 && (
@@ -196,6 +192,6 @@ export function ItemPicker({
           Close
         </button>
       </div>
-    </div>
+    </Sheet>
   );
 }

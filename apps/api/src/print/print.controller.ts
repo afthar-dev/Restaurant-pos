@@ -20,6 +20,11 @@ export class PrintController {
     return this.print.pending(req.device!);
   }
 
+  @Post('claim')
+  claim(@Req() req: RequestContext) {
+    return this.print.claim(req.device!);
+  }
+
   @Post(':id/done')
   done(
     @Req() req: RequestContext,

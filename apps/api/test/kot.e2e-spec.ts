@@ -241,6 +241,18 @@ describe('KOTs and the kitchen', () => {
   });
 
   describe('kitchen display', () => {
+    it('lists the outlet stations for the filter, even ones with no tickets', async () => {
+      const res = await ctx
+        .http()
+        .get('/api/kds/stations')
+        .set('Cookie', `rpos_dt=${kds.cookie}`)
+        .expect(200);
+      expect(res.body.map((s: { name: string }) => s.name)).toEqual(
+        expect.arrayContaining(['Kitchen']),
+      );
+      expect(res.body[0]).toEqual({ id: expect.any(String), name: expect.any(String) });
+    });
+
     it('lists active tickets and moves them through preparing and ready to served', async () => {
       const orderId = await orderWith([{ variantId: r.paneer.half.id, quantity: 1 }]);
       const kotId = (await sendKot(orderId).expect(201)).body.kots[0].id;
@@ -320,8 +332,11 @@ describe('KOTs and the kitchen', () => {
         .http()
         .post(`/api/orders/${second}/void`)
         .set(manager.auth)
-        .send({ reason: 'Mistake' });
-      const cancel = await ctx.prisma.kot.findFirstOrThrow({ where: { type: 'CANCEL' } });
+        .send({ reason: 'Mistake' })
+        .expect(201);
+      const cancel = await ctx.prisma.kot.findFirstOrThrow({
+        where: { type: 'CANCEL', orderId: second },
+      });
       const res = await ctx
         .http()
         .post(`/api/kots/${cancel.id}/served`)

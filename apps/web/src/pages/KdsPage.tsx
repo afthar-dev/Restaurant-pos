@@ -123,6 +123,21 @@ function KitchenBoard() {
   const queryClient = useQueryClient();
   const now = useMinuteTick();
   const [station, setStation] = useState(remembered);
+  const stationList = useQuery({
+    queryKey: ['kds', 'stations'],
+    queryFn: () =>
+      apiFetch<{ id: string; name: string }[]>('/api/kds/stations', { skipRefresh: true }),
+    staleTime: 5 * 60_000,
+  });
+  // A remembered station that was archived would hide every ticket: forget it.
+  const knownStation =
+    !station || !stationList.data || stationList.data.some((s) => s.id === station);
+  useEffect(() => {
+    if (!knownStation) {
+      setStation('');
+      remember('');
+    }
+  }, [knownStation]);
   const tickets = useQuery({
     queryKey: ['kds'],
     queryFn: () => apiFetch<KdsTicket[]>('/api/kds/kots', { skipRefresh: true }),
@@ -134,11 +149,17 @@ function KitchenBoard() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['kds'] }),
   });
 
-  if (tickets.isPending) return <LoadingScreen />;
-  if (tickets.isError) return <ErrorNote message={describeError(tickets.error)} />;
+  // A failed background refetch keeps the last tickets on screen; the header shows offline.
+  if (!tickets.data) {
+    return tickets.isError ? (
+      <ErrorNote message={describeError(tickets.error)} />
+    ) : (
+      <LoadingScreen />
+    );
+  }
 
-  const stations = [...new Map(tickets.data.map((t) => [t.stationId, t.stationName])).entries()];
-  const shown = tickets.data.filter((t) => !station || t.stationId === station);
+  const stations = stationList.data ?? [];
+  const shown = tickets.data.filter((t) => !station || !knownStation || t.stationId === station);
   const columns: { name: string; match: (t: KdsTicket) => boolean }[] = [
     { name: 'New', match: (t) => t.status === 'NEW' },
     { name: 'Preparing', match: (t) => t.status === 'PREPARING' },
@@ -161,11 +182,15 @@ function KitchenBoard() {
             }}
           >
             <option value="">All stations</option>
-            {stations.map(([id, name]) => (
-              <option key={id} value={id}>
-                {name}
+            {stations.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
               </option>
             ))}
+            {station && !stations.some((s) => s.id === station) && (
+              // Keeps the select honest while the station list loads.
+              <option value={station}>Saved station</option>
+            )}
           </select>
         </label>
       </div>
@@ -198,8 +223,10 @@ function KitchenBoard() {
 /** Kitchen screen. Signs in as a device (no staff PIN), so it keeps running all shift. */
 export function KdsPage() {
   const device = useCurrentDevice();
-  if (device.isPending) return <LoadingScreen />;
-  if (device.isError) return <p className="text-slate-700">Cannot reach the server. Retrying…</p>;
+  if (device.data === undefined) {
+    if (device.isError) return <p className="text-slate-700">Cannot reach the server. Retrying…</p>;
+    return <LoadingScreen />;
+  }
   if (!device.data) {
     return (
       <p className="mx-auto max-w-md rounded-lg border border-slate-200 bg-white p-6 text-slate-700">

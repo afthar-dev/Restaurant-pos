@@ -84,6 +84,13 @@ export class KotsController {
 
   @Public()
   @UseGuards(DeviceGuard)
+  @Get('kds/stations')
+  kitchenStations(@Req() req: RequestContext) {
+    return this.kots.kitchenStations(req.device!);
+  }
+
+  @Public()
+  @UseGuards(DeviceGuard)
   @Get('kds/kots')
   kitchenTickets(
     @Req() req: RequestContext,

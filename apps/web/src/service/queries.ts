@@ -35,6 +35,7 @@ export function useOrder(id: string | null) {
     queryKey: ['order', id],
     queryFn: () => apiFetch<Order>(`/api/orders/${id}`),
     enabled: Boolean(id),
+    refetchInterval: POLL_MS,
   });
 }
 

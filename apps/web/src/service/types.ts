@@ -63,6 +63,9 @@ export interface OrderLine {
   lineTotal: number;
 }
 
+/** Whether the KOT reached paper: NONE when no printer covers its station. */
+export type KotPrintState = 'NONE' | 'WAITING' | 'PRINTED' | 'FAILED';
+
 export interface OrderKot {
   id: string;
   kotNo: number;
@@ -71,6 +74,7 @@ export interface OrderKot {
   stationId: string;
   stationName: string;
   createdAt: string;
+  print: KotPrintState;
 }
 
 export interface Order {

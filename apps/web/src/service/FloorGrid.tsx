@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { apiFetch } from '../auth/api';
-import { describeError, ErrorNote, secondaryButton } from '../components/ui';
+import { describeError, ErrorNote, secondaryButton, Sheet } from '../components/ui';
 import { rupees } from '../pages/admin/menu-types';
 import { useFloorStatus } from './queries';
 import type { FloorTableStatus } from './types';
@@ -39,17 +39,15 @@ export function FloorGrid({
     },
   });
 
-  if (floor.isPending) return <p className="text-slate-500">Loading tables…</p>;
-  if (floor.isError) return <ErrorNote message={describeError(floor.error)} />;
+  if (!floor.data) {
+    if (floor.isError) return <ErrorNote message={describeError(floor.error)} />;
+    return <p className="text-slate-500">Loading tables…</p>;
+  }
 
   return (
     <div className="flex flex-col gap-4">
       {seating && (
-        <div
-          role="dialog"
-          aria-label={`Guests at ${seating.name}`}
-          className="flex flex-col gap-3 rounded-lg border border-emerald-300 bg-white p-4"
-        >
+        <Sheet label={`Guests at ${seating.name}`} onClose={() => setSeating(null)}>
           <p className="font-medium">How many guests at {seating.name}?</p>
           <div className="grid grid-cols-6 gap-2">
             {GUEST_CHOICES.map((n) => (
@@ -73,7 +71,7 @@ export function FloorGrid({
           >
             Cancel
           </button>
-        </div>
+        </Sheet>
       )}
       {floor.data.map((area) => (
         <section key={area.id} className="flex flex-col gap-2">

@@ -23,6 +23,7 @@ globalThis.Request = class extends NodeRequest {
 } as typeof Request;
 
 beforeEach(() => {
+  localStorage.clear();
   // Default: the server never answers. Tests that need a response stub fetch themselves.
   vi.stubGlobal(
     'fetch',

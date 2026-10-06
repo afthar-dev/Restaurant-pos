@@ -1,7 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useSession } from '../auth/store';
-import { callsTo, json, mockApi, sessionBody } from '../test/mock-api';
+import { callsTo, json, mockApi, sessionBody, type Handler } from '../test/mock-api';
 import { renderRoute, renderWithProviders } from '../test/render';
 import { renderKotTicket, type KotPrintPayload } from './kotTicket';
 import { PrintWorker } from './PrintWorker';
@@ -59,43 +59,71 @@ describe('renderKotTicket', () => {
 });
 
 describe('PrintWorker', () => {
-  function jobsApi(jobs: { id: string }[]) {
-    let pending = jobs.map((j) => ({ ...j, kind: 'KOT', payload, attempts: 0 }));
-    return mockApi({
-      'GET /api/print/jobs': () => json(pending),
-      'POST /api/print/jobs/j1/done': () => {
-        pending = [];
-        return json({ id: 'j1', status: 'PRINTED' }, 201);
-      },
-    });
+  const job = (id: string, kotNo = 7) => ({
+    id,
+    kind: 'KOT',
+    payload: { ...payload, kotNo },
+    attempts: 0,
+  });
+
+  /** A server that leases each pending job to one claim at a time, like the real one. */
+  function jobsApi(jobs: ReturnType<typeof job>[], doneStatus: () => number = () => 201) {
+    let pending = [...jobs];
+    const handlers: Record<string, Handler> = {
+      'POST /api/print/jobs/claim': () => json(pending, 201),
+    };
+    for (const j of jobs) {
+      handlers[`POST /api/print/jobs/${j.id}/done`] = () => {
+        const status = doneStatus();
+        if (status !== 201) return json({ code: 'SERVER_ERROR', message: 'Down' }, status);
+        pending = pending.filter((p) => p.id !== j.id);
+        return json({ id: j.id, status: 'PRINTED', attempts: 1 }, 201);
+      };
+    }
+    return mockApi(handlers);
   }
 
+  const doneBody = (mock: ReturnType<typeof mockApi>, id: string, index = 0) =>
+    JSON.parse(String(callsTo(mock, 'POST', `/api/print/jobs/${id}/done`)[index]?.[1]?.body));
+
   it('prints a waiting job once and reports it done', async () => {
-    const mock = jobsApi([{ id: 'j1' }]);
+    const mock = jobsApi([job('j1')]);
     const printHtml = vi.fn(async (_html: string) => undefined);
     renderWithProviders(<PrintWorker printHtml={printHtml} />);
     await expect.poll(() => callsTo(mock, 'POST', '/api/print/jobs/j1/done').length).toBe(1);
     expect(printHtml).toHaveBeenCalledTimes(1);
     expect(printHtml.mock.calls[0]?.[0]).toContain('KOT 7');
-    expect(
-      JSON.parse(String(callsTo(mock, 'POST', '/api/print/jobs/j1/done')[0]?.[1]?.body)),
-    ).toEqual({
-      ok: true,
-    });
+    expect(doneBody(mock, 'j1')).toEqual({ ok: true });
+  });
+
+  it('prints several jobs in order', async () => {
+    const mock = jobsApi([job('j1', 7), job('j2', 8)]);
+    const printHtml = vi.fn(async (_html: string) => undefined);
+    renderWithProviders(<PrintWorker printHtml={printHtml} />);
+    await expect.poll(() => callsTo(mock, 'POST', '/api/print/jobs/j2/done').length).toBe(1);
+    expect(printHtml).toHaveBeenCalledTimes(2);
+    expect(printHtml.mock.calls[0]?.[0]).toContain('KOT 7');
+    expect(printHtml.mock.calls[1]?.[0]).toContain('KOT 8');
   });
 
   it('reports a failed print so the server can retry or give up', async () => {
-    const mock = jobsApi([{ id: 'j1' }]);
+    const mock = jobsApi([job('j1')]);
     const printHtml = vi.fn(async (_html: string) => {
       throw new Error('printer offline');
     });
     renderWithProviders(<PrintWorker printHtml={printHtml} />);
     await expect.poll(() => callsTo(mock, 'POST', '/api/print/jobs/j1/done').length).toBe(1);
-    expect(
-      JSON.parse(String(callsTo(mock, 'POST', '/api/print/jobs/j1/done')[0]?.[1]?.body)),
-    ).toEqual({
-      ok: false,
-    });
+    expect(doneBody(mock, 'j1')).toEqual({ ok: false });
+  });
+
+  it('retries a lost report without printing the ticket again', async () => {
+    let failures = 1;
+    const mock = jobsApi([job('j1')], () => (failures-- > 0 ? 503 : 201));
+    const printHtml = vi.fn(async (_html: string) => undefined);
+    renderWithProviders(<PrintWorker printHtml={printHtml} />);
+    await expect.poll(() => callsTo(mock, 'POST', '/api/print/jobs/j1/done').length).toBe(2);
+    expect(printHtml).toHaveBeenCalledTimes(1);
+    expect(doneBody(mock, 'j1', 1)).toEqual({ ok: true });
   });
 });
 

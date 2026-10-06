@@ -302,6 +302,16 @@ export class KotsService {
     return view;
   }
 
+  /** Stations for the kitchen screen's filter, including ones with no tickets right now. */
+  async kitchenStations(device: AuthDevice) {
+    this.assertKitchenScreen(device);
+    return this.prisma.station.findMany({
+      where: { outletId: device.outletId, archivedAt: null },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    });
+  }
+
   async kitchenTickets(device: AuthDevice, stationId?: string) {
     this.assertKitchenScreen(device);
     const kots = await this.prisma.kot.findMany({
@@ -417,11 +427,19 @@ export class KotsService {
         'This ticket was just updated elsewhere.',
       );
     }
+    // Table or token travel with the notice so "ready" alerts can name the order on any screen.
+    const order = await this.prisma.order.findUnique({
+      where: { id: kot.orderId },
+      select: { tokenNo: true, table: { select: { name: true } } },
+    });
     this.events.emit('kot.updated', {
       outletId: kot.outletId,
       kotId: kot.id,
+      kotNo: kot.kotNo,
       orderId: kot.orderId,
       stationId: kot.stationId,
+      tableName: order?.table?.name ?? null,
+      tokenNo: order?.tokenNo ?? null,
       status,
     });
     return { id: kot.id, status };

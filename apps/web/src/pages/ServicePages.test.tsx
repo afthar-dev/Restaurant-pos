@@ -125,4 +125,19 @@ describe('Captain app', () => {
     });
     expect(await screen.findByText('T2: food is ready to serve')).toBeInTheDocument();
   });
+
+  it('names a parcel or a table it has not loaded from the notice itself', async () => {
+    asWaiter();
+    serviceApi();
+    renderRoute('/captain');
+    await screen.findByRole('button', { name: 'T2, 1 item, ₹30' });
+    act(() => {
+      for (const h of handlers.get('kot.updated') ?? []) {
+        h({ kotId: 'k8', orderId: 'o8', status: 'READY', tableName: null, tokenNo: 12 });
+        h({ kotId: 'k9', orderId: 'o9', status: 'READY', tableName: 'T9', tokenNo: null });
+      }
+    });
+    expect(await screen.findByText('Parcel #12: ready for pickup')).toBeInTheDocument();
+    expect(screen.getByText('T9: food is ready to serve')).toBeInTheDocument();
+  });
 });
