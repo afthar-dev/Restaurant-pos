@@ -1,10 +1,12 @@
 import type { Prisma } from '@prisma/client';
+import { pendingView } from '../qr/qr.views';
 import { lineTotal } from '@rpos/shared';
 
 export const ORDER_INCLUDE = {
   table: { select: { id: true, name: true } },
   waiter: { select: { id: true, name: true } },
   mergedFrom: { select: { table: { select: { id: true, name: true } } } },
+  qrSubmissions: { where: { status: 'PENDING' }, orderBy: { createdAt: 'asc' } },
   items: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
   kots: {
     orderBy: { createdAt: 'asc' },
@@ -117,6 +119,8 @@ export function orderView(order: OrderWithDetails) {
     })),
     kots: order.kots.map(({ printJobs, ...kot }) => ({ ...kot, print: kotPrintState(printJobs) })),
     mergedTables: order.mergedFrom.flatMap((m) => (m.table ? [m.table] : [])),
+    /** Dishes customers asked for from the table QR, waiting for staff. */
+    qrPending: order.qrSubmissions.map((s) => pendingView(s)),
     bills: order.bills.map((b) => ({
       id: b.id,
       billNo: b.billNo,

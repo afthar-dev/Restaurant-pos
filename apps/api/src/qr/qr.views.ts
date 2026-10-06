@@ -40,3 +40,27 @@ export function submissionView(s: QrSubmission) {
 }
 
 export type QrSubmissionView = ReturnType<typeof submissionView>;
+
+/** What staff see for a request waiting for approval (with ids, so they can edit it). */
+export function pendingView(s: QrSubmission & { table?: { name: string } }) {
+  return {
+    id: s.id,
+    orderId: s.orderId,
+    tableName: s.table?.name ?? null,
+    createdAt: s.createdAt,
+    lines: (s.lines as unknown as QrLine[]).map((l) => ({
+      variantId: l.variantId,
+      addonIds: l.addonIds,
+      quantity: l.quantity,
+      note: l.note ?? null,
+      itemName: l.itemName,
+      variantName: l.variantName,
+      addons: l.addons,
+      amount: l.unitPrice * l.quantity,
+    })),
+    note: s.note,
+    total: s.total,
+  };
+}
+
+export type QrPendingView = ReturnType<typeof pendingView>;

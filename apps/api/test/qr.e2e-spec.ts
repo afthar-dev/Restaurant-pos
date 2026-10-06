@@ -2,6 +2,7 @@ import type { Outlet } from '@prisma/client';
 import { billFor, pay } from './billing-helpers';
 import { buildRestaurant, type Restaurant } from './fixtures';
 import {
+  createDevice,
   createOutlet,
   createTestApp,
   resetDatabase,
@@ -238,6 +239,129 @@ describe('QR ordering', () => {
       await ctx.prisma.businessDay.updateMany({ data: { status: 'CLOSED' } });
       const res = await submit(token, { lines: [paneerWithCheese()] }).expect(409);
       expect(res.body.code).toBe('DAY_NOT_OPEN');
+    });
+  });
+
+  describe('staff decisions', () => {
+    async function pendingOn(code = r.t1.qrToken, lines = [paneerWithCheese()]) {
+      const token = await scan(code);
+      const res = await submit(token, { lines }).expect(201);
+      return { token, submission: res.body };
+    }
+    const approve = (id: string, body: object = {}, who = waiter) =>
+      ctx.http().post(`/api/qr/submissions/${id}/approve`).set(who.auth).send(body);
+    const reject = (id: string, body: object = {}, who = waiter) =>
+      ctx.http().post(`/api/qr/submissions/${id}/reject`).set(who.auth).send(body);
+    const status = async (token: string) =>
+      (await ctx.http().get('/api/qr/orders').set('x-qr-session', token).expect(200)).body[0];
+
+    it('lists waiting requests and shows them on the order', async () => {
+      const { submission } = await pendingOn();
+      const list = await ctx.http().get('/api/qr/pending').set(cashier.auth).expect(200);
+      expect(list.body).toEqual([
+        expect.objectContaining({ id: submission.id, tableName: 'T1', total: 42000 }),
+      ]);
+      expect(list.body[0].lines[0]).toMatchObject({
+        variantId: r.paneer.half.id,
+        addonIds: [r.extras.cheese.id],
+        itemName: 'Paneer Tikka',
+        quantity: 2,
+      });
+      const orderId = list.body[0].orderId;
+      const order = await ctx.http().get(`/api/orders/${orderId}`).set(waiter.auth).expect(200);
+      expect(order.body.status).toBe('PENDING_APPROVAL');
+      expect(order.body.qrPending.map((p: { id: string }) => p.id)).toEqual([submission.id]);
+    });
+
+    it('approves: the dishes go on the order and to the kitchen, and the customer is told', async () => {
+      const kds = await createDevice(ctx.prisma, outlet.id, owner.user.id, 'KDS', 'Kitchen');
+      const { token, submission } = await pendingOn();
+      const res = await approve(submission.id).expect(201);
+      expect(res.body.status).toBe('OPEN');
+      expect(res.body.waiter).toMatchObject({ id: waiter.user.id });
+      expect(res.body.items).toEqual([
+        expect.objectContaining({ itemName: 'Paneer Tikka', quantity: 2, status: 'SENT' }),
+      ]);
+      expect(res.body.qrPending).toEqual([]);
+      const tickets = await ctx
+        .http()
+        .get('/api/kds/kots')
+        .set('Cookie', `rpos_dt=${kds.cookie}`)
+        .expect(200);
+      expect(tickets.body).toHaveLength(1);
+      expect(await status(token)).toMatchObject({
+        status: 'APPROVED',
+        message: 'Accepted — sent to the kitchen',
+      });
+      const twice = await approve(submission.id).expect(409);
+      expect(twice.body.code).toBe('QR_ALREADY_DECIDED');
+      expect(await ctx.prisma.kot.count()).toBe(1);
+    });
+
+    it('approves what the staff edited', async () => {
+      const { submission } = await pendingOn();
+      const res = await approve(submission.id, {
+        lines: [{ variantId: r.paneer.half.id, quantity: 1, addonIds: [] }],
+      }).expect(201);
+      expect(res.body.items).toEqual([
+        expect.objectContaining({ itemName: 'Paneer Tikka', quantity: 1, addons: [] }),
+      ]);
+    });
+
+    it('keeps the request waiting when a dish ran out before approval', async () => {
+      const { submission } = await pendingOn();
+      await ctx.prisma.item.update({
+        where: { id: r.paneer.item.id },
+        data: { isAvailable: false },
+      });
+      const res = await approve(submission.id).expect(409);
+      expect(res.body.code).toBe('ITEM_UNAVAILABLE');
+      const stored = await ctx.prisma.qrSubmission.findUniqueOrThrow({
+        where: { id: submission.id },
+      });
+      expect(stored.status).toBe('PENDING');
+      const order = await ctx.prisma.order.findUniqueOrThrow({ where: { id: stored.orderId } });
+      expect(order.status).toBe('PENDING_APPROVAL');
+      expect(await ctx.prisma.orderItem.count()).toBe(0);
+    });
+
+    it('rejects: an empty pending table is freed and the customer is told', async () => {
+      const { token, submission } = await pendingOn();
+      await reject(submission.id, { reason: 'Kitchen closing' }).expect(201);
+      expect(await status(token)).toMatchObject({
+        status: 'REJECTED',
+        message: 'Not accepted — please call the waiter',
+      });
+      const order = await ctx.prisma.order.findFirstOrThrow({ where: { tableId: r.t1.id } });
+      expect(order).toMatchObject({ status: 'CANCELLED', cancelReason: 'QR order not accepted' });
+      await ctx
+        .http()
+        .post('/api/orders')
+        .set(waiter.auth)
+        .send({ type: 'DINE_IN', tableId: r.t1.id, guests: 2 })
+        .expect(201);
+    });
+
+    it('rejects one request on a seated table without touching the order', async () => {
+      const created = await ctx
+        .http()
+        .post('/api/orders')
+        .set(waiter.auth)
+        .send({ type: 'DINE_IN', tableId: r.t1.id, guests: 2 })
+        .expect(201);
+      const { submission } = await pendingOn();
+      await reject(submission.id).expect(201);
+      const order = await ctx.prisma.order.findUniqueOrThrow({ where: { id: created.body.id } });
+      expect(order.status).toBe('OPEN');
+    });
+
+    it('keeps other outlets out', async () => {
+      const { submission } = await pendingOn();
+      const elsewhere = await createOutlet(ctx.prisma);
+      const stranger = await signIn(ctx, elsewhere.id, 'OWNER');
+      await approve(submission.id, {}, stranger).expect(404);
+      const list = await ctx.http().get('/api/qr/pending').set(stranger.auth).expect(200);
+      expect(list.body).toEqual([]);
     });
   });
 });

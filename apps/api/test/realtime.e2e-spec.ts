@@ -135,6 +135,24 @@ describe('realtime', () => {
     expect(await kotCreated).toMatchObject({ orderId, stationId: r.kitchen.id });
   });
 
+  it('alerts staff screens when a customer orders from a table QR', async () => {
+    const socket = userSocket(waiter.token);
+    await connected(socket);
+    const alert = nextEvent<{ tableName: string; orderId: string }>(socket, 'qr.submitted');
+    const session = await ctx
+      .http()
+      .post('/api/qr/sessions')
+      .send({ code: r.t1.qrToken })
+      .expect(201);
+    await ctx
+      .http()
+      .post('/api/qr/orders')
+      .set('x-qr-session', session.body.token)
+      .send({ lines: [{ variantId: r.roti.regular.id, quantity: 1, addonIds: [] }] })
+      .expect(201);
+    expect(await alert).toMatchObject({ tableName: 'T1', orderId: expect.any(String) });
+  });
+
   it('sends print jobs only to the device that prints them', async () => {
     const counter = await createDevice(ctx.prisma, outlet.id, owner.user.id, 'POS', 'Counter');
     const other = await createDevice(ctx.prisma, outlet.id, owner.user.id, 'POS', 'Other');

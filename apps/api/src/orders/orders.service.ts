@@ -174,15 +174,23 @@ export class OrdersService {
   ) {
     return this.mutate(actor, orderId, ifMatch, async ({ tx, order }) => {
       if (order.status !== 'OPEN') throw orderNotOpen();
-      const variants = await this.loadVariants(tx, actor.outletId, request.items);
-      // One millisecond apart so lines keep the order they were added in.
-      const base = Date.now();
-      await tx.orderItem.createMany({
-        data: request.items.map((line, index) => ({
-          ...this.snapshot(order, line, variants.get(line.variantId)!, actor.id),
-          createdAt: new Date(base + index),
-        })),
-      });
+      await this.addLines(tx, order, request.items, actor.id);
+    });
+  }
+
+  /**
+   * Adds dishes to an order inside the caller's transaction, priced and snapshotted now (staff
+   * ordering and approved QR requests share this path). Unavailable dishes throw.
+   */
+  async addLines(tx: Tx, order: Order, lines: OrderLineRequest[], actorId: string) {
+    const variants = await this.loadVariants(tx, order.outletId, lines);
+    // One millisecond apart so lines keep the order they were added in.
+    const base = Date.now();
+    await tx.orderItem.createMany({
+      data: lines.map((line, index) => ({
+        ...this.snapshot(order, line, variants.get(line.variantId)!, actorId),
+        createdAt: new Date(base + index),
+      })),
     });
   }
 
