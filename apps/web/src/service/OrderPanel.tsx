@@ -15,6 +15,7 @@ import { ApproverFields, isPin, requestOverride } from '../components/ManagerApp
 import { rupees } from '../pages/admin/menu-types';
 import { useRefreshOrder } from './mutations';
 import { useOrder } from './queries';
+import { TableActions } from './TableActions';
 import { orderLabel, type KotPrintState, type Order, type OrderKot, type OrderLine } from './types';
 
 function lineDetail(line: OrderLine): string {
@@ -224,6 +225,39 @@ function KotPrint({ kot, orderId }: { kot: OrderKot; orderId: string }) {
   );
 }
 
+/** The waiter has taken the ready dishes to the table (spec §5.1 step 5). */
+function ServedButton({
+  kotId,
+  kotNo,
+  orderId,
+}: {
+  kotId: string;
+  kotNo: number;
+  orderId: string;
+}) {
+  const refresh = useRefreshOrder();
+  const served = useMutation({
+    mutationFn: () => apiFetch(`/api/kots/${kotId}/served`, { method: 'POST' }),
+    onSettled: () => refresh(orderId),
+  });
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={`Served KOT ${kotNo}`}
+        className="min-h-9 rounded-md bg-emerald-700 px-3 text-xs font-semibold text-white disabled:opacity-60"
+        disabled={served.isPending}
+        onClick={() => served.mutate()}
+      >
+        Served
+      </button>
+      {served.isError && (
+        <span className="text-xs text-red-700">{describeError(served.error)}</span>
+      )}
+    </>
+  );
+}
+
 function CancelOrder({ order, onClosed }: { order: Order; onClosed?: () => void }) {
   const refresh = useRefreshOrder();
   const [open, setOpen] = useState(false);
@@ -333,12 +367,15 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
   return (
     <section className="flex flex-col gap-3">
       <header className="flex items-baseline justify-between gap-2">
-        <h2 className="text-xl font-semibold">{orderLabel(o)}</h2>
+        <h2 className="text-xl font-semibold">
+          {[orderLabel(o), ...o.mergedTables.map((t) => t.name)].join(' + ')}
+        </h2>
         <span className="text-sm text-slate-600">
           {o.guests ? `${o.guests} guests · ` : ''}
           {o.waiter?.name}
         </span>
       </header>
+      <TableActions order={o} />
 
       {kots.map((kot) => {
         const lines = sentLines.filter((l) => l.kotId === kot.id);
@@ -349,7 +386,12 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 KOT {kot.kotNo} · {kot.stationName} · {kot.status.toLowerCase()}
               </p>
-              <KotPrint kot={kot} orderId={o.id} />
+              <span className="flex items-center gap-2">
+                {kot.status === 'READY' && (
+                  <ServedButton kotId={kot.id} kotNo={kot.kotNo} orderId={o.id} />
+                )}
+                <KotPrint kot={kot} orderId={o.id} />
+              </span>
             </div>
             <ul className="divide-y divide-slate-100">
               {lines.map((line) => (

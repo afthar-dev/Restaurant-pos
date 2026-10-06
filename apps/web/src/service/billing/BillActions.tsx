@@ -1,38 +1,51 @@
 import { useState } from 'react';
 import { useCan } from '../../auth/store';
-import { primaryButton } from '../../components/ui';
+import { primaryButton, secondaryButton } from '../../components/ui';
 import { useRefreshOrder } from '../mutations';
 import type { Bill } from '../types';
 import { PaymentSheet } from './PaymentSheet';
+import { VoidSheet } from './VoidSheet';
 
-/** Payment (and, from Task 5, void) buttons for one bill. */
+/** Take payment on an unpaid bill; void an unpaid or paid one. */
 export function BillActions({ bill, onPaid }: { bill: Bill; onPaid: (bill: Bill) => void }) {
   const canPay = useCan('payment.take');
+  const canVoid = useCan('bill.void');
+  const canBill = useCan('bill.print');
   const refresh = useRefreshOrder();
-  const [paying, setPaying] = useState(false);
-  if (bill.status !== 'OPEN') return null;
+  const [sheet, setSheet] = useState<'pay' | 'void' | null>(null);
+  if (bill.status === 'VOID') return null;
   return (
     <>
-      {canPay && (
+      {bill.status === 'OPEN' && canPay && (
         <button
           type="button"
           className={`${primaryButton} min-h-11`}
-          onClick={() => setPaying(true)}
+          onClick={() => setSheet('pay')}
         >
           Take payment
         </button>
       )}
-      {paying && (
+      {(canVoid || canBill) && (
+        <button
+          type="button"
+          className={`${secondaryButton} min-h-11`}
+          onClick={() => setSheet('void')}
+        >
+          {canVoid ? 'Void' : 'Void (manager)'}
+        </button>
+      )}
+      {sheet === 'pay' && (
         <PaymentSheet
           bill={bill}
-          onClose={() => setPaying(false)}
+          onClose={() => setSheet(null)}
           onPaid={(updated) => {
-            if (updated.status === 'PAID') setPaying(false);
+            if (updated.status === 'PAID') setSheet(null);
             void refresh(bill.orderId);
             onPaid(updated);
           }}
         />
       )}
+      {sheet === 'void' && <VoidSheet bill={bill} onDone={() => setSheet(null)} />}
     </>
   );
 }
