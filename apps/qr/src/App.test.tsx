@@ -14,8 +14,9 @@ describe('QR App', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Scan to order' })).toBeInTheDocument();
   });
 
-  it('shows the table menu screen when a token is present', () => {
+  it('opens the table menu when a token is present', () => {
     render(<App search="?t=abc123" />);
-    expect(screen.getByRole('heading', { level: 1, name: 'Table menu' })).toBeInTheDocument();
+    expect(screen.getByText('Opening the menu…')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Scan to order' })).toBeNull();
   });
 });
