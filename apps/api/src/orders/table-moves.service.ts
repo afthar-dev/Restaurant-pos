@@ -3,6 +3,7 @@ import type { Order } from '@prisma/client';
 import { ApiError } from '../common/api-error';
 import { invalidReference } from '../common/master-data';
 import type { AuthUser } from '../common/request-context';
+import { endQrSessions } from '../qr/end-sessions';
 import { OrdersService, orderNotOpen, tableHolder } from './orders.service';
 import type { OrderView } from './orders.views';
 
@@ -44,6 +45,12 @@ export class TableMovesService {
       }
       from = order;
       await tx.order.update({ where: { id: orderId }, data: { tableId } });
+      await endQrSessions(tx, order.tableId);
+      // Waiting QR requests follow the party to its new table.
+      await tx.qrSubmission.updateMany({
+        where: { orderId, status: 'PENDING' },
+        data: { tableId },
+      });
     });
     // The old table frees up: tell screens watching it too.
     if (from) this.orders.changed(from);
@@ -83,6 +90,11 @@ export class TableMovesService {
         data: { orderId: intoOrderId },
       });
       await tx.kot.updateMany({ where: { orderId: fromOrderId }, data: { orderId: intoOrderId } });
+      // Waiting QR requests from the merged table are decided on the kept order.
+      await tx.qrSubmission.updateMany({
+        where: { orderId: fromOrderId, status: 'PENDING' },
+        data: { orderId: intoOrderId },
+      });
       // Tables already merged into the emptied order now belong to the kept one.
       await tx.order.updateMany({
         where: { mergedIntoId: fromOrderId },

@@ -67,20 +67,22 @@ model Outlet {
   createdAt               DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt               DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  users        User[]
-  devices      Device[]
-  auditEntries AuditEntry[]
-  taxRates     TaxRate[]
-  stations     Station[]
-  printers     Printer[]
-  areas        Area[]
-  tables       DiningTable[]
-  categories   Category[]
-  items        Item[]
-  addonGroups  AddonGroup[]
-  businessDays BusinessDay[]
-  orders       Order[]
-  bills        Bill[]
+  users         User[]
+  devices       Device[]
+  auditEntries  AuditEntry[]
+  taxRates      TaxRate[]
+  stations      Station[]
+  printers      Printer[]
+  areas         Area[]
+  tables        DiningTable[]
+  categories    Category[]
+  items         Item[]
+  addonGroups   AddonGroup[]
+  businessDays  BusinessDay[]
+  orders        Order[]
+  bills         Bill[]
+  qrSessions    QrSession[]
+  qrSubmissions QrSubmission[]
 
   @@map("outlets")
 }
@@ -112,6 +114,7 @@ model User {
   billsCreated     Bill[]            @relation("BillCreatedBy")
   paymentsReceived Payment[]         @relation("PaymentReceivedBy")
   daysClosed       BusinessDay[]     @relation("DayClosedBy")
+  qrDecisions      QrSubmission[]    @relation("QrDecidedBy")
 
   @@index([outletId])
   @@map("users")
@@ -290,9 +293,11 @@ model DiningTable {
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  outlet Outlet  @relation(fields: [outletId], references: [id])
-  area   Area    @relation(fields: [areaId], references: [id])
-  orders Order[]
+  outlet        Outlet         @relation(fields: [outletId], references: [id])
+  area          Area           @relation(fields: [areaId], references: [id])
+  orders        Order[]
+  qrSessions    QrSession[]
+  qrSubmissions QrSubmission[]
 
   @@index([outletId])
   @@index([areaId])
@@ -536,7 +541,7 @@ model Order {
   guests        Int?
   customerName  String?     @map("customer_name")
   waiterId      String?     @map("waiter_id") @db.Uuid
-  createdById   String      @map("created_by_id") @db.Uuid
+  createdById   String?     @map("created_by_id") @db.Uuid
   version       Int         @default(0)
   cancelReason  String?     @map("cancel_reason")
   cancelledById String?     @map("cancelled_by_id") @db.Uuid
@@ -546,16 +551,17 @@ model Order {
   createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  outlet      Outlet       @relation(fields: [outletId], references: [id])
-  businessDay BusinessDay  @relation(fields: [businessDayId], references: [id])
-  table       DiningTable? @relation(fields: [tableId], references: [id])
-  waiter      User?        @relation("OrderWaiter", fields: [waiterId], references: [id])
-  createdBy   User         @relation("OrderCreatedBy", fields: [createdById], references: [id])
-  items       OrderItem[]
-  kots        Kot[]
-  bills       Bill[]
-  mergedInto  Order?       @relation("OrderMerge", fields: [mergedIntoId], references: [id])
-  mergedFrom  Order[]      @relation("OrderMerge")
+  outlet        Outlet         @relation(fields: [outletId], references: [id])
+  businessDay   BusinessDay    @relation(fields: [businessDayId], references: [id])
+  table         DiningTable?   @relation(fields: [tableId], references: [id])
+  waiter        User?          @relation("OrderWaiter", fields: [waiterId], references: [id])
+  createdBy     User?          @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  items         OrderItem[]
+  kots          Kot[]
+  bills         Bill[]
+  qrSubmissions QrSubmission[]
+  mergedInto    Order?         @relation("OrderMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom    Order[]        @relation("OrderMerge")
 
   @@index([outletId, status])
   @@index([tableId, status])
@@ -811,4 +817,60 @@ model Payment {
   @@index([billId])
   @@index([businessDayId, mode])
   @@map("payments")
+}
+
+enum QrSubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// A phone that scanned a table's QR sticker. Ends when the table is vacated or after 8 hours.
+model QrSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  outletId  String    @map("outlet_id") @db.Uuid
+  tableId   String    @map("table_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  endedAt   DateTime? @map("ended_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet      Outlet         @relation(fields: [outletId], references: [id])
+  table       DiningTable    @relation(fields: [tableId], references: [id])
+  submissions QrSubmission[]
+
+  @@index([tableId, endedAt])
+  @@map("qr_sessions")
+}
+
+/// Dishes a customer asked for from their phone, waiting for staff to approve or reject.
+model QrSubmission {
+  id           String             @id @default(uuid()) @db.Uuid
+  outletId     String             @map("outlet_id") @db.Uuid
+  tableId      String             @map("table_id") @db.Uuid
+  orderId      String             @map("order_id") @db.Uuid
+  sessionId    String             @map("session_id") @db.Uuid
+  status       QrSubmissionStatus @default(PENDING)
+  /// [{variantId, quantity, addonIds, note, itemName, variantName, addons: [name], unitPrice}]
+  lines        Json
+  note         String?
+  /// Preview in paise: dine-in prices with add-ons, before tax.
+  total        Int
+  decidedById  String?            @map("decided_by_id") @db.Uuid
+  decidedAt    DateTime?          @map("decided_at") @db.Timestamptz(3)
+  rejectReason String?            @map("reject_reason")
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet    Outlet      @relation(fields: [outletId], references: [id])
+  table     DiningTable @relation(fields: [tableId], references: [id])
+  order     Order       @relation(fields: [orderId], references: [id])
+  session   QrSession   @relation(fields: [sessionId], references: [id])
+  decidedBy User?       @relation("QrDecidedBy", fields: [decidedById], references: [id])
+
+  @@index([orderId, status])
+  @@index([outletId, status])
+  @@index([sessionId, createdAt])
+  @@map("qr_submissions")
 }

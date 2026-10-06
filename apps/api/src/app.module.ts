@@ -20,6 +20,7 @@ import { OutletModule } from './outlet/outlet.module';
 import { PrintModule } from './print/print.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { QrModule } from './qr/qr.module';
 import { TaxModule } from './tax/tax.module';
 import { UsersModule } from './users/users.module';
 
@@ -44,6 +45,7 @@ import { UsersModule } from './users/users.module';
     OrdersModule,
     KotsModule,
     BillingModule,
+    QrModule,
     PrintModule,
     RealtimeModule,
     HealthModule,

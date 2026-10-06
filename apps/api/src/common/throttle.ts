@@ -17,3 +17,12 @@ export const ThrottleAuth = () =>
   Throttle({ default: { limit: limitFromEnv('AUTH_THROTTLE_LIMIT', 10), ttl: ONE_MINUTE_MS } });
 
 export const THROTTLE_WINDOW_MS = ONE_MINUTE_MS;
+
+/**
+ * Scanning a table QR, per client IP. Diners at a busy restaurant share its Wi-Fi IP, and the
+ * sticker code is 32 random bytes, so this is far looser than the staff sign-in limit.
+ */
+export const ThrottleQrSession = () =>
+  Throttle({
+    default: { limit: limitFromEnv('QR_SESSION_THROTTLE_LIMIT', 120), ttl: ONE_MINUTE_MS },
+  });

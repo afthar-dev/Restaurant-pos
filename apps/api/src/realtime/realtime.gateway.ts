@@ -99,6 +99,11 @@ export class RealtimeGateway implements OnGatewayConnection {
     this.toOutlet('order.updated', event);
   }
 
+  @OnEvent('qr.submitted')
+  qrSubmitted(event: OutletEvent) {
+    this.toOutlet('qr.submitted', event);
+  }
+
   @OnEvent('bill.updated')
   billUpdated(event: OutletEvent) {
     this.toOutlet('bill.updated', event);

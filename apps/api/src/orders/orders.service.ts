@@ -9,6 +9,7 @@ import type {
 } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
 import { markBilledIfComplete } from '../billing/settle';
+import { qrOrderEnded } from '../qr/end-sessions';
 import { BusinessDayService } from '../business-day/business-day.service';
 import { CountersService } from '../business-day/counters.service';
 import { ApiError } from '../common/api-error';
@@ -21,33 +22,8 @@ import { ORDER_INCLUDE, orderSubtotal, orderView, type OrderView } from './order
 
 type Tx = Prisma.TransactionClient;
 
-/** Orders that hold a table. */
-export const ACTIVE_STATUSES = ['PENDING_APPROVAL', 'OPEN', 'BILLED'] as const;
-
-/**
- * The order holding a table right now, ignoring `exceptOrderId`: its own active order, or the
- * active order it was merged into (a merged table stays taken until that bill is paid).
- */
-export async function tableHolder(
-  tx: Tx,
-  tableId: string,
-  exceptOrderId?: string,
-): Promise<{ id: string } | null> {
-  const except = exceptOrderId ? { id: { not: exceptOrderId } } : {};
-  const own = await tx.order.findFirst({
-    where: { tableId, status: { in: [...ACTIVE_STATUSES] }, ...except },
-    select: { id: true },
-  });
-  if (own) return own;
-  const merged = await tx.order.findFirst({
-    where: {
-      tableId,
-      mergedInto: { status: { in: [...ACTIVE_STATUSES] }, ...except },
-    },
-    select: { mergedIntoId: true },
-  });
-  return merged?.mergedIntoId ? { id: merged.mergedIntoId } : null;
-}
+export { ACTIVE_STATUSES, tableHolder } from './table-holder';
+import { ACTIVE_STATUSES, tableHolder } from './table-holder';
 
 export const orderChanged = () =>
   new ApiError(
@@ -80,7 +56,7 @@ const VARIANT_INCLUDE = {
   },
 } satisfies Prisma.ItemVariantInclude;
 
-type VariantForOrder = Prisma.ItemVariantGetPayload<{ include: typeof VARIANT_INCLUDE }>;
+export type VariantForOrder = Prisma.ItemVariantGetPayload<{ include: typeof VARIANT_INCLUDE }>;
 
 export interface MutationContext {
   tx: Tx;
@@ -198,15 +174,23 @@ export class OrdersService {
   ) {
     return this.mutate(actor, orderId, ifMatch, async ({ tx, order }) => {
       if (order.status !== 'OPEN') throw orderNotOpen();
-      const variants = await this.loadVariants(tx, actor.outletId, request.items);
-      // One millisecond apart so lines keep the order they were added in.
-      const base = Date.now();
-      await tx.orderItem.createMany({
-        data: request.items.map((line, index) => ({
-          ...this.snapshot(order, line, variants.get(line.variantId)!, actor.id),
-          createdAt: new Date(base + index),
-        })),
-      });
+      await this.addLines(tx, order, request.items, actor.id);
+    });
+  }
+
+  /**
+   * Adds dishes to an order inside the caller's transaction, priced and snapshotted now (staff
+   * ordering and approved QR requests share this path). Unavailable dishes throw.
+   */
+  async addLines(tx: Tx, order: Order, lines: OrderLineRequest[], actorId: string) {
+    const variants = await this.loadVariants(tx, order.outletId, lines);
+    // One millisecond apart so lines keep the order they were added in.
+    const base = Date.now();
+    await tx.orderItem.createMany({
+      data: lines.map((line, index) => ({
+        ...this.snapshot(order, line, variants.get(line.variantId)!, actorId),
+        createdAt: new Date(base + index),
+      })),
     });
   }
 
@@ -267,6 +251,7 @@ export class OrdersService {
           closedAt: new Date(),
         },
       });
+      await qrOrderEnded(tx, order);
       await this.audit.record(
         {
           outletId: actor.outletId,
@@ -337,7 +322,8 @@ export class OrdersService {
     return item;
   }
 
-  private async loadVariants(tx: Tx, outletId: string, lines: OrderLineRequest[]) {
+  /** Checks each line can be ordered now (variant, availability, add-on rules). */
+  async loadVariants(tx: Tx, outletId: string, lines: OrderLineRequest[]) {
     const ids = [...new Set(lines.map((l) => l.variantId))];
     const variants = await tx.itemVariant.findMany({
       where: { id: { in: ids }, item: { outletId } },
