@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../auth/api';
 import { menuKey, type Menu } from '../pages/admin/menu-types';
-import type { ActiveOrder, BusinessDay, FloorAreaStatus, Order } from './types';
+import type { ActiveOrder, Bill, BusinessDay, FloorAreaStatus, Order } from './types';
 
 /** Screens also poll, so they recover even if realtime notices are lost. */
 export const POLL_MS = 15_000;
@@ -41,4 +41,12 @@ export function useOrder(id: string | null) {
 
 export function useMenu() {
   return useQuery({ queryKey: menuKey, queryFn: () => apiFetch<Menu>('/api/menu') });
+}
+
+export function useOrderBills(orderId: string) {
+  return useQuery({
+    queryKey: ['bills', orderId],
+    queryFn: () => apiFetch<Bill[]>(`/api/orders/${orderId}/bills`),
+    refetchInterval: POLL_MS,
+  });
 }

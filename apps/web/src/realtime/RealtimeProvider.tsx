@@ -27,7 +27,20 @@ const RealtimeContext = createContext<RealtimeContextValue>({
 
 /** What each server notice makes stale. Payloads carry ids only; data is refetched. */
 const INVALIDATIONS: Record<string, (payload: Record<string, unknown>) => QueryKey[]> = {
-  'order.updated': (p) => [['order', p.orderId], ['floor'], ['orders', 'active']],
+  'order.updated': (p) => [
+    ['order', p.orderId],
+    ['bills', p.orderId],
+    ['floor'],
+    ['orders', 'active'],
+    // A moved order shows its new table on the kitchen screen.
+    ['kds'],
+  ],
+  'bill.updated': (p) => [
+    ['bills', p.orderId],
+    ['order', p.orderId],
+    ['orders', 'active'],
+    ['floor'],
+  ],
   'kot.created': (p) => [['kds'], ['order', p.orderId]],
   'kot.updated': (p) => [['kds'], ['order', p.orderId]],
   'menu.availability': () => [['menu']],

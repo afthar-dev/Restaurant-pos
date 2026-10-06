@@ -6,6 +6,7 @@ export async function refreshOrder(client: QueryClient, orderId: string) {
     client.invalidateQueries({ queryKey: ['order', orderId] }),
     client.invalidateQueries({ queryKey: ['floor'] }),
     client.invalidateQueries({ queryKey: ['orders', 'active'] }),
+    client.invalidateQueries({ queryKey: ['bills', orderId] }),
   ]);
 }
 

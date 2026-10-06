@@ -11,6 +11,7 @@ import {
   primaryButton,
   secondaryButton,
 } from '../components/ui';
+import { ApproverFields, isPin, requestOverride } from '../components/ManagerApproval';
 import { rupees } from '../pages/admin/menu-types';
 import { useRefreshOrder } from './mutations';
 import { useOrder } from './queries';
@@ -35,11 +36,6 @@ function CancelLineDialog({
 }) {
   const refresh = useRefreshOrder();
   const canCancel = useCan('item.cancelAfterKot');
-  const approvers = useQuery({
-    queryKey: ['approvers'],
-    queryFn: () => apiFetch<{ id: string; name: string }[]>('/api/auth/approvers'),
-    enabled: !canCancel,
-  });
   const [reason, setReason] = useState('');
   const [quantity, setQuantity] = useState(String(line.quantity));
   const [approverId, setApproverId] = useState('');
@@ -50,11 +46,7 @@ function CancelLineDialog({
     mutationFn: async () => {
       const headers: Record<string, string> = {};
       if (!canCancel) {
-        const { overrideToken } = await apiFetch<{ overrideToken: string }>('/api/auth/override', {
-          method: 'POST',
-          body: { userId: approverId, pin, permission: 'item.cancelAfterKot' },
-        });
-        headers['x-override-token'] = overrideToken;
+        headers['x-override-token'] = await requestOverride(approverId, pin, 'item.cancelAfterKot');
       }
       return apiFetch(`/api/orders/${order.id}/items/${line.id}/cancel`, {
         method: 'POST',
@@ -75,7 +67,7 @@ function CancelLineDialog({
     if (!Number.isInteger(qty) || qty < 1 || qty > line.quantity) {
       return setError(`Cancel between 1 and ${line.quantity}.`);
     }
-    if (!canCancel && (!approverId || !/^\d{4,6}$/.test(pin))) {
+    if (!canCancel && (!approverId || !isPin(pin))) {
       return setError('A manager must pick their name and enter their PIN.');
     }
     setError(null);
@@ -116,34 +108,13 @@ function CancelLineDialog({
         </Field>
       )}
       {!canCancel && (
-        <div className="flex flex-wrap gap-3">
-          <Field id={`cancel-approver-${line.id}`} label="Manager">
-            <select
-              id={`cancel-approver-${line.id}`}
-              className={inputClass}
-              value={approverId}
-              onChange={(e) => setApproverId(e.target.value)}
-            >
-              <option value="">Choose…</option>
-              {approvers.data?.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field id={`cancel-pin-${line.id}`} label="Manager PIN">
-            <input
-              id={`cancel-pin-${line.id}`}
-              type="password"
-              inputMode="numeric"
-              autoComplete="off"
-              className={`${inputClass} w-28`}
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-            />
-          </Field>
-        </div>
+        <ApproverFields
+          idPrefix={`cancel-${line.id}`}
+          approverId={approverId}
+          pin={pin}
+          onApprover={setApproverId}
+          onPin={setPin}
+        />
       )}
       <ErrorNote message={error ?? (cancel.isError ? describeError(cancel.error) : null)} />
       <div className="flex gap-2">

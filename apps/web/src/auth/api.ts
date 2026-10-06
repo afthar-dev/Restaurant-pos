@@ -71,6 +71,16 @@ export function refreshSession(): Promise<RefreshOutcome> {
 const offline = () =>
   new ApiError(503, 'OFFLINE', 'Cannot reach the server. Check the internet connection.');
 
+/** The `code` of an error response, read from a copy so the body stays readable. */
+async function errorCode(res: Response): Promise<string | null> {
+  try {
+    const body = (await res.clone().json()) as { code?: unknown };
+    return typeof body.code === 'string' ? body.code : null;
+  } catch {
+    return null;
+  }
+}
+
 async function toApiError(res: Response): Promise<ApiError> {
   let body: Record<string, unknown> = {};
   try {
@@ -103,7 +113,9 @@ export async function apiFetch<T>(path: string, request: ApiRequest = {}): Promi
   } catch {
     throw offline();
   }
-  if (res.status === 401 && !request.skipRefresh) {
+  // Only an expired or missing access token is worth a refresh. Other 401s (a wrong manager
+  // PIN on an approval) must not be retried: a retry would count the wrong PIN twice.
+  if (res.status === 401 && !request.skipRefresh && (await errorCode(res)) === 'UNAUTHENTICATED') {
     const outcome = await refreshSession();
     if (outcome === 'unavailable') throw offline();
     if (outcome === 'ok') res = await send();

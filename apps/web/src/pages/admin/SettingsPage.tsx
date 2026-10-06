@@ -1,5 +1,7 @@
 import {
   outletSettingsSchema,
+  paiseToRupeesInput,
+  parseRupees,
   PARCEL_PAYMENT_TIMINGS,
   TAX_SCHEMES,
   type ParcelPaymentTiming,
@@ -31,6 +33,7 @@ export interface OutletSettings {
   cashierDiscountCapBp: number;
   waiterCanCollectPayment: boolean;
   parcelPaymentTiming: ParcelPaymentTiming;
+  billPackagingCharge: number;
 }
 
 const TAX_LABEL: Record<TaxScheme, string> = {
@@ -52,6 +55,7 @@ interface Draft {
   capPercent: string;
   waiterCanCollectPayment: boolean;
   parcelPaymentTiming: ParcelPaymentTiming;
+  bagRupees: string;
 }
 
 function toDraft(s: OutletSettings): Draft {
@@ -69,6 +73,7 @@ function toDraft(s: OutletSettings): Draft {
     capPercent: String(s.cashierDiscountCapBp / 100),
     waiterCanCollectPayment: s.waiterCanCollectPayment,
     parcelPaymentTiming: s.parcelPaymentTiming,
+    bagRupees: paiseToRupeesInput(s.billPackagingCharge ?? 0),
   };
 }
 
@@ -90,10 +95,17 @@ function changes(saved: OutletSettings, draft: Draft): Record<string, unknown> {
   if (draft.parcelPaymentTiming !== saved.parcelPaymentTiming) {
     out.parcelPaymentTiming = draft.parcelPaymentTiming;
   }
+  const bag = parseRupees(draft.bagRupees.trim() || '0');
+  // An unreadable amount is sent as -1 so the schema check reports it on the field.
+  const bagPaise = bag ?? -1;
+  if (bagPaise !== (saved.billPackagingCharge ?? 0)) out.billPackagingCharge = bagPaise;
   return out;
 }
 
-const ERROR_FIELD: Record<string, string> = { cashierDiscountCapBp: 'capPercent' };
+const ERROR_FIELD: Record<string, string> = {
+  cashierDiscountCapBp: 'capPercent',
+  billPackagingCharge: 'bagRupees',
+};
 
 function SettingsForm({ saved }: { saved: OutletSettings }) {
   const queryClient = useQueryClient();
@@ -193,6 +205,21 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
             value={draft.capPercent}
             onChange={(e) => setDraft((d) => ({ ...d, capPercent: e.target.value }))}
           />
+        </Field>
+        <Field
+          id="setting-bag"
+          label="Parcel bag charge (₹)"
+          error={errors.bagRupees}
+          hint="Added once to each parcel bill."
+        >
+          {' '}
+          <input
+            id="setting-bag"
+            inputMode="decimal"
+            className={inputClass}
+            value={draft.bagRupees}
+            onChange={(e) => setDraft((d) => ({ ...d, bagRupees: e.target.value }))}
+          />{' '}
         </Field>
         <Field id="setting-parcel" label="Parcel payment">
           <select
