@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   Req,
 } from '@nestjs/common';
 import {
@@ -107,5 +108,15 @@ export class BillsController {
   @RequirePermissions('bill.print')
   reprint(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.bills.reprint(user, id);
+  }
+
+  @Get('bills/:id/print-payload')
+  @RequirePermissions('bill.print')
+  printPayload(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('paperWidthMm') paperWidthMm?: string,
+  ) {
+    return this.bills.printPayload(user, id, paperWidthMm === '58' ? 58 : 80);
   }
 }

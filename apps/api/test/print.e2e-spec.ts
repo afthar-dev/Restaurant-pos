@@ -269,6 +269,40 @@ describe('print jobs', () => {
     expect(await printState(sent.order.id)).toBe('PRINTED');
   });
 
+  it('tells the counter when no bill printer took the bill, and gives it the bill to print', async () => {
+    const cashier = await signIn(ctx, outlet.id, 'CASHIER', 'Kavya');
+    const sent = await sendPaneerKot();
+    const bill = (
+      await ctx
+        .http()
+        .post(`/api/orders/${sent.order.id}/bills`)
+        .set(cashier.auth)
+        .send({})
+        .expect(201)
+    ).body;
+    const reprint = await ctx
+      .http()
+      .post(`/api/bills/${bill.id}/print`)
+      .set(cashier.auth)
+      .expect(201);
+    expect(reprint.body).toEqual({ id: bill.id, queued: 0 });
+    const payload = await ctx
+      .http()
+      .get(`/api/bills/${bill.id}/print-payload?paperWidthMm=58`)
+      .set(cashier.auth)
+      .expect(200);
+    expect(payload.body).toMatchObject({
+      kind: 'BILL',
+      billNo: 1,
+      paperWidthMm: 58,
+      total: bill.total,
+      cashierName: 'Kavya',
+    });
+    const elsewhere = await ctx.prisma.outlet.create({ data: { name: 'Other' } });
+    const stranger = await signIn(ctx, elsewhere.id, 'OWNER');
+    await ctx.http().get(`/api/bills/${bill.id}/print-payload`).set(stranger.auth).expect(404);
+  });
+
   it('prints the bill on the bill printer and reprints it on request', async () => {
     const cashier = await signIn(ctx, outlet.id, 'CASHIER', 'Kavya');
     await kitchenPrinter(counter.id).expect(201);

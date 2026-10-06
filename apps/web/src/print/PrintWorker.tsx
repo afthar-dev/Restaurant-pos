@@ -2,13 +2,17 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { ApiError, apiFetch } from '../auth/api';
 import { POLL_MS } from '../service/queries';
+import { renderBillTicket, type BillPrintPayload } from './billTicket';
 import { renderKotTicket, type KotPrintPayload } from './kotTicket';
 
-interface PrintJob {
-  id: string;
-  kind: 'KOT' | 'BILL';
-  payload: KotPrintPayload;
-  attempts: number;
+type PrintJob = { id: string; attempts: number } & (
+  { kind: 'KOT'; payload: KotPrintPayload } | { kind: 'BILL'; payload: BillPrintPayload }
+);
+
+function renderJob(job: PrintJob): string {
+  if (job.kind === 'KOT') return renderKotTicket(job.payload);
+  if (job.kind === 'BILL') return renderBillTicket(job.payload);
+  throw new Error(`Unknown print job ${(job as { kind: string }).kind}`);
 }
 
 /**
@@ -116,8 +120,7 @@ export function PrintWorker({
           if (printed.has(job.id)) continue;
           let ok = true;
           try {
-            if (job.kind !== 'KOT') throw new Error(`Unknown print job ${job.kind}`);
-            await printHtml(renderKotTicket(job.payload));
+            await printHtml(renderJob(job));
           } catch {
             ok = false;
           }

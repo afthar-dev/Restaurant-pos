@@ -11,6 +11,7 @@ import { parseVersion } from '../common/if-match';
 import { invalidReference, notFound } from '../common/master-data';
 import type { AuthUser } from '../common/request-context';
 import { OrdersService, orderNotOpen, tableHolder } from '../orders/orders.service';
+import { PrintService } from '../print/print.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { calculateBill } from './bill-calc';
 import { BILL_INCLUDE, billView, type BillView } from './bill.views';
@@ -36,6 +37,7 @@ export class BillsService {
     private readonly events: EventEmitter2,
     private readonly audit: AuditService,
     private readonly overrides: OverrideService,
+    private readonly print: PrintService,
   ) {}
 
   async create(
@@ -438,14 +440,21 @@ export class BillsService {
     return this.get(user.outletId, billId);
   }
 
-  /** Queues the bill on the bill printers again (paper jam, customer copy). */ async reprint(
-    user: AuthUser,
-    billId: string,
-  ) {
+  /**
+   * Queues the bill on the bill printers again (paper jam, customer copy). `queued: 0` means
+   * no bill printer is set up, so the counter prints it from the screen instead.
+   */
+  async reprint(user: AuthUser, billId: string) {
     await this.orderOf(user.outletId, billId);
-    await this.events.emitAsync('bill.print', { outletId: user.outletId, billId });
-    return { id: billId, queued: true };
+    return { id: billId, queued: await this.print.queueBillJobs(billId) };
   }
+
+  /** The printable bill for printing on this screen. */
+  async printPayload(user: AuthUser, billId: string, paperWidthMm: number) {
+    await this.orderOf(user.outletId, billId);
+    return this.print.buildBillPayload(billId, paperWidthMm);
+  }
+
   changed(outletId: string, billId: string, orderId: string) {
     this.events.emit('bill.updated', { outletId, billId, orderId });
   }
