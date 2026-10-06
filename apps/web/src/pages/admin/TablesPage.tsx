@@ -1,3 +1,4 @@
+import { QrStickers } from './QrStickers';
 import { areaSchema, tableSchema } from '@rpos/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
@@ -271,6 +272,7 @@ export function TablesPage() {
     <section className="flex flex-col gap-6">
       <h2 className="text-xl font-semibold">Tables</h2>
       <AddAreaForm />
+      <QrStickers />
       {pending && (
         <ConfirmBar
           question={`Archive ${pendingName}?`}
