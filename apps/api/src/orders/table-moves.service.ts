@@ -83,6 +83,11 @@ export class TableMovesService {
         data: { orderId: intoOrderId },
       });
       await tx.kot.updateMany({ where: { orderId: fromOrderId }, data: { orderId: intoOrderId } });
+      // Tables already merged into the emptied order now belong to the kept one.
+      await tx.order.updateMany({
+        where: { mergedIntoId: fromOrderId },
+        data: { mergedIntoId: intoOrderId },
+      });
       const into = await tx.order.findUniqueOrThrow({
         where: { id: intoOrderId },
         include: { table: true },

@@ -459,4 +459,83 @@ describe('bills', () => {
       expect(res.body.code).toBe('HAS_BILLS');
     });
   });
+
+  describe('keeping bills and dishes in step (review fixes)', () => {
+    const cancelDish = (orderId: string, itemId: string, quantity: number) =>
+      ctx
+        .http()
+        .post(`/api/orders/${orderId}/items/${itemId}/cancel`)
+        .set(manager.auth)
+        .send({ reason: 'Customer changed mind', quantity });
+
+    it('refuses to cancel a dish that is already on a bill', async () => {
+      const orderId = await servedOrder(ctx, r, waiter, [
+        { variantId: r.roti.regular.id, quantity: 3 },
+      ]);
+      const item = (await getOrder(orderId)).items[0];
+      await createBill(orderId, { lines: [{ orderItemId: item.id, quantity: 2 }] }).expect(201);
+      const res = await cancelDish(orderId, item.id, 2).expect(409);
+      expect(res.body.code).toBe('ALREADY_BILLED');
+      await cancelDish(orderId, item.id, 1).expect(201);
+    });
+
+    it('closes a part-paid order once its last unbilled dishes are cancelled or removed', async () => {
+      const orderId = await servedOrder(ctx, r, waiter, [
+        { variantId: r.roti.regular.id, quantity: 2 },
+      ]);
+      const roti = (await getOrder(orderId)).items[0];
+      const bill = (
+        await createBill(orderId, { lines: [{ orderItemId: roti.id, quantity: 1 }] }).expect(201)
+      ).body;
+      await payOn(ctx, cashier, bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+      const added = await ctx
+        .http()
+        .post(`/api/orders/${orderId}/items`)
+        .set(waiter.auth)
+        .send({ items: [{ variantId: r.paneer.half.id, quantity: 1, addonIds: [] }] })
+        .expect(201);
+      const paneer = added.body.items.find((i: { status: string }) => i.status === 'NEW');
+
+      await cancelDish(orderId, roti.id, 1).expect(201);
+      expect((await getOrder(orderId)).status).toBe('OPEN');
+      await ctx
+        .http()
+        .delete(`/api/orders/${orderId}/items/${paneer.id}`)
+        .set(waiter.auth)
+        .expect(200);
+      expect((await getOrder(orderId)).status).toBe('CLOSED');
+    });
+
+    it('does not reopen a voided order onto a merged table that has new guests', async () => {
+      const a = await servedOrder(ctx, r, waiter, [{ variantId: r.roti.regular.id, quantity: 1 }]);
+      const b = await servedOrder(
+        ctx,
+        r,
+        waiter,
+        [{ variantId: r.roti.regular.id, quantity: 1 }],
+        r.t2.id,
+      );
+      await ctx
+        .http()
+        .post(`/api/orders/${a}/merge`)
+        .set(waiter.auth)
+        .send({ fromOrderId: b })
+        .expect(201);
+      const bill = (await createBill(a).expect(201)).body;
+      await payOn(ctx, cashier, bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+      await ctx
+        .http()
+        .post('/api/orders')
+        .set(waiter.auth)
+        .send({ type: 'DINE_IN', tableId: r.t2.id, guests: 2 })
+        .expect(201);
+      const res = await ctx
+        .http()
+        .post(`/api/bills/${bill.id}/void`)
+        .set(manager.auth)
+        .send({ reason: 'Refund' })
+        .expect(409);
+      expect(res.body.code).toBe('TABLE_BUSY');
+    });
+  });
 });

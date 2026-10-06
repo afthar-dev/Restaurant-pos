@@ -15,19 +15,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { calculateBill } from './bill-calc';
 import { BILL_INCLUDE, billView, type BillView } from './bill.views';
 import { financialYear } from './financial-year';
-import { closeOrderIfSettled, settleBill } from './settle';
+import { billedQuantities, closeOrderIfSettled, settleBill } from './settle';
 
 type Tx = Prisma.TransactionClient;
-
-/** Quantity of each order item already on a non-void bill. */
-export async function billedQuantities(tx: Tx, orderId: string): Promise<Map<string, number>> {
-  const rows = await tx.billItem.groupBy({
-    by: ['orderItemId'],
-    where: { bill: { orderId, status: { not: 'VOID' } } },
-    _sum: { quantity: true },
-  });
-  return new Map(rows.map((r) => [r.orderItemId, r._sum.quantity ?? 0]));
-}
 
 const discountOf = (kind: DiscountKind | null, value: number | null) =>
   kind && value !== null ? { kind, value } : null;
@@ -268,16 +258,28 @@ export class BillsService {
       if (bill.businessDayId !== day.id) {
         throw new ApiError(HttpStatus.CONFLICT, 'DAY_CLOSED', 'This bill belongs to a closed day.');
       }
-      if (order.status === 'CLOSED' && order.tableId) {
-        const holder = await tableHolder(tx, order.tableId, orderId);
-        if (holder) {
-          const table = await tx.diningTable.findUniqueOrThrow({ where: { id: order.tableId } });
-          throw new ApiError(
-            HttpStatus.CONFLICT,
-            'TABLE_BUSY',
-            `${table.name} already has a new order. Bill the dishes there instead.`,
-            { orderId: holder.id },
-          );
+      if (order.status === 'CLOSED') {
+        // Reopening takes back the order's table and every table merged into it. Lock them
+        // (in id order, like seating does) so nobody is seated there at the same moment.
+        const merged = await tx.order.findMany({
+          where: { mergedIntoId: orderId, tableId: { not: null } },
+          select: { tableId: true },
+        });
+        const tableIds = [
+          ...new Set([order.tableId, ...merged.map((m) => m.tableId)].filter((t) => t !== null)),
+        ].sort();
+        for (const tableId of tableIds) {
+          await tx.$queryRaw`SELECT id FROM tables WHERE id = ${tableId}::uuid FOR UPDATE`;
+          const holder = await tableHolder(tx, tableId, orderId);
+          if (holder) {
+            const table = await tx.diningTable.findUniqueOrThrow({ where: { id: tableId } });
+            throw new ApiError(
+              HttpStatus.CONFLICT,
+              'TABLE_BUSY',
+              `${table.name} already has a new order. Bill the dishes there instead.`,
+              { orderId: holder.id },
+            );
+          }
         }
       }
       const paid = await tx.payment.aggregate({ where: { billId }, _sum: { amount: true } });

@@ -32,3 +32,33 @@ export async function closeOrderIfSettled(tx: Tx, orderId: string): Promise<void
     data: { status: 'CLOSED', closedAt: new Date() },
   });
 }
+
+/** Quantity of each order item already on a non-void bill. */
+export async function billedQuantities(tx: Tx, orderId: string): Promise<Map<string, number>> {
+  const rows = await tx.billItem.groupBy({
+    by: ['orderItemId'],
+    where: { bill: { orderId, status: { not: 'VOID' } } },
+    _sum: { quantity: true },
+  });
+  return new Map(rows.map((r) => [r.orderItemId, r._sum.quantity ?? 0]));
+}
+
+/**
+ * After dishes are cancelled or removed from a part-billed order, everything left may already
+ * be billed: mark it billed (and closed when those bills are paid) so the table does not stay
+ * "running" with nothing to bill.
+ */
+export async function markBilledIfComplete(tx: Tx, orderId: string): Promise<void> {
+  const order = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
+  if (order.status !== 'OPEN') return;
+  const liveBills = await tx.bill.count({ where: { orderId, status: { not: 'VOID' } } });
+  if (liveBills === 0) return;
+  const items = await tx.orderItem.findMany({
+    where: { orderId, status: { in: ['NEW', 'SENT'] } },
+  });
+  if (items.some((i) => i.status === 'NEW')) return;
+  const billed = await billedQuantities(tx, orderId);
+  if (!items.every((i) => (billed.get(i.id) ?? 0) >= i.quantity)) return;
+  await tx.order.update({ where: { id: orderId }, data: { status: 'BILLED' } });
+  await closeOrderIfSettled(tx, orderId);
+}

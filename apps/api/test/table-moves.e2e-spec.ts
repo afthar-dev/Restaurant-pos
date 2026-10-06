@@ -127,4 +127,26 @@ describe('moving and merging tables', () => {
     const orderId = await servedOrder(ctx, r, waiter, roti());
     await ctx.http().post(`/api/orders/${orderId}/move`).send({ tableId: r.t2.id }).expect(401);
   });
+
+  it('keeps every table of a chain of merges with the final order', async () => {
+    const t3 = await ctx.prisma.diningTable.create({
+      data: {
+        outletId: outlet.id,
+        areaId: r.area.id,
+        name: 'T3',
+        seats: 4,
+        qrToken: `qr-${outlet.id}-3`,
+      },
+    });
+    const a = await servedOrder(ctx, r, waiter, roti(), r.t1.id);
+    const b = await servedOrder(ctx, r, waiter, roti(), r.t2.id);
+    const c = await servedOrder(ctx, r, waiter, roti(), t3.id);
+    await merge(b, c).expect(201);
+    const res = await merge(a, b).expect(201);
+    expect(res.body.mergedTables.map((t: { name: string }) => t.name).sort()).toEqual(['T2', 'T3']);
+    await seat(t3.id).expect(409);
+    const floor = (await ctx.http().get('/api/floor/status').set(waiter.auth).expect(200)).body;
+    const third = floor[0].tables.find((t: { name: string }) => t.name === 'T3');
+    expect(third.order).toMatchObject({ orderId: a, mergedInto: 'T1' });
+  });
 });

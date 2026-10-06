@@ -8,6 +8,7 @@ import type {
   UpdateOrderItemRequest,
 } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
+import { markBilledIfComplete } from '../billing/settle';
 import { BusinessDayService } from '../business-day/business-day.service';
 import { CountersService } from '../business-day/counters.service';
 import { ApiError } from '../common/api-error';
@@ -236,6 +237,8 @@ export class OrdersService {
       const item = await this.findItem(tx, orderId, itemId);
       if (item.status !== 'NEW') throw itemAlreadySent();
       await tx.orderItem.delete({ where: { id: itemId } });
+      // Removing the last unsent dish of a part-billed order may leave it fully billed.
+      await markBilledIfComplete(tx, orderId);
     });
   }
 

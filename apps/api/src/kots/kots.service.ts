@@ -6,6 +6,7 @@ import { CountersService } from '../business-day/counters.service';
 import { ApiError } from '../common/api-error';
 import { notFound } from '../common/master-data';
 import type { AuthDevice, AuthUser } from '../common/request-context';
+import { billedQuantities, markBilledIfComplete } from '../billing/settle';
 import { OrdersService } from '../orders/orders.service';
 import type { OrderView } from '../orders/orders.views';
 import { PrismaService } from '../prisma/prisma.service';
@@ -203,6 +204,16 @@ export class KotsService {
           `Only ${item.quantity} can be cancelled.`,
         );
       }
+      const billed = (await billedQuantities(tx, orderId)).get(item.id) ?? 0;
+      if (qty > item.quantity - billed) {
+        throw new ApiError(
+          HttpStatus.CONFLICT,
+          'ALREADY_BILLED',
+          billed >= item.quantity
+            ? 'This dish is already on a bill. Void the bill first.'
+            : `Only ${item.quantity - billed} is not on a bill yet. Void the bill to cancel more.`,
+        );
+      }
       const cancelData = {
         status: 'CANCELLED' as const,
         cancelReason: reason,
@@ -246,6 +257,8 @@ export class KotsService {
         },
         tx,
       );
+      // Cancelling the last unbilled dishes may leave the order fully billed.
+      await markBilledIfComplete(tx, orderId);
     });
     if (kot) await this.announce([kot], orderId);
     return view;
