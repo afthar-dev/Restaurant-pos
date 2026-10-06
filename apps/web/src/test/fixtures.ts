@@ -108,6 +108,7 @@ export function line(partial: Partial<OrderLine> & Pick<OrderLine, 'id'>): Order
     stationId: 'tandoor',
     createdAt: '2026-10-06T10:00:00Z',
     lineTotal: 3000 * (partial.quantity ?? 1),
+    billedQuantity: 0,
     ...partial,
   };
 }
@@ -128,6 +129,7 @@ export function order(partial: Partial<Order> = {}): Order {
     createdAt: '2026-10-06T10:00:00Z',
     items: [],
     kots: [],
+    bills: [],
     subtotal: 0,
     ...partial,
   };

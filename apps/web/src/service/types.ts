@@ -1,4 +1,11 @@
-import type { KotStatus, KotType, OrderItemStatus, OrderStatus, OrderType } from '@rpos/shared';
+import type {
+  BillStatus,
+  KotStatus,
+  KotType,
+  OrderItemStatus,
+  OrderStatus,
+  OrderType,
+} from '@rpos/shared';
 
 export interface BusinessDay {
   id: string;
@@ -61,6 +68,8 @@ export interface OrderLine {
   stationId: string;
   createdAt: string;
   lineTotal: number;
+  /** Quantity already on a non-void bill. */
+  billedQuantity: number;
 }
 
 /** Whether the KOT reached paper: NONE when no printer covers its station. */
@@ -75,6 +84,14 @@ export interface OrderKot {
   stationName: string;
   createdAt: string;
   print: KotPrintState;
+}
+
+export interface OrderBillSummary {
+  id: string;
+  billNo: number;
+  status: BillStatus;
+  total: number;
+  paid: number;
 }
 
 export interface Order {
@@ -92,6 +109,7 @@ export interface Order {
   createdAt: string;
   items: OrderLine[];
   kots: OrderKot[];
+  bills: OrderBillSummary[];
   subtotal: number;
 }
 

@@ -99,6 +99,11 @@ export class RealtimeGateway implements OnGatewayConnection {
     this.toOutlet('order.updated', event);
   }
 
+  @OnEvent('bill.updated')
+  billUpdated(event: OutletEvent) {
+    this.toOutlet('bill.updated', event);
+  }
+
   @OnEvent('kot.created')
   kotCreated(event: OutletEvent) {
     this.toOutlet('kot.created', event);

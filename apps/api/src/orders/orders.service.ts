@@ -12,6 +12,7 @@ import { BusinessDayService } from '../business-day/business-day.service';
 import { CountersService } from '../business-day/counters.service';
 import { ApiError } from '../common/api-error';
 import { sha256 } from '../common/crypto';
+import { parseVersion } from '../common/if-match';
 import { invalidReference, notFound } from '../common/master-data';
 import type { AuthUser } from '../common/request-context';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,14 +23,14 @@ type Tx = Prisma.TransactionClient;
 /** Orders that hold a table. */
 export const ACTIVE_STATUSES = ['PENDING_APPROVAL', 'OPEN', 'BILLED'] as const;
 
-const orderChanged = () =>
+export const orderChanged = () =>
   new ApiError(
     HttpStatus.CONFLICT,
     'ORDER_CHANGED',
     'Someone else changed this order. It has been refreshed; check it and try again.',
   );
 
-const orderNotOpen = () =>
+export const orderNotOpen = () =>
   new ApiError(HttpStatus.CONFLICT, 'ORDER_NOT_OPEN', 'This order is no longer open for changes.');
 
 const itemAlreadySent = () =>
@@ -265,7 +266,7 @@ export class OrdersService {
     ifMatch: string | undefined,
     fn: (context: MutationContext) => Promise<void>,
   ): Promise<OrderView> {
-    const expected = this.parseIfMatch(ifMatch);
+    const expected = parseVersion(ifMatch);
     const order = await this.prisma.$transaction(async (tx) => {
       const bumped = await tx.$queryRaw<{ version: number }[]>`
         UPDATE orders SET version = version + 1, updated_at = now()
@@ -292,19 +293,6 @@ export class OrdersService {
       orderId: order.id,
       tableId: order.tableId,
     });
-  }
-
-  private parseIfMatch(ifMatch: string | undefined): number | null {
-    if (ifMatch === undefined || ifMatch === '') return null;
-    const value = Number(ifMatch.replace(/"/g, ''));
-    if (!Number.isInteger(value) || value < 0) {
-      throw new ApiError(
-        HttpStatus.BAD_REQUEST,
-        'VALIDATION',
-        'If-Match must be the order version.',
-      );
-    }
-    return value;
   }
 
   private async findItem(tx: Tx, orderId: string, itemId: string) {
