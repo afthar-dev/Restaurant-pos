@@ -1,3 +1,5 @@
+import { escapeHtml } from './escape';
+
 export interface KotPrintPayload {
   kind: 'KOT';
   kotNo: number;
@@ -19,18 +21,6 @@ export interface KotPrintPayload {
     note: string | null;
     combo: { itemName: string; variantName: string; quantity: number }[];
   }[];
-}
-
-const ESCAPES: Record<string, string> = {
-  '&': '&amp;',
-  '<': '&lt;',
-  '>': '&gt;',
-  '"': '&quot;',
-  "'": '&#39;',
-};
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (c) => ESCAPES[c]!);
 }
 
 function dish(name: string, variant: string): string {

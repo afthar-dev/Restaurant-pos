@@ -88,6 +88,19 @@ describe('RealtimeProvider', () => {
     expect(spy).toHaveBeenCalledWith({ queryKey: ['orders', 'active'] });
   });
 
+  it('refreshes bills, the order and the floor when a bill changes', () => {
+    const { spy } = setup();
+    fire('bill.updated', { billId: 'b1', orderId: 'o1' });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['bills', 'o1'] });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['order', 'o1'] });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['floor'] });
+  });
+  it('refreshes the kitchen screen when an order moves table', () => {
+    const { spy } = setup();
+    fire('order.updated', { orderId: 'o2', tableId: 't2' });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['kds'] });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['bills', 'o2'] });
+  });
   it('refetches everything after reconnecting', () => {
     const { spy } = setup();
     fire('connect');

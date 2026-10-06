@@ -10,6 +10,7 @@ const GUEST_CHOICES = Array.from({ length: 12 }, (_, i) => i + 1);
 
 function tileLabel(table: FloorTableStatus): string {
   if (!table.order) return `${table.name}, free`;
+  if (table.order.mergedInto) return `${table.name}, with ${table.order.mergedInto}`;
   const items = table.order.itemCount === 1 ? '1 item' : `${table.order.itemCount} items`;
   return `${table.name}, ${items}, ${rupees(table.order.subtotal)}`;
 }
@@ -100,7 +101,9 @@ export function FloorGrid({
                   <span className="text-lg font-semibold">{table.name}</span>
                   {table.order ? (
                     <span className="text-xs tabular-nums">
-                      {table.order.itemCount} · {rupees(table.order.subtotal)}
+                      {table.order.mergedInto
+                        ? `with ${table.order.mergedInto}`
+                        : `${table.order.itemCount} · ${rupees(table.order.subtotal)}`}
                     </span>
                   ) : (
                     <span className="text-xs text-slate-400">{table.seats} seats</span>

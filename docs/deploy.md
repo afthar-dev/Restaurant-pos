@@ -94,21 +94,16 @@ Sign-in cookies are marked Secure, so **staff must use the https:// address**. P
 
 ### Restore drill (do this once a month)
 
+One command loads the newest backup into a scratch database, compares it with the live data and cleans up:
+
 ```bash
-# 1. Decrypt (skip if BACKUP_PASSPHRASE is empty)
-gpg --decrypt backups/rpos-YYYYmmdd-HHMMSS.dump.gpg > /tmp/restore.dump
-
-# 2. Load into a scratch database and check it
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec -T postgres \
-  sh -c 'createdb -U "$POSTGRES_USER" restore_check && pg_restore -U "$POSTGRES_USER" -d restore_check' < /tmp/restore.dump
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec postgres \
-  psql -U rpos -d restore_check -c 'select count(*) from users;'
-
-# 3. Clean up
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec postgres dropdb -U rpos restore_check
+docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm --entrypoint sh backup \
+  -c 'restore-check.sh "$(ls -t /backups/rpos-*.dump* | head -1)"'
 ```
 
-To restore for real, stop `api`, drop and recreate the `rpos` database the same way, `pg_restore` into it, then start `api`.
+It prints row counts for outlets, users, orders, bills, payments and business days and ends with **RESTORE OK**. Anything else (a wrong `BACKUP_PASSPHRASE`, a cut-off file, a backup from another server) stops with an error. Do this right after setting up backups and then once a month; also check that the copies on Google Drive / S3 restore the same way by copying one back into `backups/`.
+
+To restore for real: stop `api`; decrypt the file if it ends in `.gpg` (`gpg --decrypt file.dump.gpg > restore.dump`); inside the `postgres` container run `dropdb -U rpos rpos`, `createdb -U rpos rpos` and `pg_restore -U rpos --no-owner -d rpos restore.dump`; then start `api` again.
 
 ## 8. Weekly certificate reload
 

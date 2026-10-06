@@ -1,5 +1,5 @@
 import type { Menu, MenuItem } from '../pages/admin/menu-types';
-import type { Order, OrderLine } from '../service/types';
+import type { Bill, Order, OrderLine } from '../service/types';
 
 const tax = { id: 'tax', name: 'GST 5%', cgstBp: 250, sgstBp: 250 };
 
@@ -132,6 +132,70 @@ export function order(partial: Partial<Order> = {}): Order {
     bills: [],
     mergedTables: [],
     subtotal: 0,
+    ...partial,
+  };
+}
+
+/** An unpaid tax invoice for 2 × Paneer Tikka Half with cheese + 1 × Roti: ₹450 + 5% → ₹473. */
+export function bill(partial: Partial<Bill> = {}): Bill {
+  return {
+    id: 'b1',
+    billNo: 12,
+    financialYear: '2026-27',
+    status: 'OPEN',
+    title: 'Tax Invoice',
+    orderId: 'o1',
+    orderType: 'DINE_IN',
+    tableName: 'T1',
+    tokenNo: null,
+    lines: [
+      {
+        id: 'bl1',
+        orderItemId: 'l1',
+        itemName: 'Paneer Tikka',
+        variantName: 'Half',
+        addons: [{ name: 'Cheese', price: 3000 }],
+        unitPrice: 21000,
+        quantity: 2,
+        gross: 42000,
+        discount: null,
+        itemDiscount: 0,
+        lineTotal: 42000,
+      },
+      {
+        id: 'bl2',
+        orderItemId: 'l2',
+        itemName: 'Tandoori Roti',
+        variantName: 'Regular',
+        addons: [],
+        unitPrice: 3000,
+        quantity: 1,
+        gross: 3000,
+        discount: null,
+        itemDiscount: 0,
+        lineTotal: 3000,
+      },
+    ],
+    grossSubtotal: 45000,
+    itemDiscount: 0,
+    subtotal: 45000,
+    discount: null,
+    billDiscount: 0,
+    discountReason: null,
+    packaging: 0,
+    taxable: 45000,
+    cgst: 1125,
+    sgst: 1125,
+    taxBreakup: [{ cgstBp: 250, sgstBp: 250, taxable: 45000, cgst: 1125, sgst: 1125 }],
+    roundOff: 50,
+    total: 47300,
+    paid: 0,
+    due: 47300,
+    payments: [],
+    voidReason: null,
+    version: 4,
+    createdAt: '2026-10-06T14:12:00.000Z',
+    createdBy: { id: 'c', name: 'Kavya' },
     ...partial,
   };
 }

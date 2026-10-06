@@ -11,9 +11,11 @@ import {
   primaryButton,
   secondaryButton,
 } from '../components/ui';
+import { ApproverFields, isPin, requestOverride } from '../components/ManagerApproval';
 import { rupees } from '../pages/admin/menu-types';
 import { useRefreshOrder } from './mutations';
 import { useOrder } from './queries';
+import { TableActions } from './TableActions';
 import { orderLabel, type KotPrintState, type Order, type OrderKot, type OrderLine } from './types';
 
 function lineDetail(line: OrderLine): string {
@@ -35,11 +37,6 @@ function CancelLineDialog({
 }) {
   const refresh = useRefreshOrder();
   const canCancel = useCan('item.cancelAfterKot');
-  const approvers = useQuery({
-    queryKey: ['approvers'],
-    queryFn: () => apiFetch<{ id: string; name: string }[]>('/api/auth/approvers'),
-    enabled: !canCancel,
-  });
   const [reason, setReason] = useState('');
   const [quantity, setQuantity] = useState(String(line.quantity));
   const [approverId, setApproverId] = useState('');
@@ -50,11 +47,7 @@ function CancelLineDialog({
     mutationFn: async () => {
       const headers: Record<string, string> = {};
       if (!canCancel) {
-        const { overrideToken } = await apiFetch<{ overrideToken: string }>('/api/auth/override', {
-          method: 'POST',
-          body: { userId: approverId, pin, permission: 'item.cancelAfterKot' },
-        });
-        headers['x-override-token'] = overrideToken;
+        headers['x-override-token'] = await requestOverride(approverId, pin, 'item.cancelAfterKot');
       }
       return apiFetch(`/api/orders/${order.id}/items/${line.id}/cancel`, {
         method: 'POST',
@@ -75,7 +68,7 @@ function CancelLineDialog({
     if (!Number.isInteger(qty) || qty < 1 || qty > line.quantity) {
       return setError(`Cancel between 1 and ${line.quantity}.`);
     }
-    if (!canCancel && (!approverId || !/^\d{4,6}$/.test(pin))) {
+    if (!canCancel && (!approverId || !isPin(pin))) {
       return setError('A manager must pick their name and enter their PIN.');
     }
     setError(null);
@@ -116,34 +109,13 @@ function CancelLineDialog({
         </Field>
       )}
       {!canCancel && (
-        <div className="flex flex-wrap gap-3">
-          <Field id={`cancel-approver-${line.id}`} label="Manager">
-            <select
-              id={`cancel-approver-${line.id}`}
-              className={inputClass}
-              value={approverId}
-              onChange={(e) => setApproverId(e.target.value)}
-            >
-              <option value="">Choose…</option>
-              {approvers.data?.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field id={`cancel-pin-${line.id}`} label="Manager PIN">
-            <input
-              id={`cancel-pin-${line.id}`}
-              type="password"
-              inputMode="numeric"
-              autoComplete="off"
-              className={`${inputClass} w-28`}
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-            />
-          </Field>
-        </div>
+        <ApproverFields
+          idPrefix={`cancel-${line.id}`}
+          approverId={approverId}
+          pin={pin}
+          onApprover={setApproverId}
+          onPin={setPin}
+        />
       )}
       <ErrorNote message={error ?? (cancel.isError ? describeError(cancel.error) : null)} />
       <div className="flex gap-2">
@@ -250,6 +222,39 @@ function KotPrint({ kot, orderId }: { kot: OrderKot; orderId: string }) {
       </button>
       {reprint.isError && <span className="text-red-700">{describeError(reprint.error)}</span>}
     </span>
+  );
+}
+
+/** The waiter has taken the ready dishes to the table (spec §5.1 step 5). */
+function ServedButton({
+  kotId,
+  kotNo,
+  orderId,
+}: {
+  kotId: string;
+  kotNo: number;
+  orderId: string;
+}) {
+  const refresh = useRefreshOrder();
+  const served = useMutation({
+    mutationFn: () => apiFetch(`/api/kots/${kotId}/served`, { method: 'POST' }),
+    onSettled: () => refresh(orderId),
+  });
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={`Served KOT ${kotNo}`}
+        className="min-h-9 rounded-md bg-emerald-700 px-3 text-xs font-semibold text-white disabled:opacity-60"
+        disabled={served.isPending}
+        onClick={() => served.mutate()}
+      >
+        Served
+      </button>
+      {served.isError && (
+        <span className="text-xs text-red-700">{describeError(served.error)}</span>
+      )}
+    </>
   );
 }
 
@@ -362,12 +367,15 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
   return (
     <section className="flex flex-col gap-3">
       <header className="flex items-baseline justify-between gap-2">
-        <h2 className="text-xl font-semibold">{orderLabel(o)}</h2>
+        <h2 className="text-xl font-semibold">
+          {[orderLabel(o), ...o.mergedTables.map((t) => t.name)].join(' + ')}
+        </h2>
         <span className="text-sm text-slate-600">
           {o.guests ? `${o.guests} guests · ` : ''}
           {o.waiter?.name}
         </span>
       </header>
+      <TableActions order={o} />
 
       {kots.map((kot) => {
         const lines = sentLines.filter((l) => l.kotId === kot.id);
@@ -378,7 +386,12 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 KOT {kot.kotNo} · {kot.stationName} · {kot.status.toLowerCase()}
               </p>
-              <KotPrint kot={kot} orderId={o.id} />
+              <span className="flex items-center gap-2">
+                {kot.status === 'READY' && (
+                  <ServedButton kotId={kot.id} kotNo={kot.kotNo} orderId={o.id} />
+                )}
+                <KotPrint kot={kot} orderId={o.id} />
+              </span>
             </div>
             <ul className="divide-y divide-slate-100">
               {lines.map((line) => (
@@ -432,15 +445,25 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
         <span className="text-lg font-semibold tabular-nums">{rupees(o.subtotal)}</span>
       </div>
 
-      <ErrorNote message={send.isError ? describeError(send.error) : null} />
-      <button
-        type="button"
-        className={`${primaryButton} min-h-12 text-base`}
-        disabled={newLines.length === 0 || send.isPending}
-        onClick={sendToKitchen}
-      >
-        {send.isPending ? 'Sending…' : `Send to kitchen (${newLines.length})`}
-      </button>
+      {o.status === 'OPEN' ? (
+        <>
+          <ErrorNote message={send.isError ? describeError(send.error) : null} />
+          <button
+            type="button"
+            className={`${primaryButton} min-h-12 text-base`}
+            disabled={newLines.length === 0 || send.isPending}
+            onClick={sendToKitchen}
+          >
+            {send.isPending ? 'Sending…' : `Send to kitchen (${newLines.length})`}
+          </button>
+        </>
+      ) : (
+        <p role="status" className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">
+          {o.status === 'BILLED'
+            ? 'Bill printed. Waiting for payment.'
+            : 'Paid and closed. The table is free.'}
+        </p>
+      )}
 
       {sentLines.length === 0 && o.status === 'OPEN' && (
         <CancelOrder order={o} onClosed={onClosed} />

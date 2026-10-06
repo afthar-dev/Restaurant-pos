@@ -3,6 +3,7 @@ import { RequireAuth } from './auth/RequireAuth';
 import { AppShell } from './components/AppShell';
 import { AvailabilityPage } from './pages/AvailabilityPage';
 import { CaptainPage } from './pages/CaptainPage';
+import { DayPage } from './pages/DayPage';
 import { KdsPage } from './pages/KdsPage';
 import { PosPage } from './pages/PosPage';
 import { ADMIN_PERMISSIONS, Home } from './pages/Home';
@@ -56,6 +57,14 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth anyOf={['menu.availability']}>
             <AvailabilityPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'day',
+        element: (
+          <RequireAuth anyOf={['day.openClose', 'reports.dayClose']}>
+            <DayPage />
           </RequireAuth>
         ),
       },

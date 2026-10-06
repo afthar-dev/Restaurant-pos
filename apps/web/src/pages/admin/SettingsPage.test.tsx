@@ -17,6 +17,7 @@ const settings = {
   cashierDiscountCapBp: 1000,
   waiterCanCollectPayment: false,
   parcelPaymentTiming: 'PAY_FIRST',
+  billPackagingCharge: 0,
 };
 
 describe('SettingsPage', () => {
@@ -38,6 +39,21 @@ describe('SettingsPage', () => {
     expect(JSON.parse(String(call?.[1]?.body))).toEqual({ cashierDiscountCapBp: 1500 });
   });
 
+  it('saves the parcel bag charge in paise', async () => {
+    useSession.getState().setSession(sessionBody('OWNER', ['settings.manage']));
+    const mock = mockApi({
+      'GET /api/outlet': () => json(settings),
+      'PATCH /api/outlet': ({ body }) => json({ ...settings, ...(body as object) }),
+    });
+    renderRoute('/admin/settings');
+    fireEvent.change(await screen.findByLabelText('Parcel bag charge (₹)'), {
+      target: { value: '10' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    expect(await screen.findByRole('status', { name: 'Save result' })).toHaveTextContent('Saved');
+    const [call] = callsTo(mock, 'PATCH', '/api/outlet');
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({ billPackagingCharge: 1000 });
+  });
   it('rejects an invalid GSTIN without calling the server', async () => {
     useSession.getState().setSession(sessionBody('OWNER', ['settings.manage']));
     const mock = mockApi({ 'GET /api/outlet': () => json(settings) });

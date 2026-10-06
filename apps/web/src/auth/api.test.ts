@@ -28,6 +28,22 @@ describe('apiFetch', () => {
     expect(useSession.getState().user?.role).toBe('MANAGER');
   });
 
+  it('does not refresh or retry when a 401 is about a wrong PIN, not the session', async () => {
+    useSession.getState().setSession(sessionBody('CASHIER', []));
+    const mock = mockApi({
+      'POST /api/auth/override': () =>
+        json({ code: 'INVALID_CREDENTIALS', message: 'Wrong PIN.' }, 401),
+      'POST /api/auth/refresh': () => json(sessionBody('CASHIER', [])),
+    });
+
+    await expect(
+      apiFetch('/api/auth/override', { method: 'POST', body: { pin: '1111' } }),
+    ).rejects.toMatchObject({ status: 401, message: 'Wrong PIN.' });
+    expect(callsTo(mock, 'POST', '/api/auth/override')).toHaveLength(1);
+    expect(callsTo(mock, 'POST', '/api/auth/refresh')).toHaveLength(0);
+    expect(useSession.getState().status).toBe('authenticated');
+  });
+
   it('shares one refresh between concurrent 401s', async () => {
     useSession.getState().setSession(sessionBody('CASHIER', []));
     const mock = mockApi({

@@ -15,11 +15,6 @@ const RETRY_BACKOFF_SECONDS = 20;
 /** Jobs older than this are not auto-printed; staff reprint from the order instead. */
 const STALE_AFTER_MINUTES = 30;
 
-interface BillEvent {
-  outletId: string;
-  billId: string;
-}
-
 interface KotEvent {
   outletId: string;
   kotId: string;
@@ -123,19 +118,41 @@ export class PrintService {
     this.events.emit('order.updated', { outletId, orderId: order.id, tableId: order.tableId });
   }
 
-  @OnEvent('bill.print', { promisify: true })
-  async queueBill(event: BillEvent): Promise<void> {
-    try {
-      await this.createBillJobs(event);
-    } catch (error) {
-      // The bill is saved; staff can print from the screen or reprint.
-      this.logger.error(`Could not queue print for bill ${event.billId}: ${String(error)}`);
+  /** Queues the bill on every bill printer; returns how many jobs were queued (0: no printer). */
+  async queueBillJobs(billId: string): Promise<number> {
+    const bill = await this.prisma.bill.findUnique({ where: { id: billId } });
+    if (!bill) return 0;
+    const printers = await this.prisma.printer.findMany({
+      where: { outletId: bill.outletId, purpose: 'BILL', archivedAt: null },
+    });
+    for (const printer of printers) {
+      const payload = await this.buildBillPayload(billId, printer.paperWidthMm);
+      if (!payload) return 0;
+      const job = await this.prisma.printJob.create({
+        data: {
+          outletId: bill.outletId,
+          printerId: printer.id,
+          deviceId: printer.deviceId,
+          billId,
+          kind: 'BILL',
+          payload,
+        },
+      });
+      if (printer.deviceId) {
+        this.events.emit('print.job', {
+          outletId: bill.outletId,
+          deviceId: printer.deviceId,
+          jobId: job.id,
+        });
+      }
     }
+    return printers.length;
   }
 
-  private async createBillJobs(event: BillEvent): Promise<void> {
+  /** What a printed bill shows, for the print queue or for printing on the counter screen. */
+  async buildBillPayload(billId: string, paperWidthMm: number) {
     const bill = await this.prisma.bill.findUnique({
-      where: { id: event.billId },
+      where: { id: billId },
       include: {
         items: { orderBy: { sortOrder: 'asc' } },
         payments: { orderBy: { createdAt: 'asc' } },
@@ -153,82 +170,63 @@ export class PrintService {
         },
       },
     });
-    if (!bill) return;
-    const printers = await this.prisma.printer.findMany({
-      where: { outletId: bill.outletId, purpose: 'BILL', archivedAt: null },
-    });
+    if (!bill) return null;
     const paid = bill.payments.reduce((sum, p) => sum + p.amount, 0);
-    for (const printer of printers) {
-      const payload: Prisma.InputJsonValue = {
-        kind: 'BILL',
-        title: bill.taxScheme === 'REGULAR' ? 'Tax Invoice' : 'Bill of Supply',
-        outlet: {
-          name: bill.outlet.name,
-          address: bill.outlet.address,
-          phone: bill.outlet.phone,
-          gstin: bill.outlet.gstin,
-          fssaiNumber: bill.outlet.fssaiNumber,
-          billHeader: bill.outlet.billHeader,
-          billFooter: bill.outlet.billFooter,
-        },
-        billNo: bill.billNo,
-        financialYear: bill.financialYear,
-        status: bill.status,
-        createdAt: bill.createdAt.toISOString(),
-        cashierName: bill.createdBy.name,
-        waiterName: bill.order.waiter?.name ?? null,
-        orderType: bill.order.type,
-        tableName: bill.order.table?.name ?? null,
-        tokenNo: bill.order.tokenNo,
-        customerName: bill.order.customerName,
-        guests: bill.order.guests,
-        paperWidthMm: printer.paperWidthMm,
-        lines: bill.items.map((i) => ({
-          itemName: i.itemName,
-          variantName: i.variantName,
-          addons: (i.addons as { name: string }[]).map((a) => a.name),
-          quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          amount: i.lineTotal,
-        })),
-        grossSubtotal: bill.grossSubtotal,
-        itemDiscount: bill.itemDiscount,
-        billDiscount: bill.billDiscount,
-        discountReason: bill.discountReason,
-        packaging: bill.packaging,
-        taxable: bill.taxable,
-        cgst: bill.cgst,
-        sgst: bill.sgst,
-        taxBreakup: taxBreakupOf(bill).map((row) => ({
-          ratePercent: `${Number(((row.cgstBp + row.sgstBp) / 100).toFixed(2))}%`,
-          taxable: row.taxable,
-          cgst: row.cgst,
-          sgst: row.sgst,
-        })),
-        roundOff: bill.roundOff,
-        total: bill.total,
-        payments: bill.payments.map((p) => ({ mode: p.mode, amount: p.amount })),
-        paid,
-        due: bill.status === 'VOID' ? 0 : Math.max(0, bill.total - paid),
-      };
-      const job = await this.prisma.printJob.create({
-        data: {
-          outletId: bill.outletId,
-          printerId: printer.id,
-          deviceId: printer.deviceId,
-          billId: bill.id,
-          kind: 'BILL',
-          payload,
-        },
-      });
-      if (printer.deviceId) {
-        this.events.emit('print.job', {
-          outletId: bill.outletId,
-          deviceId: printer.deviceId,
-          jobId: job.id,
-        });
-      }
-    }
+    const percent = (bp: number) => `${Number((bp / 100).toFixed(2))}%`;
+    return {
+      kind: 'BILL',
+      title: bill.taxScheme === 'REGULAR' ? 'Tax Invoice' : 'Bill of Supply',
+      outlet: {
+        name: bill.outlet.name,
+        address: bill.outlet.address,
+        phone: bill.outlet.phone,
+        gstin: bill.outlet.gstin,
+        fssaiNumber: bill.outlet.fssaiNumber,
+        billHeader: bill.outlet.billHeader,
+        billFooter: bill.outlet.billFooter,
+      },
+      billNo: bill.billNo,
+      financialYear: bill.financialYear,
+      status: bill.status,
+      createdAt: bill.createdAt.toISOString(),
+      cashierName: bill.createdBy.name,
+      waiterName: bill.order.waiter?.name ?? null,
+      orderType: bill.order.type,
+      tableName: bill.order.table?.name ?? null,
+      tokenNo: bill.order.tokenNo,
+      customerName: bill.order.customerName,
+      guests: bill.order.guests,
+      paperWidthMm,
+      lines: bill.items.map((i) => ({
+        itemName: i.itemName,
+        variantName: i.variantName,
+        addons: (i.addons as { name: string }[]).map((a) => a.name),
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        amount: i.lineTotal,
+      })),
+      grossSubtotal: bill.grossSubtotal,
+      itemDiscount: bill.itemDiscount,
+      billDiscount: bill.billDiscount,
+      discountReason: bill.discountReason,
+      packaging: bill.packaging,
+      taxable: bill.taxable,
+      cgst: bill.cgst,
+      sgst: bill.sgst,
+      taxBreakup: taxBreakupOf(bill).map((row) => ({
+        ratePercent: percent(row.cgstBp + row.sgstBp),
+        cgstPercent: percent(row.cgstBp),
+        sgstPercent: percent(row.sgstBp),
+        taxable: row.taxable,
+        cgst: row.cgst,
+        sgst: row.sgst,
+      })),
+      roundOff: bill.roundOff,
+      total: bill.total,
+      payments: bill.payments.map((p) => ({ mode: p.mode, amount: p.amount })),
+      paid,
+      due: bill.status === 'VOID' ? 0 : Math.max(0, bill.total - paid),
+    } satisfies Prisma.InputJsonValue;
   }
 
   async pending(device: AuthDevice) {
