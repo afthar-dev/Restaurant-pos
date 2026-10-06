@@ -121,4 +121,123 @@ describe('QR ordering', () => {
       await menu(token).expect(401);
     });
   });
+
+  const paneerWithCheese = () => ({
+    variantId: r.paneer.half.id,
+    quantity: 2,
+    addonIds: [r.extras.cheese.id],
+  });
+  const submit = (token: string, body: object, key?: string) => {
+    const req = ctx.http().post('/api/qr/orders').set('x-qr-session', token);
+    return (key ? req.set('Idempotency-Key', key) : req).send(body);
+  };
+
+  describe('submitting', () => {
+    it('holds a free table with a pending order and shows the customer what they asked for', async () => {
+      const token = await scan();
+      const res = await submit(token, { lines: [paneerWithCheese()], note: 'less spicy' }).expect(
+        201,
+      );
+      expect(res.body).toMatchObject({
+        status: 'PENDING',
+        message: 'Waiting for the staff to confirm',
+        note: 'less spicy',
+        total: 42000,
+        lines: [
+          {
+            itemName: 'Paneer Tikka',
+            variantName: 'Half',
+            addons: ['Cheese'],
+            quantity: 2,
+            amount: 42000,
+          },
+        ],
+      });
+      const order = await ctx.prisma.order.findFirstOrThrow({ where: { tableId: r.t1.id } });
+      expect(order).toMatchObject({ status: 'PENDING_APPROVAL', source: 'QR', createdById: null });
+      expect(await ctx.prisma.orderItem.count()).toBe(0);
+      const seat = await ctx
+        .http()
+        .post('/api/orders')
+        .set(waiter.auth)
+        .send({ type: 'DINE_IN', tableId: r.t1.id, guests: 2 })
+        .expect(409);
+      expect(seat.body.code).toBe('TABLE_BUSY');
+      const mine = await ctx.http().get('/api/qr/orders').set('x-qr-session', token).expect(200);
+      expect(mine.body.map((s: { id: string }) => s.id)).toEqual([res.body.id]);
+    });
+
+    it('adds to the running order of a seated table without touching its dishes', async () => {
+      const created = await ctx
+        .http()
+        .post('/api/orders')
+        .set(waiter.auth)
+        .send({ type: 'DINE_IN', tableId: r.t1.id, guests: 2 })
+        .expect(201);
+      await submit(await scan(), { lines: [paneerWithCheese()] }).expect(201);
+      const order = await ctx.prisma.order.findUniqueOrThrow({ where: { id: created.body.id } });
+      expect(order.status).toBe('OPEN');
+      expect(await ctx.prisma.qrSubmission.count({ where: { orderId: order.id } })).toBe(1);
+      expect(await ctx.prisma.orderItem.count()).toBe(0);
+    });
+
+    it('refuses dishes that are out of stock and tables whose bill is printed', async () => {
+      const token = await scan();
+      const soldOut = await submit(token, {
+        lines: [{ variantId: r.soup.regular.id, quantity: 1, addonIds: [] }],
+      }).expect(409);
+      expect(soldOut.body.code).toBe('ITEM_UNAVAILABLE');
+
+      const other = await scan(r.t2.qrToken);
+      await billFor(
+        ctx,
+        r,
+        waiter,
+        cashier,
+        [{ variantId: r.roti.regular.id, quantity: 1 }],
+        r.t2.id,
+      );
+      const billed = await submit(other, { lines: [paneerWithCheese()] }).expect(409);
+      expect(billed.body).toMatchObject({
+        code: 'QR_BILL_PRINTED',
+        message: 'The bill is already printed. Please call the waiter.',
+      });
+    });
+
+    it('records one submission when the phone retries', async () => {
+      const token = await scan();
+      const first = await submit(token, { lines: [paneerWithCheese()] }, 'try-1').expect(201);
+      const again = await submit(token, { lines: [paneerWithCheese()] }, 'try-1').expect(201);
+      expect(again.body.id).toBe(first.body.id);
+      expect(await ctx.prisma.qrSubmission.count()).toBe(1);
+      const stranger = await scan(r.t2.qrToken);
+      await submit(stranger, { lines: [paneerWithCheese()] }, 'try-1').expect(409);
+    });
+
+    it('gives a table one order when two phones submit at once', async () => {
+      const [a, b] = [await scan(), await scan()];
+      const results = await Promise.all([
+        submit(a, { lines: [paneerWithCheese()] }),
+        submit(b, { lines: [{ variantId: r.roti.regular.id, quantity: 2, addonIds: [] }] }),
+      ]);
+      expect(results.map((res) => res.status)).toEqual([201, 201]);
+      expect(await ctx.prisma.order.count({ where: { tableId: r.t1.id } })).toBe(1);
+      expect(await ctx.prisma.qrSubmission.count()).toBe(2);
+    });
+
+    it('slows down a phone that keeps submitting', async () => {
+      const token = await scan();
+      const line = { variantId: r.roti.regular.id, quantity: 1, addonIds: [] };
+      for (let i = 0; i < 3; i += 1) await submit(token, { lines: [line] }).expect(201);
+      const busy = await submit(token, { lines: [line] }).expect(429);
+      expect(busy.body.code).toBe('QR_TOO_MANY');
+    });
+
+    it('takes no orders while the day is closed', async () => {
+      const token = await scan();
+      await ctx.prisma.businessDay.updateMany({ data: { status: 'CLOSED' } });
+      const res = await submit(token, { lines: [paneerWithCheese()] }).expect(409);
+      expect(res.body.code).toBe('DAY_NOT_OPEN');
+    });
+  });
 });

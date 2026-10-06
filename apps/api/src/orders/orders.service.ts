@@ -56,7 +56,7 @@ const VARIANT_INCLUDE = {
   },
 } satisfies Prisma.ItemVariantInclude;
 
-type VariantForOrder = Prisma.ItemVariantGetPayload<{ include: typeof VARIANT_INCLUDE }>;
+export type VariantForOrder = Prisma.ItemVariantGetPayload<{ include: typeof VARIANT_INCLUDE }>;
 
 export interface MutationContext {
   tx: Tx;
@@ -314,7 +314,8 @@ export class OrdersService {
     return item;
   }
 
-  private async loadVariants(tx: Tx, outletId: string, lines: OrderLineRequest[]) {
+  /** Checks each line can be ordered now (variant, availability, add-on rules). */
+  async loadVariants(tx: Tx, outletId: string, lines: OrderLineRequest[]) {
     const ids = [...new Set(lines.map((l) => l.variantId))];
     const variants = await tx.itemVariant.findMany({
       where: { id: { in: ids }, item: { outletId } },

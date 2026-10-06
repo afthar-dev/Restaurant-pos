@@ -1,5 +1,10 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { qrStartSchema, type QrStartRequest } from '@rpos/shared';
+import { Body, Controller, Get, Headers, Post, UseGuards } from '@nestjs/common';
+import {
+  qrStartSchema,
+  qrSubmitSchema,
+  type QrStartRequest,
+  type QrSubmitRequest,
+} from '@rpos/shared';
 import { Public } from '../auth/decorators';
 import type { QrContext } from '../common/request-context';
 import { ThrottleAuth } from '../common/throttle';
@@ -23,5 +28,21 @@ export class QrController {
   @UseGuards(QrSessionGuard)
   menu(@CurrentQr() qr: QrContext) {
     return this.qr.menu(qr);
+  }
+
+  @Post('orders')
+  @UseGuards(QrSessionGuard)
+  submit(
+    @CurrentQr() qr: QrContext,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
+    @Body(new ZodBody(qrSubmitSchema)) body: QrSubmitRequest,
+  ) {
+    return this.qr.submit(qr, idempotencyKey?.slice(0, 100) || undefined, body);
+  }
+
+  @Get('orders')
+  @UseGuards(QrSessionGuard)
+  mine(@CurrentQr() qr: QrContext) {
+    return this.qr.mySubmissions(qr);
   }
 }
