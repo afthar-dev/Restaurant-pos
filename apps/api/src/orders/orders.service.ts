@@ -23,6 +23,22 @@ type Tx = Prisma.TransactionClient;
 /** Orders that hold a table. */
 export const ACTIVE_STATUSES = ['PENDING_APPROVAL', 'OPEN', 'BILLED'] as const;
 
+/** The order that holds a table right now, if any (ignoring `exceptOrderId`). */
+export async function tableHolder(
+  tx: Tx,
+  tableId: string,
+  exceptOrderId?: string,
+): Promise<{ id: string } | null> {
+  return tx.order.findFirst({
+    where: {
+      tableId,
+      status: { in: [...ACTIVE_STATUSES] },
+      ...(exceptOrderId ? { id: { not: exceptOrderId } } : {}),
+    },
+    select: { id: true },
+  });
+}
+
 export const orderChanged = () =>
   new ApiError(
     HttpStatus.CONFLICT,
@@ -105,9 +121,7 @@ export class OrdersService {
              AND archived_at IS NULL
            FOR UPDATE`;
         if (locked.length === 0) throw invalidReference('tableId');
-        const busy = await tx.order.findFirst({
-          where: { tableId: request.tableId, status: { in: [...ACTIVE_STATUSES] } },
-        });
+        const busy = await tableHolder(tx, request.tableId);
         if (busy) {
           throw new ApiError(
             HttpStatus.CONFLICT,

@@ -1,5 +1,11 @@
 import type { Outlet } from '@prisma/client';
-import { overrideToken, parcelOrder, servedOrder } from './billing-helpers';
+import {
+  billFor as billForOn,
+  overrideToken,
+  parcelOrder,
+  pay as payOn,
+  servedOrder,
+} from './billing-helpers';
 import { buildRestaurant, type Restaurant } from './fixtures';
 import {
   createOutlet,
@@ -364,6 +370,93 @@ describe('bills', () => {
         { bill: { kind: 'FLAT', value: 100 }, reason: 'Friend' },
         waiter,
       ).expect(403);
+    });
+  });
+
+  describe('void', () => {
+    const roti = () => [{ variantId: r.roti.regular.id, quantity: 1 }];
+    const billFor = (lines = roti(), tableId = r.t1.id) =>
+      billForOn(ctx, r, waiter, cashier, lines, tableId);
+    const voidBill = (billId: string, who: SignedIn, extra: Record<string, string> = {}) =>
+      ctx
+        .http()
+        .post(`/api/bills/${billId}/void`)
+        .set({ ...who.auth, ...extra })
+        .send({ reason: 'Wrong table' });
+
+    it('voids an unpaid bill with a manager, keeps its number and reopens the order', async () => {
+      const bill = await billFor();
+      await voidBill(bill.id, cashier).expect(403);
+      const res = await voidBill(bill.id, manager).expect(201);
+      expect(res.body).toMatchObject({
+        status: 'VOID',
+        billNo: bill.billNo,
+        voidReason: 'Wrong table',
+        due: 0,
+      });
+      const order = await getOrder(bill.orderId);
+      expect(order.status).toBe('OPEN');
+      expect(order.items[0].billedQuantity).toBe(0);
+      const again = await createBill(bill.orderId).expect(201);
+      expect(again.body.billNo).toBe(bill.billNo + 1);
+      const audit = await ctx.prisma.auditEntry.findFirstOrThrow({
+        where: { action: 'bill.void', entityId: bill.id },
+      });
+      expect(audit).toMatchObject({ actorId: manager.user.id, reason: 'Wrong table' });
+    });
+
+    it('lets a cashier void with a manager PIN override', async () => {
+      const bill = await billFor();
+      const token = await overrideToken(ctx, manager, cashier, 'bill.void');
+      await voidBill(bill.id, cashier, { 'x-override-token': token }).expect(201);
+      const audit = await ctx.prisma.auditEntry.findFirstOrThrow({
+        where: { action: 'bill.void' },
+      });
+      expect(audit.actorId).toBe(manager.user.id);
+      expect(audit.after).toMatchObject({ requestedBy: cashier.user.id });
+    });
+
+    it('reopens a paid order, but not onto a table that has new guests', async () => {
+      const paidBill = await billFor();
+      await payOn(ctx, cashier, paidBill.id, { mode: 'CASH', amount: paidBill.total }).expect(201);
+      await voidBill(paidBill.id, manager).expect(201);
+      expect((await getOrder(paidBill.orderId)).status).toBe('OPEN');
+
+      const other = await billFor(roti(), r.t2.id);
+      await payOn(ctx, cashier, other.id, { mode: 'CASH', amount: other.total }).expect(201);
+      await ctx
+        .http()
+        .post('/api/orders')
+        .set(waiter.auth)
+        .send({ type: 'DINE_IN', tableId: r.t2.id, guests: 2 })
+        .expect(201);
+      const res = await voidBill(other.id, manager).expect(409);
+      expect(res.body.code).toBe('TABLE_BUSY');
+      expect((await ctx.http().get(`/api/bills/${other.id}`).set(cashier.auth)).body.status).toBe(
+        'PAID',
+      );
+    });
+
+    it('refuses to void twice', async () => {
+      const bill = await billFor();
+      await voidBill(bill.id, manager).expect(201);
+      const res = await voidBill(bill.id, manager).expect(409);
+      expect(res.body.code).toBe('BILL_ALREADY_VOID');
+    });
+
+    it('blocks voiding the whole order while a bill is live', async () => {
+      const orderId = await servedOrder(ctx, r, waiter, [
+        { variantId: r.roti.regular.id, quantity: 2 },
+      ]);
+      const item = (await getOrder(orderId)).items[0];
+      await createBill(orderId, { lines: [{ orderItemId: item.id, quantity: 1 }] }).expect(201);
+      const res = await ctx
+        .http()
+        .post(`/api/orders/${orderId}/void`)
+        .set(manager.auth)
+        .send({ reason: 'Customer left' })
+        .expect(409);
+      expect(res.body.code).toBe('HAS_BILLS');
     });
   });
 });

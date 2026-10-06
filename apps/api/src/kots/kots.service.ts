@@ -264,6 +264,10 @@ export class KotsService {
       if (order.status !== 'OPEN') {
         throw new ApiError(HttpStatus.CONFLICT, 'ORDER_NOT_OPEN', 'This order is no longer open.');
       }
+      const liveBills = await tx.bill.count({ where: { orderId, status: { not: 'VOID' } } });
+      if (liveBills > 0) {
+        throw new ApiError(HttpStatus.CONFLICT, 'HAS_BILLS', 'Void the bill first.');
+      }
       const sent = await tx.orderItem.findMany({ where: { orderId, status: 'SENT' } });
       const byStation = new Map<string, OrderItem[]>();
       for (const item of sent) {

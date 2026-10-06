@@ -10,7 +10,7 @@ import { ApiError } from '../common/api-error';
 import { parseVersion } from '../common/if-match';
 import { invalidReference, notFound } from '../common/master-data';
 import type { AuthUser } from '../common/request-context';
-import { OrdersService, orderNotOpen } from '../orders/orders.service';
+import { OrdersService, orderNotOpen, tableHolder } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { calculateBill } from './bill-calc';
 import { BILL_INCLUDE, billView, type BillView } from './bill.views';
@@ -244,6 +244,70 @@ export class BillsService {
       );
     }
     return tx.bill.findUniqueOrThrow({ where: { id: billId } });
+  }
+
+  /**
+   * Voids an open or paid bill (manager, or cashier with override). The number is kept, its
+   * payments stay on record but no longer count, and the order reopens for re-billing.
+   * `actor` is the approving manager; `requester` the signed-in user.
+   */
+  async void(
+    actor: AuthUser,
+    requester: AuthUser,
+    billId: string,
+    reason: string,
+  ): Promise<BillView> {
+    const orderId = await this.orderOf(requester.outletId, billId);
+    await this.orders.mutate(requester, orderId, undefined, async ({ tx, order }) => {
+      const bill = await this.lockBill(tx, requester.outletId, billId, undefined);
+      if (bill.status === 'VOID') {
+        throw new ApiError(HttpStatus.CONFLICT, 'BILL_ALREADY_VOID', 'This bill is already void.');
+      }
+      const day = await this.days.requireOpen(tx, requester.outletId);
+      if (bill.businessDayId !== day.id) {
+        throw new ApiError(HttpStatus.CONFLICT, 'DAY_CLOSED', 'This bill belongs to a closed day.');
+      }
+      if (order.status === 'CLOSED' && order.tableId) {
+        const holder = await tableHolder(tx, order.tableId, orderId);
+        if (holder) {
+          const table = await tx.diningTable.findUniqueOrThrow({ where: { id: order.tableId } });
+          throw new ApiError(
+            HttpStatus.CONFLICT,
+            'TABLE_BUSY',
+            `${table.name} already has a new order. Bill the dishes there instead.`,
+            { orderId: holder.id },
+          );
+        }
+      }
+      const paid = await tx.payment.aggregate({ where: { billId }, _sum: { amount: true } });
+      await tx.bill.update({
+        where: { id: billId },
+        data: { status: 'VOID', voidReason: reason, voidedById: actor.id, voidedAt: new Date() },
+      });
+      if (order.status === 'BILLED' || order.status === 'CLOSED') {
+        await tx.order.update({ where: { id: orderId }, data: { status: 'OPEN', closedAt: null } });
+      }
+      await this.audit.record(
+        {
+          outletId: requester.outletId,
+          actorId: actor.id,
+          action: 'bill.void',
+          entity: 'bill',
+          entityId: billId,
+          reason,
+          before: {
+            billNo: bill.billNo,
+            status: bill.status,
+            total: bill.total,
+            paid: paid._sum.amount ?? 0,
+          },
+          after: { status: 'VOID', requestedBy: requester.id },
+        },
+        tx,
+      );
+    });
+    this.changed(requester.outletId, billId, orderId);
+    return this.get(requester.outletId, billId);
   }
 
   /** The bill's order id, checked against the outlet (for locking the order first). */

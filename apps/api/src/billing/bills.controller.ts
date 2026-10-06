@@ -13,13 +13,20 @@ import {
   addPaymentSchema,
   billDiscountSchema,
   createBillSchema,
+  voidBillSchema,
   type AddPaymentRequest,
   type BillDiscountRequest,
+  type VoidBillRequest,
   type CreateBillRequest,
 } from '@rpos/shared';
 import { RequirePermissions } from '../auth/decorators';
 import { OVERRIDE_HEADER } from '../auth/permissions.guard';
-import { CurrentUser, type AuthUser, type RequestContext } from '../common/request-context';
+import {
+  CurrentActor,
+  CurrentUser,
+  type AuthUser,
+  type RequestContext,
+} from '../common/request-context';
 import { ZodBody } from '../common/zod-body.pipe';
 import { BillsService } from './bills.service';
 import { PaymentsService } from './payments.service';
@@ -83,5 +90,16 @@ export class BillsController {
     @Body(new ZodBody(addPaymentSchema)) body: AddPaymentRequest,
   ) {
     return this.payments.add(user, id, idempotencyKey?.slice(0, 100) || undefined, body);
+  }
+
+  @Post('bills/:id/void')
+  @RequirePermissions('bill.void')
+  void(
+    @CurrentActor() actor: AuthUser,
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodBody(voidBillSchema)) body: VoidBillRequest,
+  ) {
+    return this.bills.void(actor, user, id, body.reason);
   }
 }
