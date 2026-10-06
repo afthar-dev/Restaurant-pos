@@ -1,7 +1,9 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Bill, DiscountKind, OrderItem, Prisma } from '@prisma/client';
-import type { CreateBillRequest } from '@rpos/shared';
+import type { BillDiscountRequest, CreateBillRequest, Permission } from '@rpos/shared';
+import { AuditService } from '../audit/audit.service';
+import { OverrideService } from '../auth/override.service';
 import { BusinessDayService } from '../business-day/business-day.service';
 import { CountersService } from '../business-day/counters.service';
 import { ApiError } from '../common/api-error';
@@ -41,6 +43,8 @@ export class BillsService {
     private readonly days: BusinessDayService,
     private readonly counters: CountersService,
     private readonly events: EventEmitter2,
+    private readonly audit: AuditService,
+    private readonly overrides: OverrideService,
   ) {}
 
   async create(
@@ -247,6 +251,119 @@ export class BillsService {
     });
     if (!bill) throw notFound('Bill');
     return bill.orderId;
+  }
+
+  /**
+   * Sets the bill discount and/or line discounts, then recalculates. A cashier above the
+   * outlet cap needs a manager override for `discount.unlimited`; the approver is audited.
+   */
+  async setDiscount(
+    user: AuthUser,
+    permissions: readonly Permission[],
+    billId: string,
+    ifMatch: string | undefined,
+    overrideToken: string | undefined,
+    request: BillDiscountRequest,
+  ): Promise<BillView> {
+    const orderId = await this.orderOf(user.outletId, billId);
+    await this.orders.mutate(user, orderId, undefined, async ({ tx }) => {
+      const locked = await this.lockBill(tx, user.outletId, billId, ifMatch);
+      if (locked.status !== 'OPEN') {
+        throw new ApiError(HttpStatus.CONFLICT, 'BILL_NOT_OPEN', 'This bill is already settled.');
+      }
+      if ((await tx.payment.count({ where: { billId } })) > 0) {
+        throw new ApiError(
+          HttpStatus.CONFLICT,
+          'BILL_HAS_PAYMENTS',
+          'Discounts can only change before any payment is taken.',
+        );
+      }
+      const before = await tx.bill.findUniqueOrThrow({
+        where: { id: billId },
+        include: { items: true },
+      });
+      for (const entry of request.items) {
+        if (!before.items.some((i) => i.id === entry.billItemId)) {
+          throw invalidReference('billItemId');
+        }
+        await tx.billItem.update({
+          where: { id: entry.billItemId },
+          data: {
+            discountKind: entry.discount?.kind ?? null,
+            discountValue: entry.discount?.value ?? null,
+          },
+        });
+      }
+      if (request.bill !== undefined) {
+        await tx.bill.update({
+          where: { id: billId },
+          data: {
+            discountKind: request.bill?.kind ?? null,
+            discountValue: request.bill?.value ?? null,
+          },
+        });
+      }
+      await this.recalculate(tx, billId);
+      const after = await tx.bill.findUniqueOrThrow({
+        where: { id: billId },
+        include: { items: true },
+      });
+
+      const totalDiscount = after.itemDiscount + after.billDiscount;
+      const reason = request.reason?.trim() ?? '';
+      if (totalDiscount > 0 && reason.length < 3) {
+        throw new ApiError(HttpStatus.BAD_REQUEST, 'VALIDATION', 'Give a reason for the discount.');
+      }
+      let approver: AuthUser = user;
+      const outlet = await tx.outlet.findUniqueOrThrow({ where: { id: user.outletId } });
+      const allowed = Math.floor((after.grossSubtotal * outlet.cashierDiscountCapBp) / 10000);
+      if (totalDiscount > allowed && !permissions.includes('discount.unlimited')) {
+        const manager = overrideToken
+          ? await this.overrides.approve(overrideToken, 'discount.unlimited', user)
+          : null;
+        if (!manager) {
+          throw new ApiError(
+            HttpStatus.FORBIDDEN,
+            'DISCOUNT_OVER_LIMIT',
+            'This discount needs a manager.',
+            { capBp: outlet.cashierDiscountCapBp, allowed },
+          );
+        }
+        approver = manager;
+      }
+      await tx.bill.update({
+        where: { id: billId },
+        data: {
+          discountReason: totalDiscount > 0 ? reason : null,
+          discountById: totalDiscount > 0 ? approver.id : null,
+        },
+      });
+      const snapshot = (b: typeof before) => ({
+        discount: b.discountKind ? { kind: b.discountKind, value: b.discountValue } : null,
+        itemDiscounts: b.items
+          .filter((i) => i.discountKind)
+          .map((i) => ({ itemName: i.itemName, kind: i.discountKind, value: i.discountValue })),
+        total: b.total,
+      });
+      await this.audit.record(
+        {
+          outletId: user.outletId,
+          actorId: approver.id,
+          action: 'bill.discount',
+          entity: 'bill',
+          entityId: billId,
+          reason: reason || null,
+          before: snapshot(before),
+          after: {
+            ...snapshot(after),
+            ...(approver.id !== user.id ? { requestedBy: user.id } : {}),
+          },
+        },
+        tx,
+      );
+    });
+    this.changed(user.outletId, billId, orderId);
+    return this.get(user.outletId, billId);
   }
 
   changed(outletId: string, billId: string, orderId: string) {

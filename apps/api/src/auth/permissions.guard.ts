@@ -1,12 +1,10 @@
 import { HttpStatus, Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Prisma } from '@prisma/client';
-import { hasPermission, type Permission } from '@rpos/shared';
+import type { Permission } from '@rpos/shared';
 import { ApiError } from '../common/api-error';
 import type { RequestContext } from '../common/request-context';
-import { PrismaService } from '../prisma/prisma.service';
 import { REQUIRED_PERMISSIONS } from './decorators';
-import { TokenService } from './token.service';
+import { OverrideService } from './override.service';
 
 export const OVERRIDE_HEADER = 'x-override-token';
 
@@ -19,8 +17,7 @@ export const OVERRIDE_HEADER = 'x-override-token';
 export class PermissionsGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    private readonly tokens: TokenService,
-    private readonly prisma: PrismaService,
+    private readonly overrides: OverrideService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -42,7 +39,7 @@ export class PermissionsGuard implements CanActivate {
 
     const overrideToken = req.headers[OVERRIDE_HEADER];
     if (missing.length === 1 && typeof overrideToken === 'string') {
-      const approver = await this.approverFor(overrideToken, missing[0]!, req.user);
+      const approver = await this.overrides.approve(overrideToken, missing[0]!, req.user);
       if (approver) {
         req.actor = approver;
         return true;
@@ -56,47 +53,5 @@ export class PermissionsGuard implements CanActivate {
         permission: missing[0],
       },
     );
-  }
-
-  private async approverFor(
-    token: string,
-    permission: Permission,
-    requester: NonNullable<RequestContext['user']>,
-  ) {
-    const claims = this.tokens.verifyOverride(token);
-    if (
-      !claims ||
-      claims.perm !== permission ||
-      claims.oid !== requester.outletId ||
-      claims.req !== requester.id
-    ) {
-      return null;
-    }
-    const approver = await this.prisma.user.findUnique({
-      where: { id: claims.sub },
-      include: { outlet: true },
-    });
-    if (!approver || approver.archivedAt) return null;
-    if (!hasPermission(approver.role, permission, approver.outlet)) return null;
-    if (!(await this.consume(claims.jti))) return null;
-    return {
-      id: approver.id,
-      name: approver.name,
-      role: approver.role,
-      outletId: approver.outletId,
-    };
-  }
-
-  /** Marks an override token as used. False when it was used before. */
-  private async consume(jti: string): Promise<boolean> {
-    try {
-      await this.prisma.usedOverrideToken.create({ data: { jti } });
-      return true;
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        return false;
-      }
-      throw error;
-    }
   }
 }

@@ -1,5 +1,5 @@
 import type { Outlet } from '@prisma/client';
-import { parcelOrder, servedOrder } from './billing-helpers';
+import { overrideToken, parcelOrder, servedOrder } from './billing-helpers';
 import { buildRestaurant, type Restaurant } from './fixtures';
 import {
   createOutlet,
@@ -243,6 +243,127 @@ describe('bills', () => {
       const elsewhere = await createOutlet(ctx.prisma);
       const stranger = await signIn(ctx, elsewhere.id, 'OWNER');
       await ctx.http().get(`/api/bills/${bill.id}`).set(stranger.auth).expect(404);
+    });
+  });
+
+  describe('discounts', () => {
+    /** 2 × Paneer Half (₹360) + 1 × Roti (₹30): subtotal ₹390, so the 10% cashier cap is ₹39. */
+    async function bill390() {
+      const orderId = await servedOrder(ctx, r, waiter, [
+        { variantId: r.paneer.half.id, quantity: 2 },
+        { variantId: r.roti.regular.id, quantity: 1 },
+      ]);
+      return (await createBill(orderId).expect(201)).body;
+    }
+
+    const discount = (billId: string, body: object, who = cashier) =>
+      ctx.http().put(`/api/bills/${billId}/discount`).set(who.auth).send(body);
+
+    it('lets a cashier give up to the cap with a reason, and audits it', async () => {
+      const bill = await bill390();
+      const res = await discount(bill.id, {
+        bill: { kind: 'PERCENT', value: 1000 },
+        reason: 'Regular guest',
+      }).expect(200);
+      expect(res.body).toMatchObject({
+        billDiscount: 3900,
+        discountReason: 'Regular guest',
+        discount: { kind: 'PERCENT', value: 1000 },
+        taxable: 35100,
+      });
+      expect(res.body.version).toBeGreaterThan(bill.version);
+      const audit = await ctx.prisma.auditEntry.findFirstOrThrow({
+        where: { action: 'bill.discount' },
+      });
+      expect(audit).toMatchObject({
+        entityId: bill.id,
+        reason: 'Regular guest',
+        actorId: cashier.user.id,
+      });
+    });
+
+    it('asks a manager above the cashier cap', async () => {
+      const bill = await bill390();
+      const res = await discount(bill.id, {
+        bill: { kind: 'PERCENT', value: 2000 },
+        reason: 'Complaint',
+      }).expect(403);
+      expect(res.body).toMatchObject({ code: 'DISCOUNT_OVER_LIMIT', capBp: 1000, allowed: 3900 });
+      expect(
+        (await ctx.http().get(`/api/bills/${bill.id}`).set(cashier.auth)).body.billDiscount,
+      ).toBe(0);
+
+      const token = await overrideToken(ctx, manager, cashier, 'discount.unlimited');
+      const ok = await ctx
+        .http()
+        .put(`/api/bills/${bill.id}/discount`)
+        .set({ ...cashier.auth, 'x-override-token': token })
+        .send({ bill: { kind: 'PERCENT', value: 2000 }, reason: 'Complaint' })
+        .expect(200);
+      expect(ok.body.billDiscount).toBe(7800);
+      const audit = await ctx.prisma.auditEntry.findFirstOrThrow({
+        where: { action: 'bill.discount' },
+      });
+      expect(audit.actorId).toBe(manager.user.id);
+    });
+
+    it('lets a manager give any discount, but never below zero', async () => {
+      const bill = await bill390();
+      const res = await discount(
+        bill.id,
+        { bill: { kind: 'FLAT', value: 100000 }, reason: 'On the house' },
+        manager,
+      ).expect(200);
+      expect(res.body).toMatchObject({ billDiscount: 39000, taxable: 0, total: 0 });
+    });
+
+    it('discounts a single dish and can remove it again', async () => {
+      const bill = await bill390();
+      const roti = bill.lines.find((l: { itemName: string }) => l.itemName === 'Tandoori Roti');
+      const res = await discount(bill.id, {
+        items: [{ billItemId: roti.id, discount: { kind: 'FLAT', value: 1000 } }],
+        reason: 'Burnt',
+      }).expect(200);
+      expect(res.body).toMatchObject({ itemDiscount: 1000, subtotal: 38000 });
+      expect(res.body.lines[1].discount).toEqual({ kind: 'FLAT', value: 1000 });
+      const cleared = await discount(bill.id, {
+        items: [{ billItemId: roti.id, discount: null }],
+      }).expect(200);
+      expect(cleared.body).toMatchObject({ itemDiscount: 0, subtotal: 39000 });
+    });
+
+    it('needs a reason, a line of this bill and the current version', async () => {
+      const bill = await bill390();
+      await discount(bill.id, { bill: { kind: 'FLAT', value: 1000 } }).expect(400);
+      const other = await servedOrder(
+        ctx,
+        r,
+        waiter,
+        [{ variantId: r.roti.regular.id, quantity: 1 }],
+        r.t2.id,
+      );
+      const otherBill = (await createBill(other).expect(201)).body;
+      const res = await discount(bill.id, {
+        items: [{ billItemId: otherBill.lines[0].id, discount: { kind: 'FLAT', value: 100 } }],
+        reason: 'Mixed up',
+      }).expect(400);
+      expect(res.body).toMatchObject({ code: 'INVALID_REFERENCE', field: 'billItemId' });
+      const stale = await ctx
+        .http()
+        .put(`/api/bills/${bill.id}/discount`)
+        .set({ ...cashier.auth, 'If-Match': String(bill.version + 5) })
+        .send({ bill: null })
+        .expect(409);
+      expect(stale.body.code).toBe('BILL_CHANGED');
+    });
+
+    it('does not let a waiter discount', async () => {
+      const bill = await bill390();
+      await discount(
+        bill.id,
+        { bill: { kind: 'FLAT', value: 100 }, reason: 'Friend' },
+        waiter,
+      ).expect(403);
     });
   });
 });
