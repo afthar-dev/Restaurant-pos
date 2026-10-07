@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { button, Sheet } from '@/features/menu/components/ItemSheet';
+import { button, Sheet } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
-import type { CartLine } from '@/shared/types';
+import type { CartLine } from '../types';
 
 /** The dishes chosen so far, an order note, and Send. */
 export function Cart({

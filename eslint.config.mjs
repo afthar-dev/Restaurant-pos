@@ -18,19 +18,24 @@ const featureInternals = {
   group: ['@/features/*/*'],
   message: 'Import another feature only through its index (@/features/<name>).',
 };
-const httpClient = {
+/** @param {string} fetcher the HTTP client function of that app */
+const httpClient = (fetcher) => ({
   name: '@/shared/api/http',
-  importNames: ['apiFetch'],
+  importNames: [fetcher],
   message: "Only a feature's api.ts calls the HTTP client.",
-};
+});
 const queryHooks = {
   name: '@tanstack/react-query',
   importNames: ['useQuery', 'useInfiniteQuery', 'useMutation', 'useQueryClient'],
   message: 'Components use the hooks in the feature queries.ts and mutations.ts.',
 };
 
-/** @param {string} src the app's src folder */
-function boundaries(src) {
+/**
+ * @param {string} src the app's src folder
+ * @param {string} fetcher the HTTP client function only api.ts files may use
+ */
+function boundaries(src, fetcher) {
+  const http = httpClient(fetcher);
   const restrict = (/** @type {object[]} */ patterns, /** @type {object[]} */ paths = []) => ({
     'no-restricted-imports': ['error', { patterns, paths }],
   });
@@ -38,12 +43,12 @@ function boundaries(src) {
     { files: [`${src}/app/**/*.{ts,tsx}`], rules: restrict([featureInternals]) },
     {
       files: [`${src}/features/**/*.{ts,tsx}`],
-      rules: restrict([appWiring, featureInternals], [httpClient]),
+      rules: restrict([appWiring, featureInternals], [http]),
     },
     { files: [`${src}/features/**/api.ts`], rules: restrict([appWiring, featureInternals]) },
     {
       files: [`${src}/features/*/components/**/*.tsx`, `${src}/features/*/pages/**/*.tsx`],
-      rules: restrict([appWiring, featureInternals], [httpClient, queryHooks]),
+      rules: restrict([appWiring, featureInternals], [http, queryHooks]),
     },
     {
       files: [`${src}/shared/**/*.{ts,tsx}`],
@@ -100,7 +105,8 @@ export default tseslint.config(
       'react-hooks/exhaustive-deps': 'error',
     },
   },
-  ...boundaries('apps/web/src'),
+  ...boundaries('apps/web/src', 'apiFetch'),
+  ...boundaries('apps/qr/src', 'qrFetch'),
   {
     files: ['apps/api/**/*.ts'],
     languageOptions: { globals: globals.node },

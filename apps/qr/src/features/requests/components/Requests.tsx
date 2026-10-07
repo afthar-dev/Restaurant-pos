@@ -1,14 +1,14 @@
 import { rupees } from '@/shared/lib/money';
-import type { Request } from '@/shared/types';
+import type { OrderRequest } from '../types';
 
-const TONE: Record<Request['status'], string> = {
+const TONE: Record<OrderRequest['status'], string> = {
   PENDING: 'border-amber-300 bg-amber-50 text-amber-950',
   APPROVED: 'border-emerald-300 bg-emerald-50 text-emerald-950',
   REJECTED: 'border-red-300 bg-red-50 text-red-900',
 };
 
 /** What this phone has sent and what the staff decided. */
-export function Requests({ requests }: { requests: Request[] }) {
+export function Requests({ requests }: { requests: OrderRequest[] }) {
   if (requests.length === 0) return null;
   return (
     <section aria-label="Your orders" className="flex flex-col gap-2">

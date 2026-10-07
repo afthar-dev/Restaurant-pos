@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { rupees } from '@/shared/lib/money';
-import type { Menu as MenuData, MenuItem } from '@/shared/types';
+import type { Menu as MenuData, MenuItem } from '../types';
 
 const DOT: Record<MenuItem['foodType'], string> = {
   VEG: 'bg-emerald-600',

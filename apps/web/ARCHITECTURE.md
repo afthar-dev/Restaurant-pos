@@ -104,3 +104,16 @@ Tests are exempt from rule 1: they may reach into another feature to set up a sc
 - `scripts/move-modules.mjs` moves modules and rewrites every import, `vi.mock` and
   `import()` that points at them.
 - `scripts/use-feature-index.mjs` points cross-feature imports at each feature's index.
+
+## The customer QR app (`apps/qr`)
+
+Same rules and lint config, with `qrFetch` as its HTTP client:
+
+- `features/session`: the Zustand session store, saved per table as `rpos.qr.<code>`.
+  `end(token)` runs when any call answers `QR_SESSION_ENDED`; the query client reports it
+  through `meta: sessionMeta(token)`. A late answer for an older session is ignored.
+- `features/cart`: the cart store. Any change drops the cart's `requestId`, so a changed cart
+  is a new order, while a resend of the same cart reuses it.
+- `features/menu` and `features/requests`: queries keyed by session token. `useMyRequests`
+  polls every 5 s only while a request waits for staff, and `useSubmitOrder` sends the cart.
+- `app/`: providers, the table screen (start, retry, ended) and the ordering screen.
