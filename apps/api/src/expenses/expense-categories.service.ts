@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import type { ExpenseCategory, Prisma } from '@prisma/client';
+import { Prisma, type ExpenseCategory } from '@prisma/client';
 import type { ExpenseCategoryRequest } from '@rpos/shared';
 import { ApiError } from '../common/api-error';
 import { nameTaken, notFound, sameActiveName } from '../common/master-data';
@@ -45,6 +45,18 @@ export async function ensureDefaultCategories(db: Db, outletId: string): Promise
   });
 }
 
+/** Two saves of the same name at once: the unique index refuses the second as NAME_TAKEN. */
+async function uniqueName<T>(save: () => Promise<T>): Promise<T> {
+  try {
+    return await save();
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      throw nameTaken();
+    }
+    throw error;
+  }
+}
+
 /** The Raw material category, created if needed. */
 export async function rawMaterialCategory(db: Db, outletId: string): Promise<ExpenseCategory> {
   await ensureDefaultCategories(db, outletId);
@@ -67,19 +79,20 @@ export class ExpenseCategoriesService {
   async create(actor: AuthUser, request: ExpenseCategoryRequest) {
     await ensureDefaultCategories(this.prisma, actor.outletId);
     await this.assertNameFree(actor.outletId, request.name);
-    const row = await this.prisma.expenseCategory.create({
-      data: { outletId: actor.outletId, name: request.name },
-    });
+    const row = await uniqueName(() =>
+      this.prisma.expenseCategory.create({
+        data: { outletId: actor.outletId, name: request.name },
+      }),
+    );
     return categoryView(row);
   }
 
   async rename(actor: AuthUser, id: string, request: ExpenseCategoryRequest) {
     await this.findEditable(actor.outletId, id);
     await this.assertNameFree(actor.outletId, request.name, id);
-    const row = await this.prisma.expenseCategory.update({
-      where: { id },
-      data: { name: request.name },
-    });
+    const row = await uniqueName(() =>
+      this.prisma.expenseCategory.update({ where: { id }, data: { name: request.name } }),
+    );
     return categoryView(row);
   }
 

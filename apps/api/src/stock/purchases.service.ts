@@ -15,6 +15,9 @@ import { purchaseInclude, purchaseView } from './stock.views';
 
 const keyFor = (key: string) => `purchase:${key}`;
 
+const byItem = <T extends { stockItemId: string }>(lines: T[]) =>
+  [...lines].sort((a, b) => a.stockItemId.localeCompare(b.stockItemId));
+
 const itemUnknown = () =>
   new ApiError(
     HttpStatus.BAD_REQUEST,
@@ -63,7 +66,8 @@ export class PurchasesService {
             lines: { create: request.lines },
           },
         });
-        for (const line of request.lines) {
+        // One order for every writer, so two purchases of the same items cannot deadlock.
+        for (const line of byItem(request.lines)) {
           await postTxn(tx, {
             outletId: actor.outletId,
             stockItemId: line.stockItemId,
@@ -158,7 +162,7 @@ export class PurchasesService {
       if (updated.count === 0) {
         throw new ApiError(HttpStatus.CONFLICT, 'ALREADY_VOIDED', 'This was already voided.');
       }
-      for (const line of purchase.lines) {
+      for (const line of byItem(purchase.lines)) {
         await postTxn(tx, {
           outletId: actor.outletId,
           stockItemId: line.stockItemId,

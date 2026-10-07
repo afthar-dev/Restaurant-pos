@@ -139,13 +139,15 @@ export class SalesReportService {
     };
     if (dayIds.length === 0) return result;
     const rows = await this.prisma.$queryRaw<{ type: OrderType; orders: number; total: number }[]>`
-      SELECT o.type, COUNT(DISTINCT b.order_id)::int AS orders, COALESCE(SUM(b.total), 0)::int AS total
+      SELECT o.type, COUNT(DISTINCT b.order_id)::int AS orders, COALESCE(SUM(b.total), 0)::float8 AS total
         FROM bills b JOIN orders o ON o.id = b.order_id
        WHERE b.business_day_id IN (${this.ids(dayIds)}) AND b.status <> 'VOID'
        GROUP BY o.type`;
     for (const row of rows) result[row.type] = { orders: row.orders, total: row.total };
     return result;
   }
+
+  // Sums are float8: exact for whole paise up to 2^53, where int would overflow at ₹2.15 crore.
 
   /** Every dish sold, by amount (after item discounts, before the bill discount). */
   private async items(dayIds: string[]) {
@@ -154,7 +156,7 @@ export class SalesReportService {
       { itemName: string; variantName: string; quantity: number; amount: number }[]
     >`
       SELECT bi.item_name AS "itemName", bi.variant_name AS "variantName",
-             SUM(bi.quantity)::int AS quantity, SUM(bi.line_total)::int AS amount
+             SUM(bi.quantity)::float8 AS quantity, SUM(bi.line_total)::float8 AS amount
         FROM bill_items bi JOIN bills b ON b.id = bi.bill_id
        WHERE b.business_day_id IN (${this.ids(dayIds)}) AND b.status <> 'VOID'
        GROUP BY bi.item_name, bi.variant_name
@@ -166,7 +168,7 @@ export class SalesReportService {
     if (dayIds.length === 0) return [];
     return this.prisma.$queryRaw<{ name: string; quantity: number; amount: number }[]>`
       SELECT COALESCE(c.name, 'Other') AS name,
-             SUM(bi.quantity)::int AS quantity, SUM(bi.line_total)::int AS amount
+             SUM(bi.quantity)::float8 AS quantity, SUM(bi.line_total)::float8 AS amount
         FROM bill_items bi
         JOIN bills b ON b.id = bi.bill_id
         JOIN order_items oi ON oi.id = bi.order_item_id

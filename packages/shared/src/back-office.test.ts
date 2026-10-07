@@ -91,6 +91,14 @@ describe('purchaseSchema', () => {
     });
     expect(twice.success).toBe(false);
     expect(twice.error?.issues[0]?.message).toBe('Each item once per purchase');
+    const huge = purchaseSchema.safeParse({
+      ...purchase,
+      lines: [
+        { stockItemId: ITEM_A, qtyMilli: 1000, amount: 600_000_000 },
+        { stockItemId: ITEM_B, qtyMilli: 1000, amount: 600_000_000 },
+      ],
+    });
+    expect(huge.error?.issues[0]?.message).toMatch(/at most ₹1 crore/);
   });
 });
 

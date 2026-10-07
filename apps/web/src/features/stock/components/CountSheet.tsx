@@ -29,7 +29,8 @@ export function CountSheet({ item, onClose }: { item: StockItem; onClose: () => 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     const text = counted.trim();
-    const countedMilli = text === '0' ? 0 : parseQuantity(text);
+    // Zero is a valid count (the item ran out); parseQuantity only takes positive amounts.
+    const countedMilli = /^0*(\.0{0,3})?$/.test(text) && text !== '' ? 0 : parseQuantity(text);
     if (countedMilli === null) return setInvalid('Enter a quantity like 1.5');
     setInvalid(undefined);
     setResult(null);

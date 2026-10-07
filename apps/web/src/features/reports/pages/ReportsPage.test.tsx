@@ -107,7 +107,8 @@ describe('ReportsPage', () => {
       .mockImplementation(() => undefined);
     renderRoute('/reports');
     await screen.findByRole('table', { name: 'Days' });
-    fireEvent.click(screen.getByRole('button', { name: 'Download CSV' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Days CSV' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Dishes CSV' }));
     expect(clicks).toHaveBeenCalledTimes(2);
     const [days, items] = await Promise.all(blobs.map(readBlob));
     expect(days).toContain('"2026-10-07",3,1170.5,32,378,760.5,10');

@@ -109,6 +109,25 @@ describe('StockPage', () => {
   });
 });
 
+describe('StockPage zero count', () => {
+  it('accepts "0.000" when the item ran out', async () => {
+    asManager();
+    const mock = mockApi({
+      'GET /api/stock/items': () => json(ITEMS),
+      [`POST /api/stock/items/${ONION}/count`]: () =>
+        json({ difference: -2500, item: item({ currentMilli: 0 }) }, 201),
+    });
+    renderRoute('/stock');
+    fireEvent.click(await screen.findByRole('button', { name: 'Count Onion' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Count Onion' });
+    fireEvent.change(within(sheet).getByLabelText('Counted (kg)'), { target: { value: '0.000' } });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Save count' }));
+    expect(await within(sheet).findByText('Difference −2.5 kg recorded.')).toBeInTheDocument();
+    const sent = callsTo(mock, 'POST', `/api/stock/items/${ONION}/count`);
+    expect(JSON.parse(String(sent[0]?.[1]?.body))).toEqual({ countedMilli: 0 });
+  });
+});
+
 describe('PurchasesPage', () => {
   async function fillPurchase() {
     fireEvent.click(await screen.findByRole('button', { name: 'New purchase' }));

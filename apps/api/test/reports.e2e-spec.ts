@@ -181,4 +181,18 @@ describe('sales report', () => {
     await ctx.http().get('/api/reports/sales').set(owner.auth).expect(400);
     await report(istDate(0), istDate(0), manager).expect(403);
   });
+  it('adds totals beyond the 32-bit range (₹2.15 crore and up)', async () => {
+    await openDay();
+    const a = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }]);
+    const b = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }], r.t2.id);
+    // Two large bills, as a long range of a busy restaurant would add up to.
+    await ctx.prisma.bill.updateMany({ data: { total: 1_500_000_000 } });
+    await ctx.prisma.billItem.updateMany({ data: { lineTotal: 1_500_000_000 } });
+    const res = await report(istDate(0), istDate(0)).expect(200);
+    expect(res.body.summary.total).toBe(3_000_000_000);
+    expect(res.body.summary.byType.DINE_IN.total).toBe(3_000_000_000);
+    expect(res.body.items[0].amount).toBe(3_000_000_000);
+    expect(res.body.categories[0].amount).toBe(3_000_000_000);
+    expect([a.id, b.id]).toHaveLength(2);
+  });
 });

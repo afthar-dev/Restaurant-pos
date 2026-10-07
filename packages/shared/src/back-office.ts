@@ -82,6 +82,10 @@ export const purchaseSchema = z.strictObject({
     .refine(
       (lines) => new Set(lines.map((l) => l.stockItemId)).size === lines.length,
       'Each item once per purchase',
+    )
+    .refine(
+      (lines) => lines.reduce((sum, l) => sum + l.amount, 0) <= 1_000_000_000,
+      'A purchase can be at most ₹1 crore. Split it into separate bills.',
     ),
 });
 export type PurchaseRequest = z.infer<typeof purchaseSchema>;

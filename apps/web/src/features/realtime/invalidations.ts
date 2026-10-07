@@ -37,7 +37,8 @@ export const INVALIDATIONS: Record<string, (payload: Payload) => QueryKey[]> = {
   'kot.created': (p) => [kitchenKeys.all, orderKeys.detail(orderId(p))],
   'kot.updated': (p) => [kitchenKeys.all, orderKeys.detail(orderId(p))],
   'menu.availability': () => [menuKeys.all],
-  'day.updated': () => [dayKeys.current],
+  // A closed or reopened day changes which purchases and expenses can still be voided.
+  'day.updated': () => [dayKeys.current, expenseKeys.all, stockKeys.all],
   'print.job': () => [printKeys.jobs],
   'expense.updated': () => [expenseKeys.all, dayKeys.closeCheck],
   'stock.updated': () => [stockKeys.all],
