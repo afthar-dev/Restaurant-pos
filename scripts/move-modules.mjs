@@ -20,7 +20,11 @@ const inverse = new Map([...moves].map(([a, b]) => [b, a]));
 function walk(dir) {
   return readdirSync(dir).flatMap((name) => {
     const full = path.join(dir, name);
-    return statSync(full).isDirectory() ? walk(full) : EXT.some((e) => name.endsWith(e)) ? [full] : [];
+    return statSync(full).isDirectory()
+      ? walk(full)
+      : EXT.some((e) => name.endsWith(e))
+        ? [full]
+        : [];
   });
 }
 
