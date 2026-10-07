@@ -6,7 +6,7 @@ import { useCurrentDevice } from '../queries';
 import { useSession } from '@/shared/session/store';
 
 export function UnreachableScreen() {
-  return <p className="text-slate-700">Cannot reach the server. Retrying…</p>;
+  return <p className="text-text">Cannot reach the server. Retrying…</p>;
 }
 
 /**
@@ -30,7 +30,7 @@ export function RequireAuth({ anyOf, children }: { anyOf?: Permission[]; childre
     );
   }
   if (anyOf && !anyOf.some((p) => permissions.includes(p))) {
-    return <p className="text-slate-700">You do not have access to this screen.</p>;
+    return <p className="text-text">You do not have access to this screen.</p>;
   }
   return <>{children}</>;
 }

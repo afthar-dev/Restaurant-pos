@@ -7,11 +7,12 @@ import {
   ErrorNote,
   Field,
   fieldErrors,
+  type FieldErrors,
   inputClass,
+  PageHeader,
   primaryButton,
   RenameForm,
   secondaryButton,
-  type FieldErrors,
 } from '@/shared/ui';
 
 import {
@@ -50,7 +51,7 @@ function StationsSection() {
     <section className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
         <h3 className="text-lg font-semibold">Kitchen stations</h3>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-muted">
           Each menu category sends its KOTs to one station, such as Main kitchen, Tandoor or Bar.
         </p>
       </div>
@@ -78,7 +79,7 @@ function StationsSection() {
         />
       )}
       <ErrorNote message={archive.isError ? describeError(archive.error) : null} />
-      <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
         {stations.data?.map((s) => (
           <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2">
             {renaming?.id === s.id ? (
@@ -173,7 +174,7 @@ function PrinterForm({
     <form
       onSubmit={onSubmit}
       noValidate
-      className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-3"
+      className="grid gap-3 rounded-lg border border-border bg-surface p-4 sm:grid-cols-3"
     >
       {existing && <h4 className="font-semibold sm:col-span-3">Edit {existing.name}</h4>}
       <Field id={`printer-${key}-name`} label="Printer name" error={errors.name}>
@@ -325,12 +326,12 @@ function PrintersSection() {
           onDone={() => setEditing(null)}
         />
       )}
-      <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
         {printers.data?.map((p) => (
           <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2">
             <div className="flex flex-col">
               <span className="font-medium">{p.name}</span>
-              <span className="text-sm text-slate-600">
+              <span className="text-sm text-muted">
                 {p.purpose === 'KOT' ? `KOTs for ${p.station?.name ?? '—'}` : 'Bills'} ·{' '}
                 {p.paperWidthMm} mm ·{' '}
                 {p.mode === 'BROWSER'
@@ -359,7 +360,7 @@ function PrintersSection() {
           </li>
         ))}
         {printers.data?.length === 0 && (
-          <li className="px-4 py-2 text-sm text-slate-500">No printers yet.</li>
+          <li className="px-4 py-2 text-sm text-subtle">No printers yet.</li>
         )}
       </ul>
     </section>
@@ -369,7 +370,11 @@ function PrintersSection() {
 export function KitchenPage() {
   return (
     <section className="flex flex-col gap-8">
-      <h2 className="text-xl font-semibold">Kitchen setup</h2>
+      <PageHeader
+        as="h2"
+        title="Kitchen setup"
+        description="Stations receive kitchen tickets for their categories; printers print tickets and bills."
+      />
       <StationsSection />
       <PrintersSection />
     </section>
