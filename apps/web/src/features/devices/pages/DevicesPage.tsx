@@ -1,7 +1,5 @@
 import { DEVICE_TYPES, registerDeviceSchema, type DeviceType } from '@rpos/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { apiFetch } from '@/shared/api/http';
 import { useCurrentDevice } from '@/features/auth';
 import {
   ConfirmBar,
@@ -15,24 +13,9 @@ import {
   type FieldErrors,
 } from '@/shared/ui';
 
-interface DeviceRow {
-  id: string;
-  name: string;
-  type: DeviceType;
-  createdBy: { id: string; name: string };
-  createdAt: string;
-  lastSeenAt: string | null;
-  revokedAt: string | null;
-}
-
-export const DEVICE_LABEL: Record<DeviceType, string> = {
-  POS: 'Counter (POS)',
-  CAPTAIN: 'Waiter phone',
-  KDS: 'Kitchen screen',
-  PRINT_AGENT: 'Print agent',
-};
-
-const devicesKey = ['devices'];
+import { useRegisterDevice, useRevokeDevice } from '../mutations';
+import { useDevices } from '../queries';
+import { DEVICE_LABEL, type DeviceRow } from '../types';
 
 function formatTime(iso: string | null): string {
   if (!iso) return 'Never';
@@ -40,25 +23,15 @@ function formatTime(iso: string | null): string {
 }
 
 function RegisterForm() {
-  const queryClient = useQueryClient();
   const current = useCurrentDevice();
   const [name, setName] = useState('');
   const [type, setType] = useState<DeviceType>('POS');
   const [errors, setErrors] = useState<FieldErrors>({});
   const [done, setDone] = useState<string | null>(null);
 
-  const register = useMutation({
-    mutationFn: (body: { name: string; type: DeviceType }) =>
-      apiFetch<{ id: string; name: string; type: DeviceType }>('/api/devices', {
-        method: 'POST',
-        body,
-      }),
-    onSuccess: async (device) => {
-      setDone(`This device is now registered as ${device.name}.`);
-      setName('');
-      await queryClient.invalidateQueries({ queryKey: ['device'] });
-      await queryClient.invalidateQueries({ queryKey: devicesKey });
-    },
+  const register = useRegisterDevice((device) => {
+    setDone(`This device is now registered as ${device.name}.`);
+    setName('');
   });
 
   function onSubmit(event: FormEvent) {
@@ -119,20 +92,10 @@ function RegisterForm() {
 }
 
 export function DevicesPage() {
-  const queryClient = useQueryClient();
-  const devices = useQuery({
-    queryKey: devicesKey,
-    queryFn: () => apiFetch<DeviceRow[]>('/api/devices'),
-  });
+  const devices = useDevices();
   const [confirming, setConfirming] = useState<DeviceRow | null>(null);
 
-  const revoke = useMutation({
-    mutationFn: (d: DeviceRow) => apiFetch<void>(`/api/devices/${d.id}`, { method: 'DELETE' }),
-    onSuccess: async () => {
-      setConfirming(null);
-      await queryClient.invalidateQueries({ queryKey: devicesKey });
-    },
-  });
+  const revoke = useRevokeDevice(() => setConfirming(null));
 
   return (
     <section className="flex flex-col gap-4">

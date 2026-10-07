@@ -1,4 +1,3 @@
-import { FOOD_LABEL, type MenuAddonGroup, type MenuCategory, type MenuItem, menuKeys } from '..';
 import {
   FOOD_TYPES,
   itemSchema,
@@ -6,9 +5,7 @@ import {
   parseRupees,
   type FoodType,
 } from '@rpos/shared';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { apiFetch } from '@/shared/api/http';
 import {
   describeError,
   ErrorNote,
@@ -17,7 +14,9 @@ import {
   primaryButton,
   secondaryButton,
 } from '@/shared/ui';
-import type { TaxRate } from '@/features/tax/pages/TaxPage';
+import type { TaxRate } from '@/features/tax';
+import { useSaveItem } from '../mutations';
+import { FOOD_LABEL, type MenuAddonGroup, type MenuCategory, type MenuItem } from '../types';
 
 interface VariantRow {
   key: number;
@@ -70,7 +69,6 @@ export function ItemEditor({
   addonGroups: MenuAddonGroup[];
   onDone: () => void;
 }) {
-  const queryClient = useQueryClient();
   const [name, setName] = useState(existing?.name ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
   const [foodType, setFoodType] = useState<FoodType>(existing?.foodType ?? 'VEG');
@@ -88,16 +86,7 @@ export function ItemEditor({
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const save = useMutation({
-    mutationFn: (body: object) =>
-      existing
-        ? apiFetch(`/api/menu/items/${existing.id}`, { method: 'PUT', body })
-        : apiFetch('/api/menu/items', { method: 'POST', body }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: menuKeys.all });
-      onDone();
-    },
-  });
+  const save = useSaveItem(existing, onDone);
 
   const comboOptions = categories.flatMap((c) =>
     c.items

@@ -1,22 +1,20 @@
 import type { RouteObject } from 'react-router';
 import { LoginPage, PinPage, RequireAuth } from '@/features/auth';
 import { AppShell } from './AppShell';
-import { AvailabilityPage } from '@/features/menu/pages/AvailabilityPage';
+import { AddonsPage, AvailabilityPage, MenuPage } from '@/features/menu';
 import { CaptainPage, PosPage } from '@/features/service';
 import { DayPage } from '@/features/day';
 import { KdsPage } from '@/features/kitchen';
 import { ADMIN_PERMISSIONS, Home } from './Home';
 import { NotFound } from './NotFound';
-import { AddonsPage } from '@/features/menu/pages/AddonsPage';
 import { AdminIndex, AdminLayout } from './admin/AdminLayout';
-import { MenuPage } from '@/features/menu/pages/MenuPage';
-import { AuditPage } from '@/features/audit/pages/AuditPage';
-import { DevicesPage } from '@/features/devices/pages/DevicesPage';
-import { KitchenPage } from '@/features/kitchen-setup/pages/KitchenPage';
-import { TablesPage } from '@/features/tables/pages/TablesPage';
-import { TaxPage } from '@/features/tax/pages/TaxPage';
-import { SettingsPage } from '@/features/settings/pages/SettingsPage';
-import { StaffPage } from '@/features/staff/pages/StaffPage';
+import { AuditPage } from '@/features/audit';
+import { DevicesPage } from '@/features/devices';
+import { KitchenPage } from '@/features/kitchen-setup';
+import { TablesPage } from '@/features/tables';
+import { TaxPage } from '@/features/tax';
+import { SettingsPage } from '@/features/settings';
+import { StaffPage } from '@/features/staff';
 
 export const routes: RouteObject[] = [
   {

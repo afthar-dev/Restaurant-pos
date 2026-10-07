@@ -1,18 +1,5 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { apiFetch } from '@/shared/api/http';
 import { describeError, ErrorNote, secondaryButton } from '@/shared/ui';
-
-interface AuditRow {
-  id: string;
-  action: string;
-  entity: string;
-  entityId: string | null;
-  reason: string | null;
-  actor: { id: string; name: string } | null;
-  createdAt: string;
-}
-
-const PAGE = 50;
+import { useAuditLog } from '../queries';
 
 const ACTION_LABEL: Record<string, string> = {
   'auth.override': 'Manager approval',
@@ -26,16 +13,7 @@ const ACTION_LABEL: Record<string, string> = {
 };
 
 export function AuditPage() {
-  const audit = useInfiniteQuery({
-    queryKey: ['audit'],
-    initialPageParam: null as string | null,
-    queryFn: ({ pageParam }) =>
-      apiFetch<AuditRow[]>(
-        `/api/audit?limit=${PAGE}${pageParam ? `&before=${encodeURIComponent(pageParam)}` : ''}`,
-      ),
-    getNextPageParam: (last) =>
-      last.length === PAGE ? (last[last.length - 1]?.createdAt ?? null) : null,
-  });
+  const audit = useAuditLog();
   const rows = audit.data?.pages.flat() ?? [];
 
   return (

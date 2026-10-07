@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BillActions, BillArea, type Bill } from '@/features/billing';
+import { type Bill, BillActions, BillArea } from '@/features/billing';
 import { MenuBrowser, orderLabel, OrderPanel, useOrder } from '@/features/orders';
 
 /** How long "Bill paid" stays before the counter goes back to the floor. */

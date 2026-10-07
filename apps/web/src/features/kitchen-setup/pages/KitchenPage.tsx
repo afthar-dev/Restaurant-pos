@@ -1,7 +1,6 @@
 import { printerSchema, stationSchema, type PrinterMode, type PrinterPurpose } from '@rpos/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { apiFetch } from '@/shared/api/http';
+import { useDevices } from '@/features/devices';
 import {
   ConfirmBar,
   describeError,
@@ -15,67 +14,26 @@ import {
   type FieldErrors,
 } from '@/shared/ui';
 
-export interface Station {
-  id: string;
-  name: string;
-  archivedAt: string | null;
-}
-
-interface Printer {
-  id: string;
-  name: string;
-  purpose: PrinterPurpose;
-  station: { id: string; name: string } | null;
-  mode: PrinterMode;
-  paperWidthMm: number;
-  address: string | null;
-  device: { id: string; name: string } | null;
-}
-
-interface DeviceOption {
-  id: string;
-  name: string;
-  revokedAt: string | null;
-}
-
-export const stationsKey = ['stations'];
-const printersKey = ['printers'];
+import {
+  useAddStation,
+  useArchivePrinter,
+  useArchiveStation,
+  useRenameStation,
+  useSavePrinter,
+} from '../mutations';
+import { usePrinters, useStations } from '../queries';
+import type { Printer, Station } from '../types';
 
 function StationsSection() {
-  const queryClient = useQueryClient();
-  const stations = useQuery({
-    queryKey: stationsKey,
-    queryFn: () => apiFetch<Station[]>('/api/stations'),
-  });
+  const stations = useStations();
   const [name, setName] = useState('');
   const [error, setError] = useState<string | undefined>();
   const [confirming, setConfirming] = useState<Station | null>(null);
   const [renaming, setRenaming] = useState<Station | null>(null);
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: stationsKey });
-  const add = useMutation({
-    mutationFn: (body: { name: string }) => apiFetch('/api/stations', { method: 'POST', body }),
-    onSuccess: async () => {
-      setName('');
-      await refresh();
-    },
-  });
-  const rename = useMutation({
-    mutationFn: ({ id, name: newName }: { id: string; name: string }) =>
-      apiFetch(`/api/stations/${id}`, { method: 'PUT', body: { name: newName } }),
-    onSuccess: async () => {
-      setRenaming(null);
-      await refresh();
-      await queryClient.invalidateQueries({ queryKey: printersKey });
-    },
-  });
-  const archive = useMutation({
-    mutationFn: (s: Station) => apiFetch(`/api/stations/${s.id}/archive`, { method: 'POST' }),
-    onSuccess: async () => {
-      setConfirming(null);
-      await refresh();
-    },
-  });
+  const add = useAddStation(() => setName(''));
+  const rename = useRenameStation(() => setRenaming(null));
+  const archive = useArchiveStation(() => setConfirming(null));
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -171,7 +129,6 @@ function PrinterForm({
   existing: Printer | null;
   onDone: () => void;
 }) {
-  const queryClient = useQueryClient();
   const key = existing?.id ?? 'new';
   const [name, setName] = useState(existing?.name ?? '');
   const [purpose, setPurpose] = useState<PrinterPurpose>(existing?.purpose ?? 'KOT');
@@ -182,25 +139,15 @@ function PrinterForm({
   );
   const [address, setAddress] = useState(existing?.address ?? '');
   const [deviceId, setDeviceId] = useState(existing?.device?.id ?? '');
-  const devices = useQuery({
-    queryKey: ['devices'],
-    queryFn: () => apiFetch<DeviceOption[]>('/api/devices'),
-  });
+  const devices = useDevices();
   const [errors, setErrors] = useState<FieldErrors>({});
 
-  const save = useMutation({
-    mutationFn: (body: object) =>
-      existing
-        ? apiFetch(`/api/printers/${existing.id}`, { method: 'PUT', body })
-        : apiFetch('/api/printers', { method: 'POST', body }),
-    onSuccess: async () => {
-      if (!existing) {
-        setName('');
-        setAddress('');
-      }
-      await queryClient.invalidateQueries({ queryKey: printersKey });
-      onDone();
-    },
+  const save = useSavePrinter(existing, () => {
+    if (!existing) {
+      setName('');
+      setAddress('');
+    }
+    onDone();
   });
 
   function onSubmit(event: FormEvent) {
@@ -349,24 +296,11 @@ function PrinterForm({
 }
 
 function PrintersSection() {
-  const queryClient = useQueryClient();
-  const stations = useQuery({
-    queryKey: stationsKey,
-    queryFn: () => apiFetch<Station[]>('/api/stations'),
-  });
-  const printers = useQuery({
-    queryKey: printersKey,
-    queryFn: () => apiFetch<Printer[]>('/api/printers'),
-  });
+  const stations = useStations();
+  const printers = usePrinters();
   const [confirming, setConfirming] = useState<Printer | null>(null);
   const [editing, setEditing] = useState<Printer | null>(null);
-  const archive = useMutation({
-    mutationFn: (p: Printer) => apiFetch(`/api/printers/${p.id}/archive`, { method: 'POST' }),
-    onSuccess: async () => {
-      setConfirming(null);
-      await queryClient.invalidateQueries({ queryKey: printersKey });
-    },
-  });
+  const archive = useArchivePrinter(() => setConfirming(null));
 
   return (
     <section className="flex flex-col gap-3">

@@ -1,17 +1,6 @@
-import {
-  FOOD_DOT,
-  FOOD_LABEL,
-  type Menu,
-  type MenuAddonGroup,
-  type MenuCategory,
-  type MenuItem,
-  menuKeys,
-} from '..';
 import { rupees } from '@/shared/lib/money';
 import { categorySchema } from '@rpos/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { apiFetch } from '@/shared/api/http';
 import {
   ConfirmBar,
   describeError,
@@ -22,21 +11,22 @@ import {
   secondaryButton,
 } from '@/shared/ui';
 import { ItemEditor } from '../components/ItemEditor';
-import { stationsKey, type Station } from '@/features/kitchen-setup/pages/KitchenPage';
-import { taxRatesKey, type TaxRate } from '@/features/tax/pages/TaxPage';
+import { type Station, useStations } from '@/features/kitchen-setup';
+import { useTaxRates } from '@/features/tax';
+import {
+  useAddCategory,
+  useArchiveMenuEntry,
+  useUpdateCategory,
+  type MenuEntry,
+} from '../mutations';
+import { useAddonGroups, useMenu } from '../queries';
+import { FOOD_DOT, FOOD_LABEL, type MenuCategory, type MenuItem } from '../types';
 
 function AddCategoryForm({ stations }: { stations: Station[] }) {
-  const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [stationId, setStationId] = useState(stations[0]?.id ?? '');
   const [error, setError] = useState<string | undefined>();
-  const add = useMutation({
-    mutationFn: (body: object) => apiFetch('/api/menu/categories', { method: 'POST', body }),
-    onSuccess: async () => {
-      setName('');
-      await queryClient.invalidateQueries({ queryKey: menuKeys.all });
-    },
-  });
+  const add = useAddCategory(() => setName(''));
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     const parsed = categorySchema.safeParse({ name: name.trim(), stationId });
@@ -88,18 +78,10 @@ function EditCategoryForm({
   stations: Station[];
   onDone: () => void;
 }) {
-  const queryClient = useQueryClient();
   const [name, setName] = useState(category.name);
   const [stationId, setStationId] = useState(category.station.id);
   const [error, setError] = useState<string | undefined>();
-  const save = useMutation({
-    mutationFn: (body: object) =>
-      apiFetch(`/api/menu/categories/${category.id}`, { method: 'PUT', body }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: menuKeys.all });
-      onDone();
-    },
-  });
+  const save = useUpdateCategory(category, onDone);
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     const parsed = categorySchema.safeParse({
@@ -153,38 +135,19 @@ function EditCategoryForm({
   );
 }
 
-type Pending = { kind: 'item'; item: MenuItem } | { kind: 'category'; category: MenuCategory };
+type Pending = MenuEntry;
 
 export function MenuPage() {
-  const queryClient = useQueryClient();
-  const menu = useQuery({ queryKey: menuKeys.all, queryFn: () => apiFetch<Menu>('/api/menu') });
-  const taxRates = useQuery({
-    queryKey: taxRatesKey,
-    queryFn: () => apiFetch<TaxRate[]>('/api/tax-rates'),
-  });
-  const stations = useQuery({
-    queryKey: stationsKey,
-    queryFn: () => apiFetch<Station[]>('/api/stations'),
-  });
-  const groups = useQuery({
-    queryKey: menuKeys.addonGroups,
-    queryFn: () => apiFetch<MenuAddonGroup[]>('/api/menu/addon-groups'),
-  });
+  const menu = useMenu();
+  const taxRates = useTaxRates();
+  const stations = useStations();
+  const groups = useAddonGroups();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editing, setEditing] = useState<MenuItem | 'new' | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [editingCategory, setEditingCategory] = useState(false);
 
-  const archive = useMutation({
-    mutationFn: (p: Pending) =>
-      p.kind === 'item'
-        ? apiFetch(`/api/menu/items/${p.item.id}/archive`, { method: 'POST' })
-        : apiFetch(`/api/menu/categories/${p.category.id}/archive`, { method: 'POST' }),
-    onSuccess: async () => {
-      setPending(null);
-      await queryClient.invalidateQueries({ queryKey: menuKeys.all });
-    },
-  });
+  const archive = useArchiveMenuEntry(() => setPending(null));
 
   const categories = menu.data?.categories ?? [];
   const selected = categories.find((c) => c.id === selectedId) ?? categories[0];

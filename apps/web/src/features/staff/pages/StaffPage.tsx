@@ -1,7 +1,5 @@
 import { createUserSchema, PASSWORD_ROLES, ROLES, updateUserSchema, type Role } from '@rpos/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { apiFetch } from '@/shared/api/http';
 import {
   ConfirmBar,
   describeError,
@@ -14,16 +12,9 @@ import {
   type FieldErrors,
 } from '@/shared/ui';
 
-export interface Staff {
-  id: string;
-  name: string;
-  phone: string;
-  role: Role;
-  hasPassword: boolean;
-  hasPin: boolean;
-  archivedAt: string | null;
-  lockedUntil: string | null;
-}
+import { useSaveStaff, useToggleStaffArchive } from '../mutations';
+import { useStaff } from '../queries';
+import type { Staff } from '../types';
 
 const ROLE_LABEL: Record<Role, string> = {
   OWNER: 'Owner',
@@ -32,10 +23,7 @@ const ROLE_LABEL: Record<Role, string> = {
   WAITER: 'Waiter',
 };
 
-const usersKey = ['users'];
-
 function StaffForm({ existing, onDone }: { existing: Staff | null; onDone: () => void }) {
-  const queryClient = useQueryClient();
   const [name, setName] = useState(existing?.name ?? '');
   const [phone, setPhone] = useState(existing?.phone ?? '');
   const [role, setRole] = useState<Role>(existing?.role ?? 'WAITER');
@@ -44,16 +32,7 @@ function StaffForm({ existing, onDone }: { existing: Staff | null; onDone: () =>
   const [errors, setErrors] = useState<FieldErrors>({});
   const usesPassword = PASSWORD_ROLES.includes(role);
 
-  const save = useMutation({
-    mutationFn: (body: object) =>
-      existing
-        ? apiFetch<Staff>(`/api/users/${existing.id}`, { method: 'PATCH', body })
-        : apiFetch<Staff>('/api/users', { method: 'POST', body }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: usersKey });
-      onDone();
-    },
-  });
+  const save = useSaveStaff(existing, onDone);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -182,21 +161,11 @@ function StatusBadge({ staff }: { staff: Staff }) {
 }
 
 export function StaffPage() {
-  const queryClient = useQueryClient();
-  const users = useQuery({ queryKey: usersKey, queryFn: () => apiFetch<Staff[]>('/api/users') });
+  const users = useStaff();
   const [editing, setEditing] = useState<Staff | 'new' | null>(null);
   const [confirming, setConfirming] = useState<Staff | null>(null);
 
-  const toggleArchive = useMutation({
-    mutationFn: (s: Staff) =>
-      apiFetch<Staff>(`/api/users/${s.id}/${s.archivedAt ? 'restore' : 'archive'}`, {
-        method: 'POST',
-      }),
-    onSuccess: async () => {
-      setConfirming(null);
-      await queryClient.invalidateQueries({ queryKey: usersKey });
-    },
-  });
+  const toggleArchive = useToggleStaffArchive(() => setConfirming(null));
 
   return (
     <section className="flex flex-col gap-4">

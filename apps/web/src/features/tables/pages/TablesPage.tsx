@@ -1,8 +1,6 @@
 import { QrStickers } from '../components/QrStickers';
 import { areaSchema, tableSchema } from '@rpos/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { apiFetch } from '@/shared/api/http';
 import {
   ConfirmBar,
   describeError,
@@ -16,35 +14,24 @@ import {
   type FieldErrors,
 } from '@/shared/ui';
 
-export interface FloorTable {
-  id: string;
-  name: string;
-  seats: number;
-}
+import {
+  useAddArea,
+  useAddTable,
+  useArchiveLayoutEntry,
+  useRenameArea,
+  useUpdateTable,
+  type LayoutEntry,
+} from '../mutations';
+import { useFloorLayout } from '../queries';
+import type { FloorArea, FloorTable } from '../types';
 
-export interface FloorArea {
-  id: string;
-  name: string;
-  sortOrder: number;
-  tables: FloorTable[];
-}
-
-export const floorKey = ['floor'];
-
-type Pending = { kind: 'area'; area: FloorArea } | { kind: 'table'; table: FloorTable };
+type Pending = LayoutEntry;
 
 function AddTableForm({ area }: { area: FloorArea }) {
-  const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [seats, setSeats] = useState('4');
   const [errors, setErrors] = useState<FieldErrors>({});
-  const add = useMutation({
-    mutationFn: (body: object) => apiFetch('/api/tables', { method: 'POST', body }),
-    onSuccess: async () => {
-      setName('');
-      await queryClient.invalidateQueries({ queryKey: floorKey });
-    },
-  });
+  const add = useAddTable(() => setName(''));
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -103,18 +90,11 @@ function EditTableForm({
   areas: FloorArea[];
   onDone: () => void;
 }) {
-  const queryClient = useQueryClient();
   const [name, setName] = useState(table.name);
   const [seats, setSeats] = useState(String(table.seats));
   const [areaId, setAreaId] = useState(area.id);
   const [errors, setErrors] = useState<FieldErrors>({});
-  const save = useMutation({
-    mutationFn: (body: object) => apiFetch(`/api/tables/${table.id}`, { method: 'PUT', body }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: floorKey });
-      onDone();
-    },
-  });
+  const save = useUpdateTable(table, onDone);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -186,16 +166,9 @@ function EditTableForm({
 }
 
 function AddAreaForm() {
-  const queryClient = useQueryClient();
   const [name, setName] = useState('');
   const [error, setError] = useState<string | undefined>();
-  const add = useMutation({
-    mutationFn: (body: object) => apiFetch('/api/areas', { method: 'POST', body }),
-    onSuccess: async () => {
-      setName('');
-      await queryClient.invalidateQueries({ queryKey: floorKey });
-    },
-  });
+  const add = useAddArea(() => setName(''));
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     const parsed = areaSchema.safeParse({ name: name.trim() });
@@ -230,36 +203,13 @@ function AddAreaForm() {
 }
 
 export function TablesPage() {
-  const queryClient = useQueryClient();
-  const floor = useQuery({
-    queryKey: floorKey,
-    queryFn: () => apiFetch<FloorArea[]>('/api/floor'),
-  });
+  const floor = useFloorLayout();
   const [pending, setPending] = useState<Pending | null>(null);
   const [renamingArea, setRenamingArea] = useState<string | null>(null);
   const [editingTable, setEditingTable] = useState<string | null>(null);
 
-  const archive = useMutation({
-    mutationFn: (p: Pending) =>
-      p.kind === 'area'
-        ? apiFetch(`/api/areas/${p.area.id}/archive`, { method: 'POST' })
-        : apiFetch(`/api/tables/${p.table.id}/archive`, { method: 'POST' }),
-    onSuccess: async () => {
-      setPending(null);
-      await queryClient.invalidateQueries({ queryKey: floorKey });
-    },
-  });
-  const renameArea = useMutation({
-    mutationFn: ({ area, name }: { area: FloorArea; name: string }) =>
-      apiFetch(`/api/areas/${area.id}`, {
-        method: 'PUT',
-        body: { name, sortOrder: area.sortOrder },
-      }),
-    onSuccess: async () => {
-      setRenamingArea(null);
-      await queryClient.invalidateQueries({ queryKey: floorKey });
-    },
-  });
+  const archive = useArchiveLayoutEntry(() => setPending(null));
+  const renameArea = useRenameArea(() => setRenamingArea(null));
 
   const pendingName = pending
     ? pending.kind === 'area'

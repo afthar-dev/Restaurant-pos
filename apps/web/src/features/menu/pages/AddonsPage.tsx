@@ -1,8 +1,5 @@
-import { type MenuAddonGroup, menuKeys } from '..';
 import { addonGroupSchema, paiseToRupeesInput, parseRupees } from '@rpos/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { apiFetch } from '@/shared/api/http';
 import {
   ConfirmBar,
   describeError,
@@ -13,6 +10,9 @@ import {
   secondaryButton,
 } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
+import { useArchiveAddonGroup, useSaveAddonGroup } from '../mutations';
+import { useAddonGroups } from '../queries';
+import type { MenuAddonGroup } from '../types';
 
 interface Row {
   key: number;
@@ -24,7 +24,6 @@ interface Row {
 let nextKey = 1;
 
 function GroupForm({ existing, onDone }: { existing: MenuAddonGroup | null; onDone: () => void }) {
-  const queryClient = useQueryClient();
   const [name, setName] = useState(existing?.name ?? '');
   const [minSelect, setMin] = useState(String(existing?.minSelect ?? 0));
   const [maxSelect, setMax] = useState(String(existing?.maxSelect ?? 1));
@@ -38,17 +37,7 @@ function GroupForm({ existing, onDone }: { existing: MenuAddonGroup | null; onDo
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const save = useMutation({
-    mutationFn: (body: object) =>
-      existing
-        ? apiFetch(`/api/menu/addon-groups/${existing.id}`, { method: 'PUT', body })
-        : apiFetch('/api/menu/addon-groups', { method: 'POST', body }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: menuKeys.addonGroups });
-      await queryClient.invalidateQueries({ queryKey: menuKeys.all });
-      onDone();
-    },
-  });
+  const save = useSaveAddonGroup(existing, onDone);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -196,24 +185,12 @@ function GroupForm({ existing, onDone }: { existing: MenuAddonGroup | null; onDo
 }
 
 export function AddonsPage() {
-  const queryClient = useQueryClient();
-  const groups = useQuery({
-    queryKey: menuKeys.addonGroups,
-    queryFn: () => apiFetch<MenuAddonGroup[]>('/api/menu/addon-groups'),
-  });
+  const groups = useAddonGroups();
   const [editing, setEditing] = useState<MenuAddonGroup | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [confirming, setConfirming] = useState<MenuAddonGroup | null>(null);
 
-  const archive = useMutation({
-    mutationFn: (g: MenuAddonGroup) =>
-      apiFetch(`/api/menu/addon-groups/${g.id}/archive`, { method: 'POST' }),
-    onSuccess: async () => {
-      setConfirming(null);
-      await queryClient.invalidateQueries({ queryKey: menuKeys.addonGroups });
-      await queryClient.invalidateQueries({ queryKey: menuKeys.all });
-    },
-  });
+  const archive = useArchiveAddonGroup(() => setConfirming(null));
 
   return (
     <section className="flex flex-col gap-4">

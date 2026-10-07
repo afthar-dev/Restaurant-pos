@@ -1,8 +1,8 @@
-import { FOOD_DOT, type Menu, type MenuAddon, type MenuItem, menuKeys } from '..';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { apiFetch } from '@/shared/api/http';
 import { describeError, ErrorNote, inputClass } from '@/shared/ui';
+import { useToggleAddon, useToggleItem } from '../mutations';
+import { useMenu } from '../queries';
+import { FOOD_DOT, type MenuAddon } from '../types';
 
 function Switch({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
   return (
@@ -25,72 +25,15 @@ function Switch({ on, label, onToggle }: { on: boolean; label: string; onToggle:
 
 /** Staff mark dishes out of stock so waiters and the QR menu stop offering them. */
 export function AvailabilityPage() {
-  const queryClient = useQueryClient();
-  const menu = useQuery({ queryKey: menuKeys.all, queryFn: () => apiFetch<Menu>('/api/menu') });
+  const menu = useMenu();
   const [search, setSearch] = useState('');
   const [failure, setFailure] = useState<string | null>(null);
-
-  const setItem = (id: string, isAvailable: boolean) =>
-    queryClient.setQueryData<Menu>(
-      menuKeys.all,
-      (old) =>
-        old && {
-          categories: old.categories.map((c) => ({
-            ...c,
-            items: c.items.map((i) => (i.id === id ? { ...i, isAvailable } : i)),
-          })),
-        },
-    );
-
-  const toggle = useMutation({
-    mutationFn: (item: MenuItem) =>
-      apiFetch(`/api/menu/items/${item.id}/availability`, {
-        method: 'PATCH',
-        body: { isAvailable: !item.isAvailable },
-      }),
-    onMutate: (item) => {
-      setFailure(null);
-      setItem(item.id, !item.isAvailable);
-    },
-    onError: (_error, item) => {
-      setItem(item.id, item.isAvailable);
-      setFailure(`Could not update ${item.name}. Try again.`);
-    },
-  });
-
-  const setAddon = (id: string, isAvailable: boolean) =>
-    queryClient.setQueryData<Menu>(
-      menuKeys.all,
-      (old) =>
-        old && {
-          categories: old.categories.map((c) => ({
-            ...c,
-            items: c.items.map((i) => ({
-              ...i,
-              addonGroups: i.addonGroups.map((g) => ({
-                ...g,
-                addons: g.addons.map((a) => (a.id === id ? { ...a, isAvailable } : a)),
-              })),
-            })),
-          })),
-        },
-    );
-
-  const toggleAddon = useMutation({
-    mutationFn: (addon: MenuAddon) =>
-      apiFetch(`/api/menu/addons/${addon.id}/availability`, {
-        method: 'PATCH',
-        body: { isAvailable: !addon.isAvailable },
-      }),
-    onMutate: (addon) => {
-      setFailure(null);
-      setAddon(addon.id, !addon.isAvailable);
-    },
-    onError: (_error, addon) => {
-      setAddon(addon.id, addon.isAvailable);
-      setFailure(`Could not update ${addon.name}. Try again.`);
-    },
-  });
+  const handlers = {
+    onStart: () => setFailure(null),
+    onFailed: (name: string) => setFailure(`Could not update ${name}. Try again.`),
+  };
+  const toggle = useToggleItem(handlers);
+  const toggleAddon = useToggleAddon(handlers);
 
   const query = search.trim().toLowerCase();
   // An add-on group is shared by many items: list each option once.

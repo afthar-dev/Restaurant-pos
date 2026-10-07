@@ -1,7 +1,5 @@
 import { parseRupees, taxRateSchema } from '@rpos/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { apiFetch } from '@/shared/api/http';
 import {
   ConfirmBar,
   describeError,
@@ -14,41 +12,21 @@ import {
   type FieldErrors,
 } from '@/shared/ui';
 
-export interface TaxRate {
-  id: string;
-  name: string;
-  cgstBp: number;
-  sgstBp: number;
-  totalBp: number;
-  archivedAt: string | null;
-}
-
-export const taxRatesKey = ['tax-rates'];
-
-/** 250 → "2.5%", 900 → "9%". */
-export function percent(bp: number): string {
-  return `${(bp / 100).toString()}%`;
-}
+import { useArchiveTaxRate, useSaveTaxRate } from '../mutations';
+import { useTaxRates } from '../queries';
+import { percent, type TaxRate } from '../types';
 
 function TaxForm({ existing, onDone }: { existing: TaxRate | null; onDone: () => void }) {
-  const queryClient = useQueryClient();
   const [name, setName] = useState(existing?.name ?? '');
   const [rate, setRate] = useState(existing ? String(existing.totalBp / 100) : '');
   const [errors, setErrors] = useState<FieldErrors>({});
 
-  const save = useMutation({
-    mutationFn: (body: object) =>
-      existing
-        ? apiFetch(`/api/tax-rates/${existing.id}`, { method: 'PUT', body })
-        : apiFetch('/api/tax-rates', { method: 'POST', body }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: taxRatesKey });
-      if (existing) onDone();
-      else {
-        setName('');
-        setRate('');
-      }
-    },
+  const save = useSaveTaxRate(existing, () => {
+    if (existing) onDone();
+    else {
+      setName('');
+      setRate('');
+    }
   });
 
   function onSubmit(event: FormEvent) {
@@ -115,21 +93,11 @@ function TaxForm({ existing, onDone }: { existing: TaxRate | null; onDone: () =>
 }
 
 export function TaxPage() {
-  const queryClient = useQueryClient();
-  const rates = useQuery({
-    queryKey: taxRatesKey,
-    queryFn: () => apiFetch<TaxRate[]>('/api/tax-rates'),
-  });
+  const rates = useTaxRates();
   const [editing, setEditing] = useState<TaxRate | null>(null);
   const [confirming, setConfirming] = useState<TaxRate | null>(null);
 
-  const archive = useMutation({
-    mutationFn: (r: TaxRate) => apiFetch(`/api/tax-rates/${r.id}/archive`, { method: 'POST' }),
-    onSuccess: async () => {
-      setConfirming(null);
-      await queryClient.invalidateQueries({ queryKey: taxRatesKey });
-    },
-  });
+  const archive = useArchiveTaxRate(() => setConfirming(null));
 
   return (
     <section className="flex flex-col gap-4">

@@ -1,22 +1,15 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { apiFetch } from '@/shared/api/http';
+import { useOutlet } from '@/features/settings';
 import { ConfirmBar, describeError, ErrorNote, secondaryButton } from '@/shared/ui';
 import { printHtmlInIframe, renderQrStickers, type TableCode } from '@/features/printing';
 
-const codesKey = ['table-qr-codes'];
+import { useRotateTableCode } from '../mutations';
+import { useTableCodes } from '../queries';
 
 /** Print the table QR stickers customers scan to order, and replace a lost or copied one. */
 export function QrStickers() {
-  const queryClient = useQueryClient();
-  const codes = useQuery({
-    queryKey: codesKey,
-    queryFn: () => apiFetch<TableCode[]>('/api/tables/qr'),
-  });
-  const outlet = useQuery({
-    queryKey: ['outlet'],
-    queryFn: () => apiFetch<{ name: string }>('/api/outlet'),
-  });
+  const codes = useTableCodes();
+  const outlet = useOutlet();
   const [confirming, setConfirming] = useState<TableCode | null>(null);
   const [renewed, setRenewed] = useState<TableCode | null>(null);
   const [printError, setPrintError] = useState<string | null>(null);
@@ -31,16 +24,9 @@ export function QrStickers() {
     }
   }
 
-  const rotate = useMutation({
-    mutationFn: (table: TableCode) =>
-      apiFetch<{ id: string; qrToken: string }>(`/api/tables/${table.id}/qr/rotate`, {
-        method: 'POST',
-      }),
-    onSuccess: async (result, table) => {
-      setConfirming(null);
-      setRenewed({ ...table, qrToken: result.qrToken });
-      await queryClient.invalidateQueries({ queryKey: codesKey });
-    },
+  const rotate = useRotateTableCode((table) => {
+    setConfirming(null);
+    setRenewed(table);
   });
 
   const tables = codes.data ?? [];

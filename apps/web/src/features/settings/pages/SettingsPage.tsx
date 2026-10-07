@@ -7,9 +7,7 @@ import {
   type ParcelPaymentTiming,
   type TaxScheme,
 } from '@rpos/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
-import { apiFetch } from '@/shared/api/http';
 import {
   describeError,
   ErrorNote,
@@ -19,7 +17,9 @@ import {
   primaryButton,
   type FieldErrors,
 } from '@/shared/ui';
-import type { OutletSettings } from '..';
+import { useUpdateOutlet } from '../mutations';
+import { useOutlet } from '../queries';
+import type { OutletSettings } from '../types';
 
 const TAX_LABEL: Record<TaxScheme, string> = {
   REGULAR: 'GST regular (CGST + SGST on bills)',
@@ -93,21 +93,13 @@ const ERROR_FIELD: Record<string, string> = {
 };
 
 function SettingsForm({ saved }: { saved: OutletSettings }) {
-  const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Draft>(() => toDraft(saved));
   const [errors, setErrors] = useState<FieldErrors>({});
   const [result, setResult] = useState('');
 
   useEffect(() => setDraft(toDraft(saved)), [saved]);
 
-  const save = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      apiFetch<OutletSettings>('/api/outlet', { method: 'PATCH', body }),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(['outlet'], updated);
-      setResult('Saved');
-    },
-  });
+  const save = useUpdateOutlet(() => setResult('Saved'));
 
   const setText = (key: TextKey) => (value: string) =>
     setDraft((d) => ({ ...d, text: { ...d.text, [key]: value } }));
@@ -249,10 +241,7 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
 }
 
 export function SettingsPage() {
-  const outlet = useQuery({
-    queryKey: ['outlet'],
-    queryFn: () => apiFetch<OutletSettings>('/api/outlet'),
-  });
+  const outlet = useOutlet();
   return (
     <section className="flex flex-col gap-4">
       <h2 className="text-xl font-semibold">Outlet settings</h2>
