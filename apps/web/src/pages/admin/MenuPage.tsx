@@ -1,3 +1,12 @@
+import {
+  FOOD_DOT,
+  FOOD_LABEL,
+  type Menu,
+  type MenuAddonGroup,
+  type MenuCategory,
+  type MenuItem,
+  menuKeys,
+} from '@/features/menu';
 import { rupees } from '@/shared/lib/money';
 import { categorySchema } from '@rpos/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -14,16 +23,6 @@ import {
 } from '@/shared/ui';
 import { ItemEditor } from './ItemEditor';
 import { stationsKey, type Station } from './KitchenPage';
-import {
-  addonGroupsKey,
-  FOOD_DOT,
-  FOOD_LABEL,
-  menuKey,
-  type Menu,
-  type MenuAddonGroup,
-  type MenuCategory,
-  type MenuItem,
-} from '@/features/menu/types';
 import { taxRatesKey, type TaxRate } from './TaxPage';
 
 function AddCategoryForm({ stations }: { stations: Station[] }) {
@@ -35,7 +34,7 @@ function AddCategoryForm({ stations }: { stations: Station[] }) {
     mutationFn: (body: object) => apiFetch('/api/menu/categories', { method: 'POST', body }),
     onSuccess: async () => {
       setName('');
-      await queryClient.invalidateQueries({ queryKey: menuKey });
+      await queryClient.invalidateQueries({ queryKey: menuKeys.all });
     },
   });
   function onSubmit(event: FormEvent) {
@@ -97,7 +96,7 @@ function EditCategoryForm({
     mutationFn: (body: object) =>
       apiFetch(`/api/menu/categories/${category.id}`, { method: 'PUT', body }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: menuKey });
+      await queryClient.invalidateQueries({ queryKey: menuKeys.all });
       onDone();
     },
   });
@@ -158,7 +157,7 @@ type Pending = { kind: 'item'; item: MenuItem } | { kind: 'category'; category: 
 
 export function MenuPage() {
   const queryClient = useQueryClient();
-  const menu = useQuery({ queryKey: menuKey, queryFn: () => apiFetch<Menu>('/api/menu') });
+  const menu = useQuery({ queryKey: menuKeys.all, queryFn: () => apiFetch<Menu>('/api/menu') });
   const taxRates = useQuery({
     queryKey: taxRatesKey,
     queryFn: () => apiFetch<TaxRate[]>('/api/tax-rates'),
@@ -168,7 +167,7 @@ export function MenuPage() {
     queryFn: () => apiFetch<Station[]>('/api/stations'),
   });
   const groups = useQuery({
-    queryKey: addonGroupsKey,
+    queryKey: menuKeys.addonGroups,
     queryFn: () => apiFetch<MenuAddonGroup[]>('/api/menu/addon-groups'),
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -183,7 +182,7 @@ export function MenuPage() {
         : apiFetch(`/api/menu/categories/${p.category.id}/archive`, { method: 'POST' }),
     onSuccess: async () => {
       setPending(null);
-      await queryClient.invalidateQueries({ queryKey: menuKey });
+      await queryClient.invalidateQueries({ queryKey: menuKeys.all });
     },
   });
 

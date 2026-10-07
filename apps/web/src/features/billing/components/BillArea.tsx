@@ -1,12 +1,11 @@
-import { useMutation } from '@tanstack/react-query';
-import { useRef, useState, type ReactNode } from 'react';
-import { apiFetch } from '@/shared/api/http';
+import { useState, type ReactNode } from 'react';
+import type { Order } from '@/features/orders';
 import { useCan } from '@/shared/session/store';
 import { describeError, ErrorNote, primaryButton, secondaryButton } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
-import { useRefreshOrder } from '@/features/orders/mutations';
-import { useOrderBills } from '@/features/orders/queries';
-import type { Bill, Order } from '@/features/orders/types';
+import { useCreateBill } from '../mutations';
+import { useOrderBills } from '../queries';
+import type { Bill } from '../types';
 import { BillView, STATUS_LABEL } from './BillView';
 import { printBillHere } from '../printBill';
 import { SplitSheet } from './SplitSheet';
@@ -24,49 +23,25 @@ export function BillArea({
 }) {
   const canBill = useCan('bill.print');
   const bills = useOrderBills(order.id);
-  const refresh = useRefreshOrder();
   const [splitting, setSplitting] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  // A parcel's unsent dishes go to the kitchen first; the id survives a retry (no double KOT).
-  const sendKey = useRef<string | null>(null);
 
   const newLines = order.items.filter((i) => i.status === 'NEW');
   const sentLines = order.items.filter((i) => i.status === 'SENT');
   const unbilled = sentLines.some((i) => i.quantity > i.billedQuantity);
   const parcel = order.type === 'PARCEL';
 
-  const create = useMutation({
-    mutationFn: async (lines?: { orderItemId: string; quantity: number }[]) => {
-      let sentNow = false;
-      if (newLines.length > 0) {
-        sendKey.current ??= crypto.randomUUID();
-        await apiFetch(`/api/orders/${order.id}/kot`, {
-          method: 'POST',
-          headers: { 'Idempotency-Key': sendKey.current },
-        });
-        sendKey.current = null;
-        sentNow = true;
-      }
-      return apiFetch<Bill & { printQueued?: number }>(`/api/orders/${order.id}/bills`, {
-        method: 'POST',
-        // After sending, the order version moved on; the server still checks dish quantities.
-        headers: sentNow ? {} : { 'If-Match': String(order.version) },
-        body: lines ? { lines } : {},
-      });
-    },
-    onSuccess: async (bill) => {
-      setSplitting(false);
-      setExpanded(bill.id);
-      try {
-        // The server queued it on the bill printer while creating it; print here only if none.
-        if ((bill.printQueued ?? 0) > 0) setNote('Sent to the bill printer.');
-        else await printBillHere(bill.id);
-      } catch (error) {
-        setNote(`Bill ${bill.billNo} is saved but did not print: ${describeError(error)}`);
-      }
-    },
-    onSettled: () => refresh(order.id),
+  const create = useCreateBill(order, async (bill) => {
+    setSplitting(false);
+    setExpanded(bill.id);
+    try {
+      // The server queued it on the bill printer while creating it; print here only if none.
+      if ((bill.printQueued ?? 0) > 0) setNote('Sent to the bill printer.');
+      else await printBillHere(bill.id);
+    } catch (error) {
+      setNote(`Bill ${bill.billNo} is saved but did not print: ${describeError(error)}`);
+    }
   });
 
   if (!canBill) return null;

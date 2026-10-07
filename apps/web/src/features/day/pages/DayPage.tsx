@@ -1,7 +1,5 @@
 import { parseRupees } from '@rpos/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
-import { ApiError, apiFetch } from '@/shared/api/http';
 import { useCan } from '@/shared/session/store';
 import {
   ConfirmBar,
@@ -14,9 +12,11 @@ import {
   secondaryButton,
 } from '@/shared/ui';
 import { renderDayReport } from '../dayReport';
-import { printHtmlInIframe } from '@/features/printing/PrintWorker';
-import { useBusinessDay } from '@/features/orders/queries';
-import type { CloseCheck, DayBlockers, DayReport, DaySummary } from '@/features/orders/types';
+import { printHtmlInIframe } from '@/features/printing';
+import { useOutlet } from '@/features/settings';
+import { useCloseDay, useRefreshDays, useReopenDay } from '../mutations';
+import { useBusinessDay, useCloseCheck, useDayReport, usePastDays } from '../queries';
+import type { DayBlockers, DayReport, DaySummary } from '../types';
 import { rupees } from '@/shared/lib/money';
 
 const signed = (paise: number) =>
@@ -68,36 +68,21 @@ function Blockers({ blockers }: { blockers: DayBlockers }) {
 
 function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
   const id = useId();
-  const queryClient = useQueryClient();
-  const check = useQuery({
-    queryKey: ['close-check'],
-    queryFn: () => apiFetch<CloseCheck>('/api/business-day/close-check'),
-    refetchInterval: 15_000,
-  });
+  const check = useCloseCheck();
   const [counted, setCounted] = useState('');
   const [note, setNote] = useState('');
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const close = useMutation({
-    mutationFn: (body: { countedCash: number; note?: string }) =>
-      apiFetch<DayReport>('/api/business-day/close', { method: 'POST', body }),
-    onSuccess: async (report) => {
+  const close = useCloseDay({
+    onClosed: (report) => {
       setConfirming(false);
       onClosed(report);
-      await queryClient.invalidateQueries({ queryKey: ['business-day'] });
-      await queryClient.invalidateQueries({ queryKey: ['days'] });
     },
-    onError: (failure) => {
+    // Blockers found by the server show in the list above, not as an error.
+    onFailed: (failure, blocked) => {
       setConfirming(false);
-      if (failure instanceof ApiError && failure.code === 'DAY_HAS_OPEN_WORK') {
-        // Show what the server found now; the next close-check poll replaces it as tables pay.
-        queryClient.setQueryData<CloseCheck>(['close-check'], (current) =>
-          current ? { ...current, blockers: failure.body.blockers as DayBlockers } : current,
-        );
-      } else {
-        setError(describeError(failure));
-      }
+      if (!blocked) setError(describeError(failure));
     },
   });
 
@@ -186,20 +171,10 @@ function ReportView({
 }) {
   const id = useId();
   const canReopen = useCan('day.reopen');
-  const outlet = useQuery({
-    queryKey: ['outlet'],
-    queryFn: () => apiFetch<{ name: string }>('/api/outlet'),
-  });
+  const outlet = useOutlet();
   const [reopening, setReopening] = useState(false);
   const [reason, setReason] = useState('');
-  const reopen = useMutation({
-    mutationFn: () =>
-      apiFetch(`/api/business-day/${report.day.id}/reopen`, {
-        method: 'POST',
-        body: { reason: reason.trim() },
-      }),
-    onSuccess: onReopened,
-  });
+  const reopen = useReopenDay(report.day.id, onReopened);
   const { sales, cash } = report;
 
   return (
@@ -318,7 +293,7 @@ function ReportView({
                   type="button"
                   className={`${dangerButton} min-h-11`}
                   disabled={reason.trim().length < 3 || reopen.isPending}
-                  onClick={() => reopen.mutate()}
+                  onClick={() => reopen.mutate(reason.trim())}
                 >
                   Yes, reopen
                 </button>
@@ -353,10 +328,7 @@ function PastDays({
   selected: string | null;
   onSelect: (day: DaySummary, latest: boolean) => void;
 }) {
-  const days = useQuery({
-    queryKey: ['days'],
-    queryFn: () => apiFetch<DaySummary[]>('/api/business-day?limit=30'),
-  });
+  const days = usePastDays();
   if (!days.data || days.data.length === 0) return null;
   return (
     <section aria-label="Past days" className="flex flex-col gap-2">
@@ -388,17 +360,13 @@ function PastDays({
 
 /** Close the business day with a cash count (spec §5.5), read day reports, reopen (owner). */
 export function DayPage() {
-  const queryClient = useQueryClient();
+  const refreshDays = useRefreshDays();
   const canClose = useCan('day.openClose');
   const canReports = useCan('reports.dayClose');
   const day = useBusinessDay();
   const [justClosed, setJustClosed] = useState<DayReport | null>(null);
   const [picked, setPicked] = useState<{ id: string; latest: boolean } | null>(null);
-  const report = useQuery({
-    queryKey: ['day-report', picked?.id],
-    queryFn: () => apiFetch<DayReport>(`/api/business-day/${picked!.id}/report`),
-    enabled: Boolean(picked),
-  });
+  const report = useDayReport(picked?.id);
 
   const shown = justClosed ?? (picked ? report.data : undefined);
   const open = day.data?.day;
@@ -417,8 +385,7 @@ export function DayPage() {
           onReopened={() => {
             setJustClosed(null);
             setPicked(null);
-            void queryClient.invalidateQueries({ queryKey: ['business-day'] });
-            void queryClient.invalidateQueries({ queryKey: ['days'] });
+            void refreshDays();
           }}
         />
       )}

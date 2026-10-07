@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { apiFetch } from '@/shared/api/http';
-import { useCurrentDevice, useDeviceStaff, type StaffOption } from '../hooks';
-import { LoadingScreen } from '../components/RequireAuth';
-import { useSession, type SessionBody } from '@/shared/session/store';
+import { LoadingScreen } from '@/shared/ui';
+import type { StaffOption } from '../api';
+import { usePinSignIn } from '../mutations';
+import { useCurrentDevice, useDeviceStaff } from '../queries';
 import { signInErrorMessage } from './LoginPage';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
@@ -11,33 +11,15 @@ const MAX_PIN = 6;
 
 function PinPad({ staff, onBack }: { staff: StaffOption; onBack: () => void }) {
   const [pin, setPin] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const setSession = useSession((s) => s.setSession);
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? '/';
+  const signIn = usePinSignIn(() => void navigate(from, { replace: true }));
+  const error = signIn.isError ? signInErrorMessage(signIn.error, 'Wrong PIN.') : null;
 
   const press = (digit: string) => setPin((p) => (p.length < MAX_PIN ? p + digit : p));
 
-  async function submit() {
-    setSubmitting(true);
-    setError(null);
-    try {
-      const body = await apiFetch<SessionBody>('/api/auth/pin-login', {
-        method: 'POST',
-        body: { userId: staff.id, pin },
-        skipRefresh: true,
-      });
-      setSession(body);
-      void navigate(from, { replace: true });
-    } catch (err) {
-      setError(signInErrorMessage(err, 'Wrong PIN.'));
-      setPin('');
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  const submit = () => signIn.mutate({ userId: staff.id, pin }, { onError: () => setPin('') });
 
   const keyClass =
     'h-14 rounded-lg border border-slate-300 bg-white text-xl font-semibold active:bg-slate-100';
@@ -76,8 +58,8 @@ function PinPad({ staff, onBack }: { staff: StaffOption; onBack: () => void }) {
       </div>
       <button
         type="button"
-        disabled={pin.length < 4 || submitting}
-        onClick={() => void submit()}
+        disabled={pin.length < 4 || signIn.isPending}
+        onClick={submit}
         className="rounded-md bg-emerald-700 px-4 py-3 font-medium text-white disabled:opacity-60"
       >
         Sign in

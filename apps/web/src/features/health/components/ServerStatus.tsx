@@ -1,6 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { fetchHealth } from '../api';
-import { useRealtimeStatus } from '@/shared/realtime/RealtimeProvider';
+import { useServerHealth } from '../queries';
+import { useRealtimeStatus } from '@/shared/realtime/context';
 
 type Tone = 'muted' | 'good' | 'bad';
 
@@ -30,15 +29,7 @@ function Pill({ tone, label }: { tone: Tone; label: string }) {
 
 export function ServerStatus() {
   const live = useRealtimeStatus();
-  const { data, isPending, isError } = useQuery({
-    queryKey: ['health'],
-    queryFn: ({ signal }) => fetchHealth(signal),
-    refetchInterval: 10_000,
-    retry: false,
-    // Default 'online' mode pauses while the browser thinks it is offline and keeps the last
-    // "Server online" result. This check exists to report exactly that situation.
-    networkMode: 'always',
-  });
+  const { data, isPending, isError } = useServerHealth();
 
   if (isPending) return <Pill tone="muted" label="Checking server…" />;
   if (isError) return <Pill tone="bad" label="Server offline. Check the internet connection." />;

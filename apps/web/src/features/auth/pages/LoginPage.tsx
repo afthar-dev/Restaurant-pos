@@ -1,8 +1,8 @@
 import { loginSchema } from '@rpos/shared';
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { apiFetch, ApiError } from '@/shared/api/http';
-import { useSession, type SessionBody } from '@/shared/session/store';
+import { ApiError } from '@/shared/api/http';
+import { usePasswordSignIn } from '../mutations';
 
 export function signInErrorMessage(error: unknown, wrongSecret: string): string {
   if (error instanceof ApiError) {
@@ -23,35 +23,24 @@ export function signInErrorMessage(error: unknown, wrongSecret: string): string 
 export function LoginPage() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const setSession = useSession((s) => s.setSession);
+  const [invalid, setInvalid] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? '/';
+  const signIn = usePasswordSignIn(() => void navigate(from, { replace: true }));
+  const error =
+    invalid ??
+    (signIn.isError ? signInErrorMessage(signIn.error, 'Wrong phone number or password.') : null);
 
-  async function onSubmit(event: FormEvent) {
+  function onSubmit(event: FormEvent) {
     event.preventDefault();
     const parsed = loginSchema.safeParse({ phone: phone.trim(), password });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Check the form.');
+      setInvalid(parsed.error.issues[0]?.message ?? 'Check the form.');
       return;
     }
-    setSubmitting(true);
-    setError(null);
-    try {
-      const body = await apiFetch<SessionBody>('/api/auth/login', {
-        method: 'POST',
-        body: parsed.data,
-        skipRefresh: true,
-      });
-      setSession(body);
-      void navigate(from, { replace: true });
-    } catch (err) {
-      setError(signInErrorMessage(err, 'Wrong phone number or password.'));
-    } finally {
-      setSubmitting(false);
-    }
+    setInvalid(null);
+    signIn.mutate(parsed.data);
   }
 
   return (
@@ -92,7 +81,7 @@ export function LoginPage() {
         )}
         <button
           type="submit"
-          disabled={submitting}
+          disabled={signIn.isPending}
           className="rounded-md bg-emerald-700 px-4 py-2 font-medium text-white disabled:opacity-60"
         >
           Sign in

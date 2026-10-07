@@ -19,22 +19,7 @@ import {
   primaryButton,
   type FieldErrors,
 } from '@/shared/ui';
-
-export interface OutletSettings {
-  id: string;
-  name: string;
-  gstin: string | null;
-  taxScheme: TaxScheme;
-  address: string | null;
-  phone: string | null;
-  fssaiNumber: string | null;
-  billHeader: string | null;
-  billFooter: string | null;
-  cashierDiscountCapBp: number;
-  waiterCanCollectPayment: boolean;
-  parcelPaymentTiming: ParcelPaymentTiming;
-  billPackagingCharge: number;
-}
+import type { OutletSettings } from '@/features/settings';
 
 const TAX_LABEL: Record<TaxScheme, string> = {
   REGULAR: 'GST regular (CGST + SGST on bills)',

@@ -49,9 +49,6 @@ export interface Menu {
   categories: MenuCategory[];
 }
 
-export const menuKey = ['menu'];
-export const addonGroupsKey = ['addon-groups'];
-
 export const FOOD_LABEL: Record<FoodType, string> = {
   VEG: 'Veg',
   NON_VEG: 'Non-veg',

@@ -1,8 +1,7 @@
 import { paiseToRupeesInput, parseRupees } from '@rpos/shared';
-import { useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
-import { ApiError, apiFetch } from '@/shared/api/http';
-import { ManagerApproval } from '@/features/auth/components/ManagerApproval';
+import { ApiError } from '@/shared/api/http';
+import { ManagerApproval } from '@/features/auth';
 import {
   describeError,
   ErrorNote,
@@ -13,7 +12,8 @@ import {
   Sheet,
 } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
-import type { Bill, Discount } from '@/features/orders/types';
+import { useApplyDiscount } from '../mutations';
+import type { Bill, Discount } from '../types';
 
 type Kind = Discount['kind'];
 
@@ -23,7 +23,7 @@ const sameDiscount = (a: Discount | null, b: Discount | null) =>
 /** A bill discount (₹ or %) and ₹ off single dishes, with a reason (spec §5.4). */
 export function DiscountSheet({ bill, onDone }: { bill: Bill; onDone: () => void }) {
   const id = useId();
-  const queryClient = useQueryClient();
+  const discount = useApplyDiscount(bill);
   const [kind, setKind] = useState<Kind>(bill.discount?.kind ?? 'PERCENT');
   const [value, setValue] = useState(() => {
     if (!bill.discount) return '';
@@ -42,7 +42,6 @@ export function DiscountSheet({ bill, onDone }: { bill: Bill; onDone: () => void
   const [reason, setReason] = useState(bill.discountReason ?? '');
   const [error, setError] = useState<string | null>(null);
   const [needsManager, setNeedsManager] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
   /** The request body, or an error message for the person at the counter. */
   function buildRequest(): { body: object } | { problem: string } {
@@ -84,40 +83,31 @@ export function DiscountSheet({ bill, onDone }: { bill: Bill; onDone: () => void
     };
   }
 
-  async function send(overrideToken?: string) {
+  function send(overrideToken?: string) {
     const built = buildRequest();
     if ('problem' in built) return setError(built.problem);
     setError(null);
-    setBusy(true);
-    try {
-      await apiFetch(`/api/bills/${bill.id}/discount`, {
-        method: 'PUT',
-        headers: {
-          'If-Match': String(bill.version),
-          ...(overrideToken ? { 'x-override-token': overrideToken } : {}),
+    discount.mutate(
+      { body: built.body, overrideToken },
+      {
+        onSuccess: onDone,
+        onError: (failure) => {
+          if (failure instanceof ApiError && failure.code === 'DISCOUNT_OVER_LIMIT') {
+            const allowed = Number(failure.body.allowed ?? 0);
+            setNeedsManager(
+              `This discount needs a manager. The cashier limit is ${rupees(allowed)}.`,
+            );
+          } else {
+            setError(describeError(failure));
+          }
         },
-        body: built.body,
-      });
-      await queryClient.invalidateQueries({ queryKey: ['bills', bill.orderId] });
-      onDone();
-    } catch (failure) {
-      if (failure instanceof ApiError && failure.code === 'DISCOUNT_OVER_LIMIT') {
-        const allowed = Number(failure.body.allowed ?? 0);
-        setNeedsManager(`This discount needs a manager. The cashier limit is ${rupees(allowed)}.`);
-      } else {
-        setError(describeError(failure));
-        if (failure instanceof ApiError && failure.code === 'BILL_CHANGED') {
-          void queryClient.invalidateQueries({ queryKey: ['bills', bill.orderId] });
-        }
-      }
-    } finally {
-      setBusy(false);
-    }
+      },
+    );
   }
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    void send();
+    send();
   }
 
   return (
@@ -129,7 +119,7 @@ export function DiscountSheet({ bill, onDone }: { bill: Bill; onDone: () => void
           message={needsManager}
           onApproved={(token) => {
             setNeedsManager(null);
-            void send(token);
+            send(token);
           }}
           onCancel={() => setNeedsManager(null)}
         />
@@ -186,7 +176,11 @@ export function DiscountSheet({ bill, onDone }: { bill: Bill; onDone: () => void
           </Field>
           <ErrorNote message={error} />
           <div className="flex gap-2">
-            <button type="submit" className={`${primaryButton} min-h-11`} disabled={busy}>
+            <button
+              type="submit"
+              className={`${primaryButton} min-h-11`}
+              disabled={discount.isPending}
+            >
               Apply discount
             </button>
             <button type="button" className={`${secondaryButton} min-h-11`} onClick={onDone}>

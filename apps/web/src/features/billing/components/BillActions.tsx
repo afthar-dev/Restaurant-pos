@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useCan } from '@/shared/session/store';
 import { primaryButton, secondaryButton } from '@/shared/ui';
-import { useRefreshOrder } from '@/features/orders/mutations';
-import type { Bill } from '@/features/orders/types';
+import { useRefreshOrder } from '@/features/orders';
+import type { Bill } from '../types';
 import { PaymentSheet } from './PaymentSheet';
 import { VoidSheet } from './VoidSheet';
 

@@ -1,5 +1,5 @@
 import { formatPaise } from '@rpos/shared';
-import type { DayReport } from '@/features/orders/types';
+import type { DayReport } from './types';
 import { escapeHtml } from '@/shared/lib/escape';
 
 const row = (label: string, value: string, strong = false) =>

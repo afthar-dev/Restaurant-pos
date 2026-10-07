@@ -1,54 +1,9 @@
 import { useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { io } from 'socket.io-client';
+import { RealtimeContext, type Listener, type RealtimeStatus } from '@/shared/realtime/context';
 import { useSession } from '@/shared/session/store';
-
-export type RealtimeStatus = 'off' | 'connecting' | 'connected' | 'disconnected';
-
-type Listener = (payload: unknown) => void;
-
-interface RealtimeContextValue {
-  status: RealtimeStatus;
-  subscribe: (event: string, listener: Listener) => () => void;
-}
-
-const RealtimeContext = createContext<RealtimeContextValue>({
-  status: 'off',
-  subscribe: () => () => undefined,
-});
-
-/** What each server notice makes stale. Payloads carry ids only; data is refetched. */
-const INVALIDATIONS: Record<string, (payload: Record<string, unknown>) => QueryKey[]> = {
-  'order.updated': (p) => [
-    ['order', p.orderId],
-    ['bills', p.orderId],
-    ['floor'],
-    ['orders', 'active'],
-    ['qr-pending'],
-    // A moved order shows its new table on the kitchen screen.
-    ['kds'],
-  ],
-  'qr.submitted': (p) => [['qr-pending'], ['floor'], ['orders', 'active'], ['order', p.orderId]],
-  'bill.updated': (p) => [
-    ['bills', p.orderId],
-    ['order', p.orderId],
-    ['orders', 'active'],
-    ['floor'],
-  ],
-  'kot.created': (p) => [['kds'], ['order', p.orderId]],
-  'kot.updated': (p) => [['kds'], ['order', p.orderId]],
-  'menu.availability': () => [['menu']],
-  'day.updated': () => [['business-day']],
-  'print.job': () => [['print-jobs']],
-};
+import { INVALIDATIONS } from './invalidations';
 
 function invalidate(client: QueryClient, keys: QueryKey[]) {
   for (const queryKey of keys) void client.invalidateQueries({ queryKey });
@@ -113,16 +68,4 @@ export function RealtimeProvider({ enabled, children }: { enabled: boolean; chil
   return (
     <RealtimeContext.Provider value={{ status, subscribe }}>{children}</RealtimeContext.Provider>
   );
-}
-
-export function useRealtimeStatus(): RealtimeStatus {
-  return useContext(RealtimeContext).status;
-}
-
-/** Runs `handler` for each server notice of this kind (in addition to the query refresh). */
-export function useRealtimeEvent(event: string, handler: Listener): void {
-  const { subscribe } = useContext(RealtimeContext);
-  const latest = useRef(handler);
-  latest.current = handler;
-  useEffect(() => subscribe(event, (payload) => latest.current(payload)), [event, subscribe]);
 }

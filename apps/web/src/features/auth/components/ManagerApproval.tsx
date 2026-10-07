@@ -1,7 +1,5 @@
 import type { Permission } from '@rpos/shared';
-import { useQuery } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
-import { apiFetch } from '@/shared/api/http';
 import {
   describeError,
   ErrorNote,
@@ -10,19 +8,8 @@ import {
   primaryButton,
   secondaryButton,
 } from '@/shared/ui';
-
-/** Asks the server for a one-time approval token for `permission`, signed by that manager. */
-export async function requestOverride(
-  userId: string,
-  pin: string,
-  permission: Permission,
-): Promise<string> {
-  const { overrideToken } = await apiFetch<{ overrideToken: string }>('/api/auth/override', {
-    method: 'POST',
-    body: { userId, pin, permission },
-  });
-  return overrideToken;
-}
+import { useRequestOverride } from '../mutations';
+import { useApprovers } from '../queries';
 
 export const isPin = (pin: string) => /^\d{4,6}$/.test(pin);
 
@@ -40,10 +27,7 @@ export function ApproverFields({
   onApprover: (id: string) => void;
   onPin: (pin: string) => void;
 }) {
-  const approvers = useQuery({
-    queryKey: ['approvers'],
-    queryFn: () => apiFetch<{ id: string; name: string }[]>('/api/auth/approvers'),
-  });
+  const approvers = useApprovers();
   return (
     <div className="flex flex-wrap gap-3">
       <Field id={`${idPrefix}-approver`} label="Manager">
@@ -91,27 +75,22 @@ export function ManagerApproval({
   const id = useId();
   const [approverId, setApproverId] = useState('');
   const [pin, setPin] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [invalid, setInvalid] = useState<string | null>(null);
+  const approval = useRequestOverride(permission, onApproved);
+  const error = invalid ?? (approval.isError ? describeError(approval.error) : null);
+  const busy = approval.isPending;
 
-  async function onSubmit(event: FormEvent) {
+  function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!approverId) return setError('Choose the manager.');
-    if (!isPin(pin)) return setError('Enter the 4–6 digit PIN.');
-    setError(null);
-    setBusy(true);
-    try {
-      onApproved(await requestOverride(approverId, pin, permission));
-    } catch (failure) {
-      setError(describeError(failure));
-    } finally {
-      setBusy(false);
-    }
+    if (!approverId) return setInvalid('Choose the manager.');
+    if (!isPin(pin)) return setInvalid('Enter the 4–6 digit PIN.');
+    setInvalid(null);
+    approval.mutate({ userId: approverId, pin });
   }
 
   return (
     <form
-      onSubmit={(e) => void onSubmit(e)}
+      onSubmit={onSubmit}
       noValidate
       aria-label="Manager approval"
       className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3"

@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { BillActions } from '@/features/billing/components/BillActions';
-import { BillArea } from '@/features/billing/components/BillArea';
-import { MenuBrowser } from '@/features/orders/components/MenuBrowser';
-import { OrderPanel } from '@/features/orders/components/OrderPanel';
-import { useOrder } from '@/features/orders/queries';
-import { orderLabel, type Bill } from '@/features/orders/types';
+import { BillActions, BillArea, type Bill } from '@/features/billing';
+import { MenuBrowser, orderLabel, OrderPanel, useOrder } from '@/features/orders';
 
 /** How long "Bill paid" stays before the counter goes back to the floor. */
 const PAID_NOTE_MS = 1500;

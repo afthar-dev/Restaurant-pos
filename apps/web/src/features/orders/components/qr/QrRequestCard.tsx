@@ -1,6 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { useId, useRef, useState } from 'react';
-import { apiFetch } from '@/shared/api/http';
+import { useId, useState } from 'react';
 import { useCan } from '@/shared/session/store';
 import {
   dangerButton,
@@ -12,7 +10,7 @@ import {
   secondaryButton,
 } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
-import { useRefreshOrder } from '../../mutations';
+import { useDecideQrRequest } from '../../mutations';
 import type { Order, QrRequest } from '../../types';
 
 const dish = (name: string, variant: string) =>
@@ -22,31 +20,11 @@ const dish = (name: string, variant: string) =>
 export function QrRequestCard({ order, request }: { order: Order; request: QrRequest }) {
   const id = useId();
   const canApprove = useCan('order.approveQr');
-  const refresh = useRefreshOrder();
-  const queryClient = useQueryClient();
   const [mode, setMode] = useState<'view' | 'edit' | 'reject'>('view');
   const [quantities, setQuantities] = useState(() => request.lines.map((l) => l.quantity));
   const [reason, setReason] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const sending = useRef(false);
-
-  async function decide(path: 'approve' | 'reject', body: object) {
-    if (sending.current) return;
-    sending.current = true;
-    setBusy(true);
-    setError(null);
-    try {
-      await apiFetch(`/api/qr/submissions/${request.id}/${path}`, { method: 'POST', body });
-      await queryClient.invalidateQueries({ queryKey: ['qr-pending'] });
-      await refresh(order.id);
-    } catch (failure) {
-      setError(describeError(failure));
-    } finally {
-      sending.current = false;
-      setBusy(false);
-    }
-  }
+  const decision = useDecideQrRequest(order, request.id);
+  const busy = decision.isPending;
 
   const edited = request.lines
     .map((l, index) => ({ line: l, quantity: quantities[index] ?? 0 }))
@@ -112,14 +90,14 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
       </ul>
       {request.note && <p className="text-sm italic text-amber-950">“{request.note}”</p>}
       <p className="text-sm text-slate-600">About {rupees(request.total)} before tax</p>
-      <ErrorNote message={error} />
+      <ErrorNote message={decision.isError ? describeError(decision.error) : null} />
       {canApprove && mode === 'view' && (
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             className={`${primaryButton} min-h-11`}
             disabled={busy}
-            onClick={() => void decide('approve', {})}
+            onClick={() => decision.decide({ action: 'approve', body: {} })}
           >
             Approve
           </button>
@@ -147,7 +125,7 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
             type="button"
             className={`${primaryButton} min-h-11`}
             disabled={busy || edited.length === 0}
-            onClick={() => void decide('approve', { lines: edited })}
+            onClick={() => decision.decide({ action: 'approve', body: { lines: edited } })}
           >
             Approve changes
           </button>
@@ -178,7 +156,12 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
               type="button"
               className={`${dangerButton} min-h-11`}
               disabled={busy}
-              onClick={() => void decide('reject', reason.trim() ? { reason: reason.trim() } : {})}
+              onClick={() =>
+                decision.decide({
+                  action: 'reject',
+                  body: reason.trim() ? { reason: reason.trim() } : {},
+                })
+              }
             >
               Yes, reject
             </button>

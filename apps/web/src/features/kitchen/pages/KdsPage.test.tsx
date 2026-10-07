@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DEVICE_RETRY_MS } from '@/features/auth/hooks';
+import { DEVICE_RETRY_MS } from '@/features/auth';
 import { callsTo, json, mockApi } from '@/test/mock-api';
 import { renderRoute } from '@/test/render';
 

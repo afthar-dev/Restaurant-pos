@@ -1,21 +1,21 @@
 import { parseRupees } from '@rpos/shared';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { apiFetch } from '@/shared/api/http';
-import { LoadingScreen } from '@/features/auth/components/RequireAuth';
 import { useCan } from '@/shared/session/store';
-import { describeError, ErrorNote, Field, inputClass, primaryButton } from '@/shared/ui';
-import { useBusinessDay } from '@/features/orders/queries';
+import {
+  describeError,
+  ErrorNote,
+  Field,
+  inputClass,
+  LoadingScreen,
+  primaryButton,
+} from '@/shared/ui';
+import { useOpenDay } from '../mutations';
+import { useBusinessDay } from '../queries';
 
 function OpenDayForm() {
-  const queryClient = useQueryClient();
   const [cash, setCash] = useState('');
   const [error, setError] = useState<string | undefined>();
-  const open = useMutation({
-    mutationFn: (openingCash: number) =>
-      apiFetch('/api/business-day/open', { method: 'POST', body: { openingCash } }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['business-day'] }),
-  });
+  const open = useOpenDay();
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();

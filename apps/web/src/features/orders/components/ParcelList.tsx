@@ -1,7 +1,6 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiFetch } from '@/shared/api/http';
 import { describeError, ErrorNote, primaryButton } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
+import { useOpenParcel } from '../mutations';
 import { useActiveOrders } from '../queries';
 import { orderLabel } from '../types';
 
@@ -13,16 +12,8 @@ export function ParcelList({
   selectedOrderId: string | null;
   onSelect: (orderId: string) => void;
 }) {
-  const queryClient = useQueryClient();
   const orders = useActiveOrders();
-  const create = useMutation({
-    mutationFn: () =>
-      apiFetch<{ id: string }>('/api/orders', { method: 'POST', body: { type: 'PARCEL' } }),
-    onSuccess: async (order) => {
-      onSelect(order.id);
-      await queryClient.invalidateQueries({ queryKey: ['orders', 'active'] });
-    },
-  });
+  const create = useOpenParcel(onSelect);
   const parcels = (orders.data ?? []).filter((o) => o.type === 'PARCEL');
 
   return (

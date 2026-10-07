@@ -1,9 +1,7 @@
-import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
-import { apiFetch } from '@/shared/api/http';
 import { useCan } from '@/shared/session/store';
 import { describeError, ErrorNote, secondaryButton, Sheet } from '@/shared/ui';
-import { useRefreshOrder } from '../mutations';
+import { useTableChange } from '../mutations';
 import { useFloorStatus } from '../queries';
 import { orderLabel, type FloorTableStatus, type Order } from '../types';
 
@@ -42,25 +40,7 @@ export function TableActions({ order }: { order: Order }) {
 
 function TableSheet({ order, mode, onDone }: { order: Order; mode: Mode; onDone: () => void }) {
   const floor = useFloorStatus();
-  const refresh = useRefreshOrder();
-  const act = useMutation({
-    mutationFn: (table: FloorTableStatus) =>
-      mode === 'move'
-        ? apiFetch(`/api/orders/${order.id}/move`, {
-            method: 'POST',
-            headers: { 'If-Match': String(order.version) },
-            body: { tableId: table.id },
-          })
-        : apiFetch(`/api/orders/${order.id}/merge`, {
-            method: 'POST',
-            headers: { 'If-Match': String(order.version) },
-            body: { fromOrderId: table.order!.orderId },
-          }),
-    onSuccess: async () => {
-      await refresh(order.id);
-      onDone();
-    },
-  });
+  const act = useTableChange(order, mode, onDone);
 
   const fits = (t: FloorTableStatus) =>
     mode === 'move'

@@ -1,3 +1,4 @@
+import { type MenuAddonGroup, menuKeys } from '@/features/menu';
 import { addonGroupSchema, paiseToRupeesInput, parseRupees } from '@rpos/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
@@ -12,7 +13,6 @@ import {
   secondaryButton,
 } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
-import { addonGroupsKey, menuKey, type MenuAddonGroup } from '@/features/menu/types';
 
 interface Row {
   key: number;
@@ -44,8 +44,8 @@ function GroupForm({ existing, onDone }: { existing: MenuAddonGroup | null; onDo
         ? apiFetch(`/api/menu/addon-groups/${existing.id}`, { method: 'PUT', body })
         : apiFetch('/api/menu/addon-groups', { method: 'POST', body }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: addonGroupsKey });
-      await queryClient.invalidateQueries({ queryKey: menuKey });
+      await queryClient.invalidateQueries({ queryKey: menuKeys.addonGroups });
+      await queryClient.invalidateQueries({ queryKey: menuKeys.all });
       onDone();
     },
   });
@@ -198,7 +198,7 @@ function GroupForm({ existing, onDone }: { existing: MenuAddonGroup | null; onDo
 export function AddonsPage() {
   const queryClient = useQueryClient();
   const groups = useQuery({
-    queryKey: addonGroupsKey,
+    queryKey: menuKeys.addonGroups,
     queryFn: () => apiFetch<MenuAddonGroup[]>('/api/menu/addon-groups'),
   });
   const [editing, setEditing] = useState<MenuAddonGroup | null>(null);
@@ -210,8 +210,8 @@ export function AddonsPage() {
       apiFetch(`/api/menu/addon-groups/${g.id}/archive`, { method: 'POST' }),
     onSuccess: async () => {
       setConfirming(null);
-      await queryClient.invalidateQueries({ queryKey: addonGroupsKey });
-      await queryClient.invalidateQueries({ queryKey: menuKey });
+      await queryClient.invalidateQueries({ queryKey: menuKeys.addonGroups });
+      await queryClient.invalidateQueries({ queryKey: menuKeys.all });
     },
   });
 

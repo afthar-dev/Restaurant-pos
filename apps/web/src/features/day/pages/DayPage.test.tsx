@@ -3,7 +3,7 @@ import type { Permission } from '@rpos/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { useSession } from '@/shared/session/store';
 import { renderDayReport } from '../dayReport';
-import type { DayReport } from '@/features/orders/types';
+import type { DayReport } from '../types';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
 import { renderRoute } from '@/test/render';
 

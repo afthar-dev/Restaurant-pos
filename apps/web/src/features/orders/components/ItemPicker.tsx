@@ -2,14 +2,8 @@ import { rupees } from '@/shared/lib/money';
 import type { OrderType } from '@rpos/shared';
 import { useState } from 'react';
 import { inputClass, primaryButton, secondaryButton, Sheet } from '@/shared/ui';
-import { type MenuAddonGroup, type MenuItem, type MenuVariant } from '@/features/menu/types';
-
-export interface NewLine {
-  variantId: string;
-  quantity: number;
-  addonIds: string[];
-  note?: string;
-}
+import type { MenuAddonGroup, MenuItem, MenuVariant } from '@/features/menu';
+import type { NewLine } from '../types';
 
 export function unitPrice(variant: MenuVariant, orderType: OrderType): number {
   return orderType === 'PARCEL' ? variant.parcelPrice : variant.dineInPrice;

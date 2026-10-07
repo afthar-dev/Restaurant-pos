@@ -1,7 +1,6 @@
 import { useId, useState, type FormEvent } from 'react';
-import { apiFetch } from '@/shared/api/http';
 import { useCan } from '@/shared/session/store';
-import { ManagerApproval } from '@/features/auth/components/ManagerApproval';
+import { ManagerApproval } from '@/features/auth';
 import {
   dangerButton,
   describeError,
@@ -11,8 +10,8 @@ import {
   secondaryButton,
   Sheet,
 } from '@/shared/ui';
-import { useRefreshOrder } from '@/features/orders/mutations';
-import type { Bill } from '@/features/orders/types';
+import { useVoidBill } from '../mutations';
+import type { Bill } from '../types';
 
 /**
  * Voids a bill (spec §5.4): the number is kept and the order reopens for a new bill. A cashier
@@ -21,34 +20,23 @@ import type { Bill } from '@/features/orders/types';
 export function VoidSheet({ bill, onDone }: { bill: Bill; onDone: () => void }) {
   const id = useId();
   const canVoid = useCan('bill.void');
-  const refresh = useRefreshOrder();
+  const voiding = useVoidBill(bill);
   const [reason, setReason] = useState('');
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
 
-  async function send(overrideToken?: string) {
-    setBusy(true);
+  function send(overrideToken?: string) {
     setError(null);
-    try {
-      await apiFetch(`/api/bills/${bill.id}/void`, {
-        method: 'POST',
-        headers: overrideToken ? { 'x-override-token': overrideToken } : {},
-        body: { reason: reason.trim() },
-      });
-      await refresh(bill.orderId);
-      onDone();
-    } catch (failure) {
-      setError(describeError(failure));
-    } finally {
-      setBusy(false);
-    }
+    voiding.mutate(
+      { reason: reason.trim(), overrideToken },
+      { onSuccess: onDone, onError: (failure) => setError(describeError(failure)) },
+    );
   }
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (reason.trim().length < 3) return setError('Give a short reason.');
-    if (canVoid) void send();
+    if (canVoid) send();
     else setApproving(true);
   }
 
@@ -65,7 +53,7 @@ export function VoidSheet({ bill, onDone }: { bill: Bill; onDone: () => void }) 
           message="A manager must approve this void."
           onApproved={(token) => {
             setApproving(false);
-            void send(token);
+            send(token);
           }}
           onCancel={() => setApproving(false)}
         />
@@ -80,7 +68,11 @@ export function VoidSheet({ bill, onDone }: { bill: Bill; onDone: () => void }) 
             />
           </Field>
           <div className="flex gap-2">
-            <button type="submit" className={`${dangerButton} min-h-11`} disabled={busy}>
+            <button
+              type="submit"
+              className={`${dangerButton} min-h-11`}
+              disabled={voiding.isPending}
+            >
               Void bill
             </button>
             <button type="button" className={`${secondaryButton} min-h-11`} onClick={onDone}>

@@ -1,13 +1,11 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
-import { ApiError, apiFetch } from '@/shared/api/http';
-import { POLL_MS } from '@/shared/api/queryClient';
-import { renderBillTicket, type BillPrintPayload } from './templates/billTicket';
-import { renderKotTicket, type KotPrintPayload } from './templates/kotTicket';
-
-type PrintJob = { id: string; attempts: number } & (
-  { kind: 'KOT'; payload: KotPrintPayload } | { kind: 'BILL'; payload: BillPrintPayload }
-);
+import { ApiError } from '@/shared/api/http';
+import { reportPrintJob, type PrintJob } from './api';
+import { useClaimedPrintJobs } from './queries';
+import { printKeys } from './keys';
+import { renderBillTicket } from './templates/billTicket';
+import { renderKotTicket } from './templates/kotTicket';
 
 function renderJob(job: PrintJob): string {
   if (job.kind === 'KOT') return renderKotTicket(job.payload);
@@ -83,12 +81,7 @@ export function PrintWorker({
   const queryClient = useQueryClient();
   const busy = useRef(false);
   const outcomes = useRef<Map<string, boolean> | null>(null);
-  const jobs = useQuery({
-    queryKey: ['print-jobs'],
-    queryFn: () =>
-      apiFetch<PrintJob[]>('/api/print/jobs/claim', { method: 'POST', skipRefresh: true }),
-    refetchInterval: POLL_MS,
-  });
+  const jobs = useClaimedPrintJobs();
 
   useEffect(() => {
     if (busy.current || !jobs.data) return;
@@ -97,11 +90,7 @@ export function PrintWorker({
 
     async function report(jobId: string, ok: boolean) {
       try {
-        await apiFetch(`/api/print/jobs/${jobId}/done`, {
-          method: 'POST',
-          body: { ok },
-          skipRefresh: true,
-        });
+        await reportPrintJob(jobId, ok);
       } catch (error) {
         // 404/409: the job is gone or already settled, so there is nothing left to report.
         // Anything else (offline, server error): keep the result and retry next round.
@@ -131,7 +120,7 @@ export function PrintWorker({
       } finally {
         busy.current = false;
       }
-      if (jobs.data.length > 0) await queryClient.invalidateQueries({ queryKey: ['print-jobs'] });
+      if (jobs.data.length > 0) await queryClient.invalidateQueries({ queryKey: printKeys.jobs });
     })();
   }, [jobs.data, jobs.dataUpdatedAt, printHtml, queryClient]);
 

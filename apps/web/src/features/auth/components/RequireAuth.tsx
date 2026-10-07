@@ -1,12 +1,9 @@
 import type { Permission } from '@rpos/shared';
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router';
-import { useCurrentDevice } from '../hooks';
+import { LoadingScreen } from '@/shared/ui';
+import { useCurrentDevice } from '../queries';
 import { useSession } from '@/shared/session/store';
-
-export function LoadingScreen() {
-  return <p className="text-slate-600">Loading…</p>;
-}
 
 export function UnreachableScreen() {
   return <p className="text-slate-700">Cannot reach the server. Retrying…</p>;

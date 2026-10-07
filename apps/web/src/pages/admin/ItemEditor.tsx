@@ -1,4 +1,11 @@
 import {
+  FOOD_LABEL,
+  type MenuAddonGroup,
+  type MenuCategory,
+  type MenuItem,
+  menuKeys,
+} from '@/features/menu';
+import {
   FOOD_TYPES,
   itemSchema,
   paiseToRupeesInput,
@@ -16,13 +23,6 @@ import {
   primaryButton,
   secondaryButton,
 } from '@/shared/ui';
-import {
-  FOOD_LABEL,
-  menuKey,
-  type MenuAddonGroup,
-  type MenuCategory,
-  type MenuItem,
-} from '@/features/menu/types';
 import type { TaxRate } from './TaxPage';
 
 interface VariantRow {
@@ -100,7 +100,7 @@ export function ItemEditor({
         ? apiFetch(`/api/menu/items/${existing.id}`, { method: 'PUT', body })
         : apiFetch('/api/menu/items', { method: 'POST', body }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: menuKey });
+      await queryClient.invalidateQueries({ queryKey: menuKeys.all });
       onDone();
     },
   });

@@ -1,6 +1,5 @@
-import { apiFetch } from '@/shared/api/http';
-import { renderBillTicket, type BillPrintPayload } from '@/features/printing/templates/billTicket';
-import { printHtmlInIframe } from '@/features/printing/PrintWorker';
+import { printHtmlInIframe, renderBillTicket } from '@/features/printing';
+import { fetchBillPrintPayload, queueBillPrint } from './api';
 
 type PrintHtml = (html: string) => Promise<void>;
 
@@ -10,9 +9,7 @@ export async function printBillHere(
   printHtml: PrintHtml = printHtmlInIframe,
   paperWidthMm: 58 | 80 = 80,
 ): Promise<void> {
-  const payload = await apiFetch<BillPrintPayload>(
-    `/api/bills/${billId}/print-payload?paperWidthMm=${paperWidthMm}`,
-  );
+  const payload = await fetchBillPrintPayload(billId, paperWidthMm);
   await printHtml(renderBillTicket(payload));
 }
 
@@ -25,9 +22,7 @@ export async function printBill(
   printHtml: PrintHtml = printHtmlInIframe,
   paperWidthMm: 58 | 80 = 80,
 ): Promise<'queued' | 'printed-here'> {
-  const { queued } = await apiFetch<{ queued: number }>(`/api/bills/${billId}/print`, {
-    method: 'POST',
-  });
+  const { queued } = await queueBillPrint(billId);
   if (queued > 0) return 'queued';
   await printBillHere(billId, printHtml, paperWidthMm);
   return 'printed-here';

@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useNotify } from '@/features/notifications';
-import { useRealtimeEvent } from '@/shared/realtime/RealtimeProvider';
+import { useRealtimeEvent } from '@/shared/realtime/context';
+import { floorKeys } from './keys';
 import type { FloorAreaStatus } from './types';
 
 interface KotReadyEvent {
@@ -20,7 +21,7 @@ export function useReadyAlerts(): void {
     const event = payload as KotReadyEvent;
     if (event.status !== 'READY') return;
     // The notice names the order; the cached floor is a fallback for older servers.
-    const floor = client.getQueryData<FloorAreaStatus[]>(['floor', 'status']) ?? [];
+    const floor = client.getQueryData<FloorAreaStatus[]>(floorKeys.status()) ?? [];
     const tableName =
       event.tableName ??
       floor.flatMap((a) => a.tables).find((t) => t.order?.orderId === event.orderId)?.name;

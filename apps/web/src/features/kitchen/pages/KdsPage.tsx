@@ -1,30 +1,12 @@
 import type { KotStatus } from '@rpos/shared';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { apiFetch } from '@/shared/api/http';
-import { useCurrentDevice } from '@/features/auth/hooks';
-import { LoadingScreen } from '@/features/auth/components/RequireAuth';
-import { describeError, ErrorNote } from '@/shared/ui';
-import { POLL_MS } from '@/shared/api/queryClient';
-import { orderLabel, type KdsTicket } from '@/features/orders/types';
-
-const STATION_KEY = 'rpos.kds.station';
-
-function remembered(): string {
-  try {
-    return localStorage.getItem(STATION_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-function remember(value: string) {
-  try {
-    localStorage.setItem(STATION_KEY, value);
-  } catch {
-    // Private mode or blocked storage: the filter just resets on reload.
-  }
-}
+import { useCurrentDevice } from '@/features/auth';
+import { orderLabel } from '@/features/orders';
+import { describeError, ErrorNote, LoadingScreen } from '@/shared/ui';
+import { useAdvanceKot } from '../mutations';
+import { useKdsStations, useKdsTickets } from '../queries';
+import { useStationFilter } from '../store';
+import type { KdsTicket } from '../types';
 
 function useMinuteTick() {
   const [now, setNow] = useState(() => Date.now());
@@ -120,34 +102,23 @@ function TicketCard({
 }
 
 function KitchenBoard() {
-  const queryClient = useQueryClient();
   const now = useMinuteTick();
-  const [station, setStation] = useState(remembered);
-  const stationList = useQuery({
-    queryKey: ['kds', 'stations'],
-    queryFn: () =>
-      apiFetch<{ id: string; name: string }[]>('/api/kds/stations', { skipRefresh: true }),
-    staleTime: 5 * 60_000,
-  });
+  const station = useStationFilter((s) => s.station);
+  const setStation = useStationFilter((s) => s.setStation);
+  useEffect(() => {
+    void useStationFilter.persist.rehydrate();
+  }, []);
+  const stationList = useKdsStations();
   // A remembered station that was archived would hide every ticket: forget it.
   const knownStation =
     !station || !stationList.data || stationList.data.some((s) => s.id === station);
   useEffect(() => {
     if (!knownStation) {
       setStation('');
-      remember('');
     }
-  }, [knownStation]);
-  const tickets = useQuery({
-    queryKey: ['kds'],
-    queryFn: () => apiFetch<KdsTicket[]>('/api/kds/kots', { skipRefresh: true }),
-    refetchInterval: POLL_MS,
-  });
-  const advance = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: KotStatus }) =>
-      apiFetch(`/api/kds/kots/${id}`, { method: 'PATCH', body: { status }, skipRefresh: true }),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['kds'] }),
-  });
+  }, [knownStation, setStation]);
+  const tickets = useKdsTickets();
+  const advance = useAdvanceKot();
 
   // A failed background refetch keeps the last tickets on screen; the header shows offline.
   if (!tickets.data) {
@@ -178,7 +149,6 @@ function KitchenBoard() {
             value={station}
             onChange={(e) => {
               setStation(e.target.value);
-              remember(e.target.value);
             }}
           >
             <option value="">All stations</option>

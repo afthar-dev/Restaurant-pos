@@ -1,6 +1,6 @@
 import { useNotify } from '@/features/notifications';
 import { useCan } from '@/shared/session/store';
-import { useRealtimeEvent } from '@/shared/realtime/RealtimeProvider';
+import { useRealtimeEvent } from '@/shared/realtime/context';
 import { useQrPending } from '../../queries';
 
 const ago = (iso: string) => {

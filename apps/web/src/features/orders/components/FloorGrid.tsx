@@ -1,8 +1,7 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { apiFetch } from '@/shared/api/http';
 import { describeError, ErrorNote, secondaryButton, Sheet } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
+import { useOpenTable } from '../mutations';
 import { useFloorStatus } from '../queries';
 import type { FloorTableStatus } from '../types';
 
@@ -24,21 +23,12 @@ export function FloorGrid({
   selectedOrderId: string | null;
   onSelect: (orderId: string) => void;
 }) {
-  const queryClient = useQueryClient();
   const floor = useFloorStatus();
   const [seating, setSeating] = useState<FloorTableStatus | null>(null);
 
-  const open = useMutation({
-    mutationFn: ({ tableId, guests }: { tableId: string; guests: number }) =>
-      apiFetch<{ id: string }>('/api/orders', {
-        method: 'POST',
-        body: { type: 'DINE_IN', tableId, guests },
-      }),
-    onSuccess: async (order) => {
-      setSeating(null);
-      onSelect(order.id);
-      await queryClient.invalidateQueries({ queryKey: ['floor'] });
-    },
+  const open = useOpenTable((orderId) => {
+    setSeating(null);
+    onSelect(orderId);
   });
 
   if (!floor.data) {

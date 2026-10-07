@@ -1,6 +1,5 @@
 import { paiseToRupeesInput, parseRupees, splitEqually, type PaymentMode } from '@rpos/shared';
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
-import { apiFetch } from '@/shared/api/http';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import {
   describeError,
   ErrorNote,
@@ -11,7 +10,8 @@ import {
   Sheet,
 } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
-import type { Bill } from '@/features/orders/types';
+import { useAddPayment } from '../mutations';
+import type { Bill } from '../types';
 
 const MODES: { mode: PaymentMode; label: string }[] = [
   { mode: 'CASH', label: 'Cash' },
@@ -39,10 +39,7 @@ export function PaymentSheet({
   const [reference, setReference] = useState('');
   const [parts, setParts] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  // One id per payment, kept after a failure so a retry cannot record it twice.
-  const requestId = useRef<string | null>(null);
-  const sending = useRef(false);
+  const payment = useAddPayment(bill);
   const [awaiting, setAwaiting] = useState<number | null>(null);
   const catchingUp = awaiting !== null && bill.payments.length < awaiting;
 
@@ -63,9 +60,9 @@ export function PaymentSheet({
   const shares = parts >= 2 && bill.total >= parts ? splitEqually(bill.total, parts) : [];
   const notes = NOTES.filter((n) => amountPaise !== null && n >= amountPaise).slice(0, 2);
 
-  async function record(event: FormEvent) {
+  function record(event: FormEvent) {
     event.preventDefault();
-    if (sending.current || catchingUp) return;
+    if (payment.isSending() || catchingUp) return;
     if (amountPaise === null || amountPaise <= 0) return setError('Enter the amount received.');
     if (amountPaise > bill.due) return setError(`Only ${rupees(bill.due)} is due.`);
     if (cash && tendered.trim() !== '' && tenderedPaise === null) {
@@ -73,35 +70,27 @@ export function PaymentSheet({
     }
     if (short > 0) return;
     setError(null);
-    sending.current = true;
-    setBusy(true);
-    requestId.current ??= crypto.randomUUID();
-    try {
-      const updated = await apiFetch<Bill>(`/api/bills/${bill.id}/payments`, {
-        method: 'POST',
-        headers: { 'Idempotency-Key': requestId.current },
-        body: {
-          mode,
-          amount: amountPaise,
-          ...(cash && tenderedPaise !== null ? { tendered: tenderedPaise } : {}),
-          ...(!cash && reference.trim() ? { reference: reference.trim() } : {}),
+    payment.pay(
+      {
+        mode,
+        amount: amountPaise,
+        ...(cash && tenderedPaise !== null ? { tendered: tenderedPaise } : {}),
+        ...(!cash && reference.trim() ? { reference: reference.trim() } : {}),
+      },
+      {
+        onSuccess: (updated) => {
+          if (updated.status !== 'PAID') {
+            // Show what is left at once; Record stays off until the refreshed bill arrives, so
+            // a quick second tap cannot record the same share again.
+            setAwaiting(updated.payments.length);
+            setAmount(paiseToRupeesInput(updated.due));
+            setTendered('');
+          }
+          onPaid(updated);
         },
-      });
-      requestId.current = null;
-      if (updated.status !== 'PAID') {
-        // Show what is left at once; Record stays off until the refreshed bill arrives, so a
-        // quick second tap cannot record the same share again.
-        setAwaiting(updated.payments.length);
-        setAmount(paiseToRupeesInput(updated.due));
-        setTendered('');
-      }
-      onPaid(updated);
-    } catch (failure) {
-      setError(describeError(failure));
-    } finally {
-      sending.current = false;
-      setBusy(false);
-    }
+        onError: (failure) => setError(describeError(failure)),
+      },
+    );
   }
 
   return (
@@ -109,7 +98,7 @@ export function PaymentSheet({
       <h3 className="text-lg font-semibold">
         Bill {bill.billNo} · {rupees(bill.due)} due
       </h3>
-      <form onSubmit={(e) => void record(e)} noValidate className="flex flex-col gap-3">
+      <form onSubmit={record} noValidate className="flex flex-col gap-3">
         <div className="grid grid-cols-3 gap-2" role="group" aria-label="Payment mode">
           {MODES.map((m) => (
             <button
@@ -224,7 +213,7 @@ export function PaymentSheet({
           <button
             type="submit"
             className={`${primaryButton} min-h-12 flex-1 text-base`}
-            disabled={busy || short > 0 || catchingUp}
+            disabled={payment.isPending || short > 0 || catchingUp}
           >
             Record payment
           </button>

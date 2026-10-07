@@ -1,29 +1,15 @@
-import { useQueryClient } from '@tanstack/react-query';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
-import { apiFetch } from '@/shared/api/http';
-import { useBootSession, useCurrentDevice } from '@/features/auth/hooks';
+import { useBootSession, useCurrentDevice, useSignOut } from '@/features/auth';
 import { useSession } from '@/shared/session/store';
 import { visibleAreas } from './Home';
-import { PrintWorker } from '@/features/printing/PrintWorker';
-import { RealtimeProvider } from '@/shared/realtime/RealtimeProvider';
+import { PrintWorker } from '@/features/printing';
+import { RealtimeProvider } from '@/features/realtime';
 import { Toaster } from '@/features/notifications';
-import { ServerStatus } from '@/features/health/components/ServerStatus';
+import { ServerStatus } from '@/features/health';
 
 function SignOutButton() {
-  const clear = useSession((s) => s.clear);
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-
-  async function signOut() {
-    try {
-      await apiFetch('/api/auth/logout', { method: 'POST', skipRefresh: true });
-    } catch {
-      // Even if the server is unreachable, forget the session on this screen.
-    }
-    clear();
-    queryClient.clear();
-    void navigate('/', { replace: true });
-  }
+  const signOut = useSignOut(() => void navigate('/', { replace: true }));
 
   return (
     <button

@@ -1,13 +1,10 @@
 import type { OrderType } from '@rpos/shared';
-import { useIsMutating, useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
-import { apiFetch } from '@/shared/api/http';
 import { describeError, ErrorNote, inputClass } from '@/shared/ui';
-import { FOOD_DOT, type MenuItem } from '@/features/menu/types';
+import { FOOD_DOT, type MenuItem, useMenu } from '@/features/menu';
 import { rupees } from '@/shared/lib/money';
-import { ItemPicker, unitPrice, type NewLine } from './ItemPicker';
-import { useRefreshOrder } from '../mutations';
-import { useMenu } from '../queries';
+import { ItemPicker, unitPrice } from './ItemPicker';
+import { useAddItem } from '../mutations';
 
 function tileLabel(item: MenuItem, orderType: OrderType): string {
   if (!item.isAvailable) return `${item.name}, out of stock`;
@@ -20,7 +17,6 @@ function tileLabel(item: MenuItem, orderType: OrderType): string {
 /** Category tabs and dish tiles. Each tap saves the dish on the order straight away. */
 export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType: OrderType }) {
   const menu = useMenu();
-  const refresh = useRefreshOrder();
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [picking, setPicking] = useState<MenuItem | null>(null);
@@ -28,18 +24,11 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
   const [addError, setAddError] = useState<string | null>(null);
   // Every tap is its own request, so quick repeated taps all count (no tile is locked while
   // an earlier dish is saving). The order refreshes in the background.
-  const add = useMutation({
-    mutationKey: ['add-item', orderId],
-    mutationFn: (line: NewLine) =>
-      apiFetch(`/api/orders/${orderId}/items`, { method: 'POST', body: { items: [line] } }),
-    onMutate: () => setAddError(null),
-    onSuccess: () => {
-      setPicking(null);
-      void refresh(orderId);
-    },
+  const { add, isPending, saving } = useAddItem(orderId, {
+    onStart: () => setAddError(null),
+    onAdded: () => setPicking(null),
     onError: (error) => setAddError(describeError(error)),
   });
-  const saving = useIsMutating({ mutationKey: ['add-item', orderId] });
 
   if (!menu.data) {
     if (menu.isError) return <ErrorNote message={describeError(menu.error)} />;
@@ -55,7 +44,7 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
 
   function choose(item: MenuItem) {
     if (item.variants.length > 1 || item.addonGroups.length > 0) setPicking(item);
-    else add.mutate({ variantId: item.variants[0]!.id, quantity: 1, addonIds: [] });
+    else add({ variantId: item.variants[0]!.id, quantity: 1, addonIds: [] });
   }
 
   return (
@@ -99,8 +88,8 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
         <ItemPicker
           item={picking}
           orderType={orderType}
-          busy={add.isPending}
-          onAdd={(line) => add.mutate(line)}
+          busy={isPending}
+          onAdd={add}
           onClose={() => setPicking(null)}
         />
       )}

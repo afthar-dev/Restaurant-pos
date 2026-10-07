@@ -1,50 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from '@/shared/api/http';
 import { POLL_MS } from '@/shared/api/queryClient';
-import { menuKey, type Menu } from '@/features/menu/types';
-import type { ActiveOrder, Bill, BusinessDay, FloorAreaStatus, Order, QrRequest } from './types';
-
-export function useBusinessDay() {
-  return useQuery({
-    queryKey: ['business-day'],
-    queryFn: () => apiFetch<{ day: BusinessDay | null }>('/api/business-day/current'),
-    refetchInterval: POLL_MS,
-  });
-}
+import { fetchActiveOrders, fetchFloorStatus, fetchOrder, fetchQrPending } from './api';
+import { floorKeys, orderKeys, qrKeys } from './keys';
 
 export function useFloorStatus() {
   return useQuery({
-    queryKey: ['floor', 'status'],
-    queryFn: () => apiFetch<FloorAreaStatus[]>('/api/floor/status'),
+    queryKey: floorKeys.status(),
+    queryFn: fetchFloorStatus,
     refetchInterval: POLL_MS,
   });
 }
 
 export function useActiveOrders() {
   return useQuery({
-    queryKey: ['orders', 'active'],
-    queryFn: () => apiFetch<ActiveOrder[]>('/api/orders?status=active'),
+    queryKey: orderKeys.active(),
+    queryFn: fetchActiveOrders,
     refetchInterval: POLL_MS,
   });
 }
 
-export function useOrder(id: string | null) {
+export function useOrder(orderId: string | null) {
   return useQuery({
-    queryKey: ['order', id],
-    queryFn: () => apiFetch<Order>(`/api/orders/${id}`),
-    enabled: Boolean(id),
-    refetchInterval: POLL_MS,
-  });
-}
-
-export function useMenu() {
-  return useQuery({ queryKey: menuKey, queryFn: () => apiFetch<Menu>('/api/menu') });
-}
-
-export function useOrderBills(orderId: string) {
-  return useQuery({
-    queryKey: ['bills', orderId],
-    queryFn: () => apiFetch<Bill[]>(`/api/orders/${orderId}/bills`),
+    queryKey: orderKeys.detail(orderId),
+    queryFn: () => fetchOrder(orderId!),
+    enabled: Boolean(orderId),
     refetchInterval: POLL_MS,
   });
 }
@@ -52,8 +31,8 @@ export function useOrderBills(orderId: string) {
 /** QR requests waiting for staff (only for staff who may approve them). */
 export function useQrPending(enabled: boolean) {
   return useQuery({
-    queryKey: ['qr-pending'],
-    queryFn: () => apiFetch<QrRequest[]>('/api/qr/pending'),
+    queryKey: qrKeys.pending(),
+    queryFn: fetchQrPending,
     refetchInterval: POLL_MS,
     enabled,
   });

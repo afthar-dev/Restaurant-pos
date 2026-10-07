@@ -1,8 +1,8 @@
+import { FOOD_DOT, type Menu, type MenuAddon, type MenuItem, menuKeys } from '@/features/menu';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { apiFetch } from '@/shared/api/http';
 import { describeError, ErrorNote, inputClass } from '@/shared/ui';
-import { FOOD_DOT, menuKey, type Menu, type MenuAddon, type MenuItem } from '@/features/menu/types';
 
 function Switch({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
   return (
@@ -26,13 +26,13 @@ function Switch({ on, label, onToggle }: { on: boolean; label: string; onToggle:
 /** Staff mark dishes out of stock so waiters and the QR menu stop offering them. */
 export function AvailabilityPage() {
   const queryClient = useQueryClient();
-  const menu = useQuery({ queryKey: menuKey, queryFn: () => apiFetch<Menu>('/api/menu') });
+  const menu = useQuery({ queryKey: menuKeys.all, queryFn: () => apiFetch<Menu>('/api/menu') });
   const [search, setSearch] = useState('');
   const [failure, setFailure] = useState<string | null>(null);
 
   const setItem = (id: string, isAvailable: boolean) =>
     queryClient.setQueryData<Menu>(
-      menuKey,
+      menuKeys.all,
       (old) =>
         old && {
           categories: old.categories.map((c) => ({
@@ -60,7 +60,7 @@ export function AvailabilityPage() {
 
   const setAddon = (id: string, isAvailable: boolean) =>
     queryClient.setQueryData<Menu>(
-      menuKey,
+      menuKeys.all,
       (old) =>
         old && {
           categories: old.categories.map((c) => ({

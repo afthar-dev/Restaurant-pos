@@ -100,6 +100,8 @@ export default tseslint.config(
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'off',
+      // Tests may reach into another feature's internals to set up a screen.
+      'no-restricted-imports': 'off',
     },
   },
 );

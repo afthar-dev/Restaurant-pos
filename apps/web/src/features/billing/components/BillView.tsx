@@ -2,9 +2,9 @@ import { useState, type ReactNode } from 'react';
 import { useCan } from '@/shared/session/store';
 import { describeError, secondaryButton } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
-import type { Bill } from '@/features/orders/types';
+import type { Bill } from '../types';
 import { DiscountSheet } from './DiscountSheet';
-import { printBill } from '../printBill';
+import { usePrintBill } from '../mutations';
 
 const percent = (bp: number) => `${Number((bp / 100).toFixed(2))}%`;
 
@@ -33,14 +33,14 @@ export function BillView({ bill, actions }: { bill: Bill; actions?: ReactNode })
   const open = bill.status === 'OPEN';
   const discount = bill.itemDiscount + bill.billDiscount;
 
-  async function print() {
+  const printing = usePrintBill(bill.id);
+
+  function print() {
     setPrintNote(null);
-    try {
-      const where = await printBill(bill.id);
-      setPrintNote(where === 'queued' ? 'Sent to the bill printer.' : null);
-    } catch (error) {
-      setPrintNote(`Could not print: ${describeError(error)}`);
-    }
+    printing.mutate(undefined, {
+      onSuccess: (where) => setPrintNote(where === 'queued' ? 'Sent to the bill printer.' : null),
+      onError: (error) => setPrintNote(`Could not print: ${describeError(error)}`),
+    });
   }
 
   return (

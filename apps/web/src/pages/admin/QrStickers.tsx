@@ -2,8 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { apiFetch } from '@/shared/api/http';
 import { ConfirmBar, describeError, ErrorNote, secondaryButton } from '@/shared/ui';
-import { printHtmlInIframe } from '@/features/printing/PrintWorker';
-import { renderQrStickers, type TableCode } from '@/features/printing/templates/qrStickers';
+import { printHtmlInIframe, renderQrStickers, type TableCode } from '@/features/printing';
 
 const codesKey = ['table-qr-codes'];
 
