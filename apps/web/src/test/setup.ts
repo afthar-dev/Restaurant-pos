@@ -6,6 +6,17 @@ import { resetSessionStore } from '@/shared/session/store';
 import { useStationFilter } from '@/features/kitchen/store';
 import { useNotifications } from '@/features/notifications/store';
 
+// jsdom lacks a few browser APIs that Radix UI (dialogs, menus, tooltips) calls.
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObserver;
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.releasePointerCapture ??= () => undefined;
+Element.prototype.scrollIntoView ??= () => undefined;
+
 // No real sockets in tests. Tests that check realtime behaviour mock this module themselves.
 vi.mock('socket.io-client', () => ({
   io: () => {
