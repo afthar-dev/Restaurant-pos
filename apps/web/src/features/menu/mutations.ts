@@ -26,6 +26,7 @@ export const useUpdateCategory = (category: MenuCategory, onSaved: () => void) =
     mutationFn: (body: object) => updateCategory(category, body),
     invalidates: [menuKeys.all],
     onSuccess: onSaved,
+    afterRefresh: true,
   });
 
 export type MenuEntry =
@@ -45,6 +46,7 @@ export const useSaveItem = (existing: MenuItem | null, onSaved: () => void) =>
     mutationFn: (body: object) => saveItem(existing, body),
     invalidates: [menuKeys.all],
     onSuccess: onSaved,
+    afterRefresh: true,
   });
 
 /** Add-on groups appear on dishes too, so the menu refreshes with them. */
@@ -53,6 +55,7 @@ export const useSaveAddonGroup = (existing: MenuAddonGroup | null, onSaved: () =
     mutationFn: (body: object) => saveAddonGroup(existing, body),
     invalidates: [menuKeys.addonGroups, menuKeys.all],
     onSuccess: onSaved,
+    afterRefresh: true,
   });
 
 export const useArchiveAddonGroup = (onArchived: () => void) =>

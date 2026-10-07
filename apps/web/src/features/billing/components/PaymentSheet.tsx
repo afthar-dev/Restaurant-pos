@@ -39,7 +39,7 @@ export function PaymentSheet({
   const [reference, setReference] = useState('');
   const [parts, setParts] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const payment = useAddPayment(bill);
+  const payment = useAddPayment(bill, onPaid);
   const [awaiting, setAwaiting] = useState<number | null>(null);
   const catchingUp = awaiting !== null && bill.payments.length < awaiting;
 
@@ -86,7 +86,6 @@ export function PaymentSheet({
             setAmount(paiseToRupeesInput(updated.due));
             setTendered('');
           }
-          onPaid(updated);
         },
         onError: (failure) => setError(describeError(failure)),
       },

@@ -142,4 +142,28 @@ describe('weak connections', () => {
     fireEvent.click(retry);
     expect(await screen.findByRole('button', { name: /^Tandoori Roti/ })).toBeInTheDocument();
   });
+  it('shows a failed restart after the table was closed, with a way to try again', async () => {
+    let up = false;
+    const mock = mockApi({
+      'POST /api/qr/sessions': () => {
+        if (!up) throw new TypeError('Failed to fetch');
+        return started();
+      },
+      'GET /api/qr/menu': () =>
+        up ? json(MENU) : json({ code: 'QR_SESSION_ENDED', message: 'Scan again.' }, 401),
+      'GET /api/qr/orders': () => json([]),
+    });
+    localStorage.setItem(
+      `rpos.qr.${CODE}`,
+      JSON.stringify({ token: 'old', table: 'T1', outlet: 'Spice Garden' }),
+    );
+    render(<App search={`?t=${CODE}`} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Start again' }));
+    const retry = await screen.findByRole('button', { name: 'Try again' });
+    expect(screen.queryByRole('button', { name: 'Start again' })).toBeNull();
+    up = true;
+    fireEvent.click(retry);
+    expect(await screen.findByRole('button', { name: /^Tandoori Roti/ })).toBeInTheDocument();
+    expect(callsTo(mock, 'POST', '/api/qr/sessions')).toHaveLength(2);
+  });
 });

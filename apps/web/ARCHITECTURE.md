@@ -84,8 +84,12 @@ Tests are exempt from rule 1: they may reach into another feature to set up a sc
   the "two taps faster than a re-render" guard. Components call `send()`, `pay()` or `decide()`
   and never handle the key themselves.
 - **Admin CRUD** uses `useInvalidatingMutation({ mutationFn, invalidates, onSuccess })`.
-  The screen's callback runs first (close the form, clear the field). The mutation then stays
-  pending until the listed queries have refetched.
+  The screen's callback runs first (clear the field, close a confirm bar). The mutation then
+  stays pending until the listed queries have refetched. Edit forms pass `afterRefresh: true`:
+  they close only once the list shows the saved values.
+- Callbacks that must run even if the screen closed meanwhile go to the hook, not to
+  `mutate(…, { onSuccess })`. TanStack drops per-call callbacks after an unmount.
+- Queries do not retry a 4xx answer, except 408 and 429 (`shared/api/queryClient.ts`).
 - Each refresh is defined once, for example `refreshOrder()`: order, floor, active orders and
   that order's bills.
 

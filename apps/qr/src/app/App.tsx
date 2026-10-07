@@ -49,22 +49,9 @@ function TableScreen({ code }: { code: string }) {
     begin(false);
   }, [begin]);
 
-  if (ended) {
-    return (
-      <main className={shell}>
-        <h1 className="text-2xl font-semibold">Welcome back</h1>
-        <p className="text-slate-700">Your table was closed. Scan the table QR again.</p>
-        <button
-          type="button"
-          className={`${button} bg-emerald-700 text-white`}
-          onClick={() => begin(true)}
-        >
-          Start again
-        </button>
-      </main>
-    );
-  }
   if (session) return <Ordering session={session} />;
+  // A restart that is running or failed shows like the first start, not the ended screen.
+  if (start.isPending) return <Opening />;
   if (start.isError) {
     // An unknown sticker will not start working by trying again.
     const unknown = start.error instanceof QrApiError && start.error.code === 'QR_UNKNOWN';
@@ -84,6 +71,25 @@ function TableScreen({ code }: { code: string }) {
       </main>
     );
   }
+  if (ended) {
+    return (
+      <main className={shell}>
+        <h1 className="text-2xl font-semibold">Welcome back</h1>
+        <p className="text-slate-700">Your table was closed. Scan the table QR again.</p>
+        <button
+          type="button"
+          className={`${button} bg-emerald-700 text-white`}
+          onClick={() => begin(true)}
+        >
+          Start again
+        </button>
+      </main>
+    );
+  }
+  return <Opening />;
+}
+
+function Opening() {
   return (
     <main className={shell}>
       <p className="text-slate-600">Opening the menu…</p>

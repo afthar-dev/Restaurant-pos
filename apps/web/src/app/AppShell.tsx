@@ -4,12 +4,16 @@ import { useSession } from '@/shared/session/store';
 import { visibleAreas } from './Home';
 import { PrintWorker } from '@/features/printing';
 import { RealtimeProvider } from '@/features/realtime';
-import { Toaster } from '@/features/notifications';
+import { Toaster, useNotifications } from '@/features/notifications';
 import { ServerStatus } from '@/features/health';
 
 function SignOutButton() {
   const navigate = useNavigate();
-  const signOut = useSignOut(() => void navigate('/', { replace: true }));
+  const signOut = useSignOut(() => {
+    // Alerts belong to the person who signed out.
+    useNotifications.getState().reset();
+    void navigate('/', { replace: true });
+  });
 
   return (
     <button

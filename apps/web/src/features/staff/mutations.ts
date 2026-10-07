@@ -8,6 +8,7 @@ export const useSaveStaff = (existing: Staff | null, onSaved: () => void) =>
     mutationFn: (body: object) => saveStaff(existing, body),
     invalidates: [staffKeys.list],
     onSuccess: onSaved,
+    afterRefresh: true,
   });
 
 export const useToggleStaffArchive = (onDone: () => void) =>

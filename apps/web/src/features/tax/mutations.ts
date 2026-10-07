@@ -9,6 +9,7 @@ export function useSaveTaxRate(existing: TaxRate | null, onSaved: () => void) {
     mutationFn: (body: TaxRateInput) => saveTaxRate(existing, body),
     invalidates: [taxKeys.rates],
     onSuccess: onSaved,
+    afterRefresh: true,
   });
 }
 

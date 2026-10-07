@@ -28,6 +28,7 @@ export const useUpdateTable = (table: FloorTable, onSaved: () => void) =>
     mutationFn: (body: object) => updateTable(table, body),
     invalidates: [layout],
     onSuccess: onSaved,
+    afterRefresh: true,
   });
 
 export type LayoutEntry = { kind: 'area'; area: FloorArea } | { kind: 'table'; table: FloorTable };

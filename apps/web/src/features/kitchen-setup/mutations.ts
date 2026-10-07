@@ -28,6 +28,7 @@ export const useSavePrinter = (existing: Printer | null, onSaved: () => void) =>
     mutationFn: (body: object) => savePrinter(existing, body),
     invalidates: [printers],
     onSuccess: onSaved,
+    afterRefresh: true,
   });
 
 export const useArchivePrinter = (onArchived: () => void) =>

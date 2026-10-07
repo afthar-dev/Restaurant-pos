@@ -4,8 +4,13 @@ export interface InvalidatingMutationOptions<TData, TVariables> {
   mutationFn: (variables: TVariables) => Promise<TData>;
   /** Queries that show what this mutation changed. */
   invalidates: readonly QueryKey[];
-  /** Runs first (close a form, clear a field), then the queries refresh. */
+  /** Clear a field or close a confirm bar; by default it runs before the refresh. */
   onSuccess?: (data: TData, variables: TVariables) => void;
+  /**
+   * Run `onSuccess` only once the queries have refetched. Edit forms use this: they close
+   * when the list already shows the saved values, so reopening never edits stale data.
+   */
+  afterRefresh?: boolean;
 }
 
 /**
@@ -16,13 +21,15 @@ export function useInvalidatingMutation<TData = unknown, TVariables = void>({
   mutationFn,
   invalidates,
   onSuccess,
+  afterRefresh = false,
 }: InvalidatingMutationOptions<TData, TVariables>) {
   const client = useQueryClient();
   return useMutation({
     mutationFn,
     onSuccess: async (data, variables) => {
-      onSuccess?.(data, variables);
+      if (!afterRefresh) onSuccess?.(data, variables);
       await Promise.all(invalidates.map((queryKey) => client.invalidateQueries({ queryKey })));
+      if (afterRefresh) onSuccess?.(data, variables);
     },
   });
 }

@@ -60,7 +60,7 @@ export function useApplyDiscount(bill: Bill) {
  * Records a payment. One Idempotency-Key per payment, kept after a failure so a retry is
  * recorded once; two taps faster than a re-render record once.
  */
-export function useAddPayment(bill: Bill) {
+export function useAddPayment(bill: Bill, onRecorded: (updated: Bill) => void) {
   const requestId = useRef<string | null>(null);
   const sending = useRef(false);
   const mutation = useMutation({
@@ -68,8 +68,10 @@ export function useAddPayment(bill: Bill) {
       requestId.current ??= crypto.randomUUID();
       return addPayment(bill.id, requestId.current, body);
     },
-    onSuccess: () => {
+    // Hook level, so the order still learns about the payment if the sheet closed meanwhile.
+    onSuccess: (updated) => {
       requestId.current = null;
+      onRecorded(updated);
     },
     onSettled: () => {
       sending.current = false;
