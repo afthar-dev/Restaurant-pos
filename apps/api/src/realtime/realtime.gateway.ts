@@ -129,6 +129,16 @@ export class RealtimeGateway implements OnGatewayConnection {
     this.toOutlet('day.updated', event);
   }
 
+  @OnEvent('expense.updated')
+  expenseUpdated(event: OutletEvent) {
+    this.toOutlet('expense.updated', event);
+  }
+
+  @OnEvent('stock.updated')
+  stockUpdated(event: OutletEvent) {
+    this.toOutlet('stock.updated', event);
+  }
+
   @OnEvent('print.job')
   printJob({ deviceId, jobId }: { deviceId: string; jobId: string }) {
     this.server?.to(`device:${deviceId}`).emit('print.job', { jobId });

@@ -67,22 +67,27 @@ model Outlet {
   createdAt               DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt               DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  users         User[]
-  devices       Device[]
-  auditEntries  AuditEntry[]
-  taxRates      TaxRate[]
-  stations      Station[]
-  printers      Printer[]
-  areas         Area[]
-  tables        DiningTable[]
-  categories    Category[]
-  items         Item[]
-  addonGroups   AddonGroup[]
-  businessDays  BusinessDay[]
-  orders        Order[]
-  bills         Bill[]
-  qrSessions    QrSession[]
-  qrSubmissions QrSubmission[]
+  users             User[]
+  devices           Device[]
+  auditEntries      AuditEntry[]
+  taxRates          TaxRate[]
+  stations          Station[]
+  printers          Printer[]
+  areas             Area[]
+  tables            DiningTable[]
+  categories        Category[]
+  items             Item[]
+  addonGroups       AddonGroup[]
+  businessDays      BusinessDay[]
+  orders            Order[]
+  bills             Bill[]
+  qrSessions        QrSession[]
+  qrSubmissions     QrSubmission[]
+  expenseCategories ExpenseCategory[]
+  expenses          Expense[]
+  stockItems        StockItem[]
+  stockTxns         StockTxn[]
+  purchases         Purchase[]
 
   @@map("outlets")
 }
@@ -115,6 +120,11 @@ model User {
   paymentsReceived Payment[]         @relation("PaymentReceivedBy")
   daysClosed       BusinessDay[]     @relation("DayClosedBy")
   qrDecisions      QrSubmission[]    @relation("QrDecidedBy")
+  expensesCreated  Expense[]         @relation("ExpenseCreatedBy")
+  expensesVoided   Expense[]         @relation("ExpenseVoidedBy")
+  stockTxns        StockTxn[]
+  purchasesCreated Purchase[]        @relation("PurchaseCreatedBy")
+  purchasesVoided  Purchase[]        @relation("PurchaseVoidedBy")
 
   @@index([outletId])
   @@map("users")
@@ -503,13 +513,15 @@ model BusinessDay {
   createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  outlet   Outlet    @relation(fields: [outletId], references: [id])
-  openedBy User      @relation("DayOpenedBy", fields: [openedById], references: [id])
-  closedBy User?     @relation("DayClosedBy", fields: [closedById], references: [id])
-  orders   Order[]
-  kots     Kot[]
-  bills    Bill[]
-  payments Payment[]
+  outlet    Outlet     @relation(fields: [outletId], references: [id])
+  openedBy  User       @relation("DayOpenedBy", fields: [openedById], references: [id])
+  closedBy  User?      @relation("DayClosedBy", fields: [closedById], references: [id])
+  orders    Order[]
+  kots      Kot[]
+  bills     Bill[]
+  payments  Payment[]
+  expenses  Expense[]
+  purchases Purchase[]
 
   @@index([outletId, status])
   @@map("business_days")
@@ -873,4 +885,157 @@ model QrSubmission {
   @@index([outletId, status])
   @@index([sessionId, createdAt])
   @@map("qr_submissions")
+}
+
+enum ExpenseSource {
+  MANUAL
+  PURCHASE
+}
+
+/// What money was spent on. "Raw material" is a system category used by purchases.
+model ExpenseCategory {
+  id         String    @id @default(uuid()) @db.Uuid
+  outletId   String    @map("outlet_id") @db.Uuid
+  name       String
+  /// Created by the system; cannot be renamed or archived.
+  isSystem   Boolean   @default(false) @map("is_system")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet   Outlet    @relation(fields: [outletId], references: [id])
+  expenses Expense[]
+
+  @@index([outletId])
+  @@map("expense_categories")
+}
+
+/// Money spent during a business day. Never deleted; a mistake is voided with a reason.
+model Expense {
+  id            String        @id @default(uuid()) @db.Uuid
+  outletId      String        @map("outlet_id") @db.Uuid
+  businessDayId String        @map("business_day_id") @db.Uuid
+  categoryId    String        @map("category_id") @db.Uuid
+  /// Paise.
+  amount        Int
+  mode          PaymentMode
+  note          String?
+  source        ExpenseSource @default(MANUAL)
+  /// Set when the expense was created by a purchase.
+  purchaseId    String?       @unique @map("purchase_id") @db.Uuid
+  createdById   String        @map("created_by_id") @db.Uuid
+  voidedAt      DateTime?     @map("voided_at") @db.Timestamptz(3)
+  voidedById    String?       @map("voided_by_id") @db.Uuid
+  voidReason    String?       @map("void_reason")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet      Outlet          @relation(fields: [outletId], references: [id])
+  businessDay BusinessDay     @relation(fields: [businessDayId], references: [id])
+  category    ExpenseCategory @relation(fields: [categoryId], references: [id])
+  createdBy   User            @relation("ExpenseCreatedBy", fields: [createdById], references: [id])
+  voidedBy    User?           @relation("ExpenseVoidedBy", fields: [voidedById], references: [id])
+  purchase    Purchase?       @relation(fields: [purchaseId], references: [id])
+
+  @@index([businessDayId])
+  @@index([outletId, createdAt])
+  @@map("expenses")
+}
+
+enum StockTxnType {
+  PURCHASE
+  PURCHASE_VOID
+  ADJUST
+  COUNT
+}
+
+/// A raw material the restaurant buys and counts (spec §1.2 #9). No recipe deduction.
+model StockItem {
+  id            String    @id @default(uuid()) @db.Uuid
+  outletId      String    @map("outlet_id") @db.Uuid
+  name          String
+  unit          String
+  /// Thousandths of the unit (1.5 kg = 1500). 0 means no low-stock alert.
+  minLevelMilli Int       @default(0) @map("min_level_milli")
+  /// Cache of the sum of the item's stock_txns, kept by postTxn only (spec §4.4.5).
+  currentMilli  Int       @default(0) @map("current_milli")
+  archivedAt    DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet        Outlet         @relation(fields: [outletId], references: [id])
+  txns          StockTxn[]
+  purchaseLines PurchaseLine[]
+
+  @@index([outletId])
+  @@map("stock_items")
+}
+
+/// Every change to an item's stock, in signed thousandths of the unit.
+model StockTxn {
+  id          String       @id @default(uuid()) @db.Uuid
+  outletId    String       @map("outlet_id") @db.Uuid
+  stockItemId String       @map("stock_item_id") @db.Uuid
+  type        StockTxnType
+  qtyMilli    Int          @map("qty_milli")
+  /// Paise paid, for purchases.
+  amount      Int?
+  purchaseId  String?      @map("purchase_id") @db.Uuid
+  note        String?
+  createdById String       @map("created_by_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  outlet    Outlet    @relation(fields: [outletId], references: [id])
+  stockItem StockItem @relation(fields: [stockItemId], references: [id])
+  purchase  Purchase? @relation(fields: [purchaseId], references: [id])
+  createdBy User      @relation(fields: [createdById], references: [id])
+
+  @@index([stockItemId, createdAt])
+  @@map("stock_txns")
+}
+
+/// Goods bought from a vendor, paid at once (no vendor ledger in v1).
+model Purchase {
+  id            String      @id @default(uuid()) @db.Uuid
+  outletId      String      @map("outlet_id") @db.Uuid
+  businessDayId String      @map("business_day_id") @db.Uuid
+  vendorName    String      @map("vendor_name")
+  billRef       String?     @map("bill_ref")
+  paidMode      PaymentMode @map("paid_mode")
+  /// Paise.
+  total         Int
+  note          String?
+  createdById   String      @map("created_by_id") @db.Uuid
+  voidedAt      DateTime?   @map("voided_at") @db.Timestamptz(3)
+  voidedById    String?     @map("voided_by_id") @db.Uuid
+  voidReason    String?     @map("void_reason")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  outlet      Outlet         @relation(fields: [outletId], references: [id])
+  businessDay BusinessDay    @relation(fields: [businessDayId], references: [id])
+  createdBy   User           @relation("PurchaseCreatedBy", fields: [createdById], references: [id])
+  voidedBy    User?          @relation("PurchaseVoidedBy", fields: [voidedById], references: [id])
+  lines       PurchaseLine[]
+  txns        StockTxn[]
+  expense     Expense?
+
+  @@index([businessDayId])
+  @@index([outletId, createdAt])
+  @@map("purchases")
+}
+
+model PurchaseLine {
+  id          String @id @default(uuid()) @db.Uuid
+  purchaseId  String @map("purchase_id") @db.Uuid
+  stockItemId String @map("stock_item_id") @db.Uuid
+  qtyMilli    Int    @map("qty_milli")
+  /// Paise for the line.
+  amount      Int
+
+  purchase  Purchase  @relation(fields: [purchaseId], references: [id])
+  stockItem StockItem @relation(fields: [stockItemId], references: [id])
+
+  @@index([purchaseId])
+  @@map("purchase_lines")
 }

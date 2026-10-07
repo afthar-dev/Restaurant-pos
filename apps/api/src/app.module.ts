@@ -10,6 +10,7 @@ import { apiThrottleLimit, THROTTLE_WINDOW_MS } from './common/throttle';
 import { RposThrottlerGuard } from './common/throttler.guard';
 import { ConfigModule } from './config/config.module';
 import { DevicesModule } from './devices/devices.module';
+import { ExpensesModule } from './expenses/expenses.module';
 import { FloorModule } from './floor/floor.module';
 import { HealthModule } from './health/health.module';
 import { KotsModule } from './kots/kots.module';
@@ -33,6 +34,7 @@ import { UsersModule } from './users/users.module';
       throttlers: [{ name: 'default', ttl: THROTTLE_WINDOW_MS, limit: apiThrottleLimit }],
     }),
     AuditModule,
+    ExpensesModule,
     AuthModule,
     DevicesModule,
     UsersModule,
