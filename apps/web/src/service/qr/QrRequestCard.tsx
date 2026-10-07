@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useRef, useState } from 'react';
-import { apiFetch } from '../../auth/api';
-import { useCan } from '../../auth/store';
+import { apiFetch } from '@/shared/api/http';
+import { useCan } from '@/shared/session/store';
 import {
   dangerButton,
   describeError,
@@ -10,8 +10,8 @@ import {
   inputClass,
   primaryButton,
   secondaryButton,
-} from '../../components/ui';
-import { rupees } from '../../pages/admin/menu-types';
+} from '@/shared/ui';
+import { rupees } from '@/shared/lib/money';
 import { useRefreshOrder } from '../mutations';
 import type { Order, QrRequest } from '../types';
 

@@ -1,7 +1,7 @@
 import { onlineManager } from '@tanstack/react-query';
 import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { renderWithProviders } from '../test/render';
+import { renderWithProviders } from '@/test/render';
 import { ServerStatus } from './ServerStatus';
 
 function stubFetch(impl: () => Promise<Response>): void {

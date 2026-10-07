@@ -1,7 +1,7 @@
 import { addonGroupSchema, paiseToRupeesInput, parseRupees } from '@rpos/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { apiFetch } from '../../auth/api';
+import { apiFetch } from '@/shared/api/http';
 import {
   ConfirmBar,
   describeError,
@@ -10,8 +10,9 @@ import {
   inputClass,
   primaryButton,
   secondaryButton,
-} from '../../components/ui';
-import { addonGroupsKey, menuKey, rupees, type MenuAddonGroup } from './menu-types';
+} from '@/shared/ui';
+import { rupees } from '@/shared/lib/money';
+import { addonGroupsKey, menuKey, type MenuAddonGroup } from './menu-types';
 
 interface Row {
   key: number;

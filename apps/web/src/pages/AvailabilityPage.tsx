@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { apiFetch } from '../auth/api';
-import { describeError, ErrorNote, inputClass } from '../components/ui';
+import { apiFetch } from '@/shared/api/http';
+import { describeError, ErrorNote, inputClass } from '@/shared/ui';
 import { FOOD_DOT, menuKey, type Menu, type MenuAddon, type MenuItem } from './admin/menu-types';
 
 function Switch({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {

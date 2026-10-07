@@ -1,5 +1,5 @@
 import { formatPaise, type PaymentMode } from '@rpos/shared';
-import { escapeHtml } from './escape';
+import { escapeHtml } from '@/shared/lib/escape';
 
 /** Mirrors PrintService.buildBillPayload() in the API. */
 export interface BillPrintPayload {

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
-import { useCan } from '../../auth/store';
-import { describeError, secondaryButton } from '../../components/ui';
-import { rupees } from '../../pages/admin/menu-types';
+import { useCan } from '@/shared/session/store';
+import { describeError, secondaryButton } from '@/shared/ui';
+import { rupees } from '@/shared/lib/money';
 import type { Bill } from '../types';
 import { DiscountSheet } from './DiscountSheet';
 import { printBill } from './printBill';

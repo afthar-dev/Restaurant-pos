@@ -1,10 +1,10 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { Permission } from '@rpos/shared';
 import { describe, expect, it } from 'vitest';
-import { useSession } from '../auth/store';
-import { bill, line, order } from '../test/fixtures';
-import { callsTo, json, mockApi, sessionBody } from '../test/mock-api';
-import { renderWithProviders } from '../test/render';
+import { useSession } from '@/shared/session/store';
+import { bill, line, order } from '@/test/fixtures';
+import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
+import { renderWithProviders } from '@/test/render';
 import { BillActions } from './billing/BillActions';
 import { FloorGrid } from './FloorGrid';
 import { OrderPanel } from './OrderPanel';

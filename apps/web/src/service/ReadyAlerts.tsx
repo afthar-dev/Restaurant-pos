@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useRealtimeEvent } from '../realtime/RealtimeProvider';
+import { useRealtimeEvent } from '@/realtime/RealtimeProvider';
 import type { FloorAreaStatus } from './types';
 
 interface Alert {

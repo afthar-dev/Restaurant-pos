@@ -1,25 +1,25 @@
 import type { RouteObject } from 'react-router';
-import { RequireAuth } from './auth/RequireAuth';
-import { AppShell } from './components/AppShell';
-import { AvailabilityPage } from './pages/AvailabilityPage';
-import { CaptainPage } from './pages/CaptainPage';
-import { DayPage } from './pages/DayPage';
-import { KdsPage } from './pages/KdsPage';
-import { PosPage } from './pages/PosPage';
-import { ADMIN_PERMISSIONS, Home } from './pages/Home';
-import { LoginPage } from './pages/LoginPage';
-import { NotFound } from './pages/NotFound';
-import { PinPage } from './pages/PinPage';
-import { AddonsPage } from './pages/admin/AddonsPage';
-import { AdminIndex, AdminLayout } from './pages/admin/AdminLayout';
-import { MenuPage } from './pages/admin/MenuPage';
-import { AuditPage } from './pages/admin/AuditPage';
-import { DevicesPage } from './pages/admin/DevicesPage';
-import { KitchenPage } from './pages/admin/KitchenPage';
-import { TablesPage } from './pages/admin/TablesPage';
-import { TaxPage } from './pages/admin/TaxPage';
-import { SettingsPage } from './pages/admin/SettingsPage';
-import { StaffPage } from './pages/admin/StaffPage';
+import { RequireAuth } from '@/auth/RequireAuth';
+import { AppShell } from '@/components/AppShell';
+import { AvailabilityPage } from '@/pages/AvailabilityPage';
+import { CaptainPage } from '@/pages/CaptainPage';
+import { DayPage } from '@/pages/DayPage';
+import { KdsPage } from '@/pages/KdsPage';
+import { PosPage } from '@/pages/PosPage';
+import { ADMIN_PERMISSIONS, Home } from '@/pages/Home';
+import { LoginPage } from '@/pages/LoginPage';
+import { NotFound } from '@/pages/NotFound';
+import { PinPage } from '@/pages/PinPage';
+import { AddonsPage } from '@/pages/admin/AddonsPage';
+import { AdminIndex, AdminLayout } from '@/pages/admin/AdminLayout';
+import { MenuPage } from '@/pages/admin/MenuPage';
+import { AuditPage } from '@/pages/admin/AuditPage';
+import { DevicesPage } from '@/pages/admin/DevicesPage';
+import { KitchenPage } from '@/pages/admin/KitchenPage';
+import { TablesPage } from '@/pages/admin/TablesPage';
+import { TaxPage } from '@/pages/admin/TaxPage';
+import { SettingsPage } from '@/pages/admin/SettingsPage';
+import { StaffPage } from '@/pages/admin/StaffPage';
 
 export const routes: RouteObject[] = [
   {

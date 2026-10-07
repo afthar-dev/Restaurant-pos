@@ -9,7 +9,7 @@ import {
 } from '@rpos/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
-import { apiFetch } from '../../auth/api';
+import { apiFetch } from '@/shared/api/http';
 import {
   describeError,
   ErrorNote,
@@ -18,7 +18,7 @@ import {
   inputClass,
   primaryButton,
   type FieldErrors,
-} from '../../components/ui';
+} from '@/shared/ui';
 
 export interface OutletSettings {
   id: string;

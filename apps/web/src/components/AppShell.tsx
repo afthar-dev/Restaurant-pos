@@ -1,11 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
-import { apiFetch } from '../auth/api';
-import { useBootSession, useCurrentDevice } from '../auth/hooks';
-import { useSession } from '../auth/store';
-import { visibleAreas } from '../pages/Home';
-import { PrintWorker } from '../print/PrintWorker';
-import { RealtimeProvider } from '../realtime/RealtimeProvider';
+import { apiFetch } from '@/shared/api/http';
+import { useBootSession, useCurrentDevice } from '@/auth/hooks';
+import { useSession } from '@/shared/session/store';
+import { visibleAreas } from '@/pages/Home';
+import { PrintWorker } from '@/print/PrintWorker';
+import { RealtimeProvider } from '@/realtime/RealtimeProvider';
 import { ServerStatus } from './ServerStatus';
 
 function SignOutButton() {

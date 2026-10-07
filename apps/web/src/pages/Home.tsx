@@ -1,6 +1,6 @@
 import type { Permission } from '@rpos/shared';
 import { Link } from 'react-router';
-import { useSession } from '../auth/store';
+import { useSession } from '@/shared/session/store';
 
 export const ADMIN_PERMISSIONS: Permission[] = [
   'users.manage',

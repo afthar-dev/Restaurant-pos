@@ -1,7 +1,7 @@
 import { printerSchema, stationSchema, type PrinterMode, type PrinterPurpose } from '@rpos/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { apiFetch } from '../../auth/api';
+import { apiFetch } from '@/shared/api/http';
 import {
   ConfirmBar,
   describeError,
@@ -13,7 +13,7 @@ import {
   RenameForm,
   secondaryButton,
   type FieldErrors,
-} from '../../components/ui';
+} from '@/shared/ui';
 
 export interface Station {
   id: string;

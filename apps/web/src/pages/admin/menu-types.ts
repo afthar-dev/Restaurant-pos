@@ -1,4 +1,4 @@
-import { paiseToRupeesInput, type FoodType } from '@rpos/shared';
+import type { FoodType } from '@rpos/shared';
 
 export interface MenuVariant {
   id: string;
@@ -51,11 +51,6 @@ export interface Menu {
 
 export const menuKey = ['menu'];
 export const addonGroupsKey = ['addon-groups'];
-
-/** Short price for lists: 9000 → "₹90", 22050 → "₹220.50". */
-export function rupees(paise: number): string {
-  return `₹${paiseToRupeesInput(paise)}`;
-}
 
 export const FOOD_LABEL: Record<FoodType, string> = {
   VEG: 'Veg',

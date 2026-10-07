@@ -1,12 +1,8 @@
+import { rupees } from '@/shared/lib/money';
 import type { OrderType } from '@rpos/shared';
 import { useState } from 'react';
-import { inputClass, primaryButton, secondaryButton, Sheet } from '../components/ui';
-import {
-  rupees,
-  type MenuAddonGroup,
-  type MenuItem,
-  type MenuVariant,
-} from '../pages/admin/menu-types';
+import { inputClass, primaryButton, secondaryButton, Sheet } from '@/shared/ui';
+import { type MenuAddonGroup, type MenuItem, type MenuVariant } from '@/pages/admin/menu-types';
 
 export interface NewLine {
   variantId: string;

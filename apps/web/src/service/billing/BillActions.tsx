@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useCan } from '../../auth/store';
-import { primaryButton, secondaryButton } from '../../components/ui';
+import { useCan } from '@/shared/session/store';
+import { primaryButton, secondaryButton } from '@/shared/ui';
 import { useRefreshOrder } from '../mutations';
 import type { Bill } from '../types';
 import { PaymentSheet } from './PaymentSheet';

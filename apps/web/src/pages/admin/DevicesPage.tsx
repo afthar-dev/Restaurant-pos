@@ -1,8 +1,8 @@
 import { DEVICE_TYPES, registerDeviceSchema, type DeviceType } from '@rpos/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { apiFetch } from '../../auth/api';
-import { useCurrentDevice } from '../../auth/hooks';
+import { apiFetch } from '@/shared/api/http';
+import { useCurrentDevice } from '@/auth/hooks';
 import {
   ConfirmBar,
   describeError,
@@ -13,7 +13,7 @@ import {
   primaryButton,
   secondaryButton,
   type FieldErrors,
-} from '../../components/ui';
+} from '@/shared/ui';
 
 interface DeviceRow {
   id: string;

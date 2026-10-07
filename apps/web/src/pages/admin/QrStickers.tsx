@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { apiFetch } from '../../auth/api';
-import { ConfirmBar, describeError, ErrorNote, secondaryButton } from '../../components/ui';
-import { printHtmlInIframe } from '../../print/PrintWorker';
-import { renderQrStickers, type TableCode } from '../../print/qrStickers';
+import { apiFetch } from '@/shared/api/http';
+import { ConfirmBar, describeError, ErrorNote, secondaryButton } from '@/shared/ui';
+import { printHtmlInIframe } from '@/print/PrintWorker';
+import { renderQrStickers, type TableCode } from '@/print/qrStickers';
 
 const codesKey = ['table-qr-codes'];
 

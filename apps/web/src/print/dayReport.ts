@@ -1,6 +1,6 @@
 import { formatPaise } from '@rpos/shared';
-import type { DayReport } from '../service/types';
-import { escapeHtml } from './escape';
+import type { DayReport } from '@/service/types';
+import { escapeHtml } from '@/shared/lib/escape';
 
 const row = (label: string, value: string, strong = false) =>
   `<div class="row${strong ? ' strong' : ''}"><span>${label}</span><span>${value}</span></div>`;

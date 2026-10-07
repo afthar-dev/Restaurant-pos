@@ -7,7 +7,7 @@ import {
 } from '@rpos/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { apiFetch } from '../../auth/api';
+import { apiFetch } from '@/shared/api/http';
 import {
   describeError,
   ErrorNote,
@@ -15,7 +15,7 @@ import {
   inputClass,
   primaryButton,
   secondaryButton,
-} from '../../components/ui';
+} from '@/shared/ui';
 import {
   FOOD_LABEL,
   menuKey,

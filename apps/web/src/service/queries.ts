@@ -1,10 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiFetch } from '../auth/api';
-import { menuKey, type Menu } from '../pages/admin/menu-types';
+import { apiFetch } from '@/shared/api/http';
+import { POLL_MS } from '@/shared/api/queryClient';
+import { menuKey, type Menu } from '@/pages/admin/menu-types';
 import type { ActiveOrder, Bill, BusinessDay, FloorAreaStatus, Order, QrRequest } from './types';
-
-/** Screens also poll, so they recover even if realtime notices are lost. */
-export const POLL_MS = 15_000;
 
 export function useBusinessDay() {
   return useQuery({

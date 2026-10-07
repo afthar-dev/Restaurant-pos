@@ -1,10 +1,10 @@
 import { useSearchParams } from 'react-router';
-import { secondaryButton } from '../components/ui';
-import { DayGate } from '../service/DayGate';
-import { FloorGrid } from '../service/FloorGrid';
-import { OrderWorkspace } from '../service/OrderWorkspace';
-import { QrInbox } from '../service/qr/QrInbox';
-import { ReadyAlerts } from '../service/ReadyAlerts';
+import { secondaryButton } from '@/shared/ui';
+import { DayGate } from '@/service/DayGate';
+import { FloorGrid } from '@/service/FloorGrid';
+import { OrderWorkspace } from '@/service/OrderWorkspace';
+import { QrInbox } from '@/service/qr/QrInbox';
+import { ReadyAlerts } from '@/service/ReadyAlerts';
 
 /** Waiter phone screen: tables first, then one order at a time. */
 export function CaptainPage() {

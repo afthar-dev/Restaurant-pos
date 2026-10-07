@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useCan } from '../../auth/store';
-import { useRealtimeEvent } from '../../realtime/RealtimeProvider';
+import { useCan } from '@/shared/session/store';
+import { useRealtimeEvent } from '@/realtime/RealtimeProvider';
 import { useQrPending } from '../queries';
 
 const TOAST_MS = 10_000;

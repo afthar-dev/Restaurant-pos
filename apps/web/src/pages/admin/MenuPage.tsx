@@ -1,7 +1,8 @@
+import { rupees } from '@/shared/lib/money';
 import { categorySchema } from '@rpos/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { apiFetch } from '../../auth/api';
+import { apiFetch } from '@/shared/api/http';
 import {
   ConfirmBar,
   describeError,
@@ -10,7 +11,7 @@ import {
   inputClass,
   primaryButton,
   secondaryButton,
-} from '../../components/ui';
+} from '@/shared/ui';
 import { ItemEditor } from './ItemEditor';
 import { stationsKey, type Station } from './KitchenPage';
 import {
@@ -18,7 +19,6 @@ import {
   FOOD_DOT,
   FOOD_LABEL,
   menuKey,
-  rupees,
   type Menu,
   type MenuAddonGroup,
   type MenuCategory,

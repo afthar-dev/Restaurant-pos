@@ -1,8 +1,8 @@
 import type { DeviceType, Role } from '@rpos/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { apiFetch, ApiError, refreshSession } from './api';
-import { useSession } from './store';
+import { apiFetch, ApiError, refreshSession } from '@/shared/api/http';
+import { useSession } from '@/shared/session/store';
 
 const BOOT_RETRY_MS = 5000;
 

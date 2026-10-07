@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRef, useState, type FormEvent } from 'react';
-import { apiFetch } from '../auth/api';
-import { useCan } from '../auth/store';
+import { apiFetch } from '@/shared/api/http';
+import { useCan } from '@/shared/session/store';
 import {
   dangerButton,
   describeError,
@@ -10,9 +10,9 @@ import {
   inputClass,
   primaryButton,
   secondaryButton,
-} from '../components/ui';
-import { ApproverFields, isPin, requestOverride } from '../components/ManagerApproval';
-import { rupees } from '../pages/admin/menu-types';
+} from '@/shared/ui';
+import { ApproverFields, isPin, requestOverride } from '@/components/ManagerApproval';
+import { rupees } from '@/shared/lib/money';
 import { useRefreshOrder } from './mutations';
 import { useOrder } from './queries';
 import { QrRequestCard } from './qr/QrRequestCard';

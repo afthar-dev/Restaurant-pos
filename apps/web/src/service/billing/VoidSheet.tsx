@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from 'react';
-import { apiFetch } from '../../auth/api';
-import { useCan } from '../../auth/store';
-import { ManagerApproval } from '../../components/ManagerApproval';
+import { apiFetch } from '@/shared/api/http';
+import { useCan } from '@/shared/session/store';
+import { ManagerApproval } from '@/components/ManagerApproval';
 import {
   dangerButton,
   describeError,
@@ -10,7 +10,7 @@ import {
   inputClass,
   secondaryButton,
   Sheet,
-} from '../../components/ui';
+} from '@/shared/ui';
 import { useRefreshOrder } from '../mutations';
 import type { Bill } from '../types';
 

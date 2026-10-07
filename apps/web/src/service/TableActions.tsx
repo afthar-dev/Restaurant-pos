@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
-import { apiFetch } from '../auth/api';
-import { useCan } from '../auth/store';
-import { describeError, ErrorNote, secondaryButton, Sheet } from '../components/ui';
+import { apiFetch } from '@/shared/api/http';
+import { useCan } from '@/shared/session/store';
+import { describeError, ErrorNote, secondaryButton, Sheet } from '@/shared/ui';
 import { useRefreshOrder } from './mutations';
 import { useFloorStatus } from './queries';
 import { orderLabel, type FloorTableStatus, type Order } from './types';

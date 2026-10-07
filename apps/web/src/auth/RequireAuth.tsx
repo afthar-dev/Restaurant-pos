@@ -2,7 +2,7 @@ import type { Permission } from '@rpos/shared';
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router';
 import { useCurrentDevice } from './hooks';
-import { useSession } from './store';
+import { useSession } from '@/shared/session/store';
 
 export function LoadingScreen() {
   return <p className="text-slate-600">Loading…</p>;

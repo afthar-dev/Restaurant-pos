@@ -1,4 +1,4 @@
-import { escapeHtml } from './escape';
+import { escapeHtml } from '@/shared/lib/escape';
 
 export interface KotPrintPayload {
   kind: 'KOT';

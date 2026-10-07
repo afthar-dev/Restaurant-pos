@@ -16,6 +16,7 @@ export default tseslint.config(
       'apps/api/prisma/migrations/**',
       '**/*.config.{js,mjs,cjs,ts}',
       '**/*.js',
+      'scripts/**',
     ],
   },
   js.configs.recommended,

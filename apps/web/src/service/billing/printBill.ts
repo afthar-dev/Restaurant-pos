@@ -1,6 +1,6 @@
-import { apiFetch } from '../../auth/api';
-import { renderBillTicket, type BillPrintPayload } from '../../print/billTicket';
-import { printHtmlInIframe } from '../../print/PrintWorker';
+import { apiFetch } from '@/shared/api/http';
+import { renderBillTicket, type BillPrintPayload } from '@/print/billTicket';
+import { printHtmlInIframe } from '@/print/PrintWorker';
 
 type PrintHtml = (html: string) => Promise<void>;
 

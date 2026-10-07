@@ -1,8 +1,15 @@
 import type { Permission } from '@rpos/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
-import { apiFetch } from '../auth/api';
-import { describeError, ErrorNote, Field, inputClass, primaryButton, secondaryButton } from './ui';
+import { apiFetch } from '@/shared/api/http';
+import {
+  describeError,
+  ErrorNote,
+  Field,
+  inputClass,
+  primaryButton,
+  secondaryButton,
+} from '@/shared/ui';
 
 /** Asks the server for a one-time approval token for `permission`, signed by that manager. */
 export async function requestOverride(

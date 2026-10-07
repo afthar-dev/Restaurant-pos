@@ -1,8 +1,8 @@
 import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { useSession } from '../auth/store';
-import { json, mockApi, sessionBody } from '../test/mock-api';
-import { renderRoute } from '../test/render';
+import { useSession } from '@/shared/session/store';
+import { json, mockApi, sessionBody } from '@/test/mock-api';
+import { renderRoute } from '@/test/render';
 
 function fillAndSubmit(phone: string, password: string) {
   fireEvent.change(screen.getByLabelText('Mobile number'), { target: { value: phone } });

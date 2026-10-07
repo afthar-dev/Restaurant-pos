@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { useSession } from '../auth/store';
-import { printBill } from '../service/billing/printBill';
-import { callsTo, json, mockApi, sessionBody } from '../test/mock-api';
-import { renderWithProviders } from '../test/render';
+import { useSession } from '@/shared/session/store';
+import { printBill } from '@/service/billing/printBill';
+import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
+import { renderWithProviders } from '@/test/render';
 import { renderBillTicket, type BillPrintPayload } from './billTicket';
 import { PrintWorker } from './PrintWorker';
 

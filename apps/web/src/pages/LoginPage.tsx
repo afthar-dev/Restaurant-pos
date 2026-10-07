@@ -1,8 +1,8 @@
 import { loginSchema } from '@rpos/shared';
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { apiFetch, ApiError } from '../auth/api';
-import { useSession, type SessionBody } from '../auth/store';
+import { apiFetch, ApiError } from '@/shared/api/http';
+import { useSession, type SessionBody } from '@/shared/session/store';
 
 export function signInErrorMessage(error: unknown, wrongSecret: string): string {
   if (error instanceof ApiError) {

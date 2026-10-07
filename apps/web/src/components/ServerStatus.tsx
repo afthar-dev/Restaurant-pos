@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchHealth } from '../api/health';
-import { useRealtimeStatus } from '../realtime/RealtimeProvider';
+import { fetchHealth } from '@/api/health';
+import { useRealtimeStatus } from '@/realtime/RealtimeProvider';
 
 type Tone = 'muted' | 'good' | 'bad';
 

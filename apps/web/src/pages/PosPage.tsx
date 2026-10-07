@@ -1,10 +1,10 @@
 import { useSearchParams } from 'react-router';
-import { DayGate } from '../service/DayGate';
-import { FloorGrid } from '../service/FloorGrid';
-import { OrderWorkspace } from '../service/OrderWorkspace';
-import { ParcelList } from '../service/ParcelList';
-import { QrInbox } from '../service/qr/QrInbox';
-import { ReadyAlerts } from '../service/ReadyAlerts';
+import { DayGate } from '@/service/DayGate';
+import { FloorGrid } from '@/service/FloorGrid';
+import { OrderWorkspace } from '@/service/OrderWorkspace';
+import { ParcelList } from '@/service/ParcelList';
+import { QrInbox } from '@/service/qr/QrInbox';
+import { ReadyAlerts } from '@/service/ReadyAlerts';
 
 /** Counter screen: floor and parcels on the left, the selected order and menu on the right. */
 export function PosPage() {

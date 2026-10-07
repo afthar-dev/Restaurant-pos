@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiFetch } from '../auth/api';
-import { describeError, ErrorNote, primaryButton } from '../components/ui';
-import { rupees } from '../pages/admin/menu-types';
+import { apiFetch } from '@/shared/api/http';
+import { describeError, ErrorNote, primaryButton } from '@/shared/ui';
+import { rupees } from '@/shared/lib/money';
 import { useActiveOrders } from './queries';
 import { orderLabel } from './types';
 

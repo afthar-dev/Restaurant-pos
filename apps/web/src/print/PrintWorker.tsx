@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
-import { ApiError, apiFetch } from '../auth/api';
-import { POLL_MS } from '../service/queries';
+import { ApiError, apiFetch } from '@/shared/api/http';
+import { POLL_MS } from '@/shared/api/queryClient';
 import { renderBillTicket, type BillPrintPayload } from './billTicket';
 import { renderKotTicket, type KotPrintPayload } from './kotTicket';
 

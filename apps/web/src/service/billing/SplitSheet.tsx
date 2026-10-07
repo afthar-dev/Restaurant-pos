@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { primaryButton, secondaryButton, Sheet } from '../../components/ui';
+import { primaryButton, secondaryButton, Sheet } from '@/shared/ui';
 import type { OrderLine } from '../types';
 
 /** Pick how many of each dish go on a separate bill (split by items, spec §5.4). */

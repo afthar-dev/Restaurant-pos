@@ -1,8 +1,8 @@
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DEVICE_RETRY_MS } from '../auth/hooks';
-import { callsTo, json, mockApi } from '../test/mock-api';
-import { renderRoute } from '../test/render';
+import { DEVICE_RETRY_MS } from '@/auth/hooks';
+import { callsTo, json, mockApi } from '@/test/mock-api';
+import { renderRoute } from '@/test/render';
 
 const now = new Date().toISOString();
 

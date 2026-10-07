@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import { escapeHtml } from './escape';
+import { escapeHtml } from '@/shared/lib/escape';
 
 export interface TableCode {
   id: string;

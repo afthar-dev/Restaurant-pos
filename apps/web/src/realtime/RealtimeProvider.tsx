@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { io } from 'socket.io-client';
-import { useSession } from '../auth/store';
+import { useSession } from '@/shared/session/store';
 
 export type RealtimeStatus = 'off' | 'connecting' | 'connected' | 'disconnected';
 

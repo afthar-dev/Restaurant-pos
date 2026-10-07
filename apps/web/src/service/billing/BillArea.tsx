@@ -1,9 +1,9 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRef, useState, type ReactNode } from 'react';
-import { apiFetch } from '../../auth/api';
-import { useCan } from '../../auth/store';
-import { describeError, ErrorNote, primaryButton, secondaryButton } from '../../components/ui';
-import { rupees } from '../../pages/admin/menu-types';
+import { apiFetch } from '@/shared/api/http';
+import { useCan } from '@/shared/session/store';
+import { describeError, ErrorNote, primaryButton, secondaryButton } from '@/shared/ui';
+import { rupees } from '@/shared/lib/money';
 import { useRefreshOrder } from '../mutations';
 import { useOrderBills } from '../queries';
 import type { Bill, Order } from '../types';

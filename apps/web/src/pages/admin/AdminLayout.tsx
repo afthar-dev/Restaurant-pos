@@ -1,6 +1,6 @@
 import type { Permission } from '@rpos/shared';
 import { Navigate, NavLink, Outlet } from 'react-router';
-import { useSession } from '../../auth/store';
+import { useSession } from '@/shared/session/store';
 
 export const ADMIN_TABS: { to: string; label: string; permission: Permission }[] = [
   { to: 'menu', label: 'Menu', permission: 'menu.manage' },

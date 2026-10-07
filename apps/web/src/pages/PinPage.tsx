@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { apiFetch } from '../auth/api';
-import { useCurrentDevice, useDeviceStaff, type StaffOption } from '../auth/hooks';
-import { LoadingScreen } from '../auth/RequireAuth';
-import { useSession, type SessionBody } from '../auth/store';
+import { apiFetch } from '@/shared/api/http';
+import { useCurrentDevice, useDeviceStaff, type StaffOption } from '@/auth/hooks';
+import { LoadingScreen } from '@/auth/RequireAuth';
+import { useSession, type SessionBody } from '@/shared/session/store';
 import { signInErrorMessage } from './LoginPage';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];

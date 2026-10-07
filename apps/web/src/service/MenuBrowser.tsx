@@ -1,9 +1,10 @@
 import type { OrderType } from '@rpos/shared';
 import { useIsMutating, useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
-import { apiFetch } from '../auth/api';
-import { describeError, ErrorNote, inputClass } from '../components/ui';
-import { FOOD_DOT, rupees, type MenuItem } from '../pages/admin/menu-types';
+import { apiFetch } from '@/shared/api/http';
+import { describeError, ErrorNote, inputClass } from '@/shared/ui';
+import { FOOD_DOT, type MenuItem } from '@/pages/admin/menu-types';
+import { rupees } from '@/shared/lib/money';
 import { ItemPicker, unitPrice, type NewLine } from './ItemPicker';
 import { useRefreshOrder } from './mutations';
 import { useMenu } from './queries';

@@ -1,6 +1,6 @@
 import { paiseToRupeesInput, parseRupees, splitEqually, type PaymentMode } from '@rpos/shared';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
-import { apiFetch } from '../../auth/api';
+import { apiFetch } from '@/shared/api/http';
 import {
   describeError,
   ErrorNote,
@@ -9,8 +9,8 @@ import {
   primaryButton,
   secondaryButton,
   Sheet,
-} from '../../components/ui';
-import { rupees } from '../../pages/admin/menu-types';
+} from '@/shared/ui';
+import { rupees } from '@/shared/lib/money';
 import type { Bill } from '../types';
 
 const MODES: { mode: PaymentMode; label: string }[] = [

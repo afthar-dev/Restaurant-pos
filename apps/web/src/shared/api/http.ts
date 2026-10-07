@@ -1,4 +1,4 @@
-import { useSession, type SessionBody } from './store';
+import { useSession, type SessionBody } from '@/shared/session/store';
 
 export class ApiError extends Error {
   constructor(

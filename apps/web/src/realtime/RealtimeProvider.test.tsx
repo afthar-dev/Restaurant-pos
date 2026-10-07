@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useSession } from '../auth/store';
-import { sessionBody } from '../test/mock-api';
+import { useSession } from '@/shared/session/store';
+import { sessionBody } from '@/test/mock-api';
 import { RealtimeProvider, useRealtimeEvent } from './RealtimeProvider';
 
 type Handler = (payload?: unknown) => void;

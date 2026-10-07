@@ -1,9 +1,9 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { useSession } from '../auth/store';
-import { line, MENU, order } from '../test/fixtures';
-import { callsTo, json, mockApi, sessionBody } from '../test/mock-api';
-import { renderWithProviders } from '../test/render';
+import { useSession } from '@/shared/session/store';
+import { line, MENU, order } from '@/test/fixtures';
+import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
+import { renderWithProviders } from '@/test/render';
 import { MenuBrowser } from './MenuBrowser';
 import { OrderPanel } from './OrderPanel';
 

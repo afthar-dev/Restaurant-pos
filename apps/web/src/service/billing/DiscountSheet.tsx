@@ -1,8 +1,8 @@
 import { paiseToRupeesInput, parseRupees } from '@rpos/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent } from 'react';
-import { ApiError, apiFetch } from '../../auth/api';
-import { ManagerApproval } from '../../components/ManagerApproval';
+import { ApiError, apiFetch } from '@/shared/api/http';
+import { ManagerApproval } from '@/components/ManagerApproval';
 import {
   describeError,
   ErrorNote,
@@ -11,8 +11,8 @@ import {
   primaryButton,
   secondaryButton,
   Sheet,
-} from '../../components/ui';
-import { rupees } from '../../pages/admin/menu-types';
+} from '@/shared/ui';
+import { rupees } from '@/shared/lib/money';
 import type { Bill, Discount } from '../types';
 
 type Kind = Discount['kind'];

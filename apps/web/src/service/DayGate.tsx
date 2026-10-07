@@ -1,10 +1,10 @@
 import { parseRupees } from '@rpos/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { apiFetch } from '../auth/api';
-import { LoadingScreen } from '../auth/RequireAuth';
-import { useCan } from '../auth/store';
-import { describeError, ErrorNote, Field, inputClass, primaryButton } from '../components/ui';
+import { apiFetch } from '@/shared/api/http';
+import { LoadingScreen } from '@/auth/RequireAuth';
+import { useCan } from '@/shared/session/store';
+import { describeError, ErrorNote, Field, inputClass, primaryButton } from '@/shared/ui';
 import { useBusinessDay } from './queries';
 
 function OpenDayForm() {

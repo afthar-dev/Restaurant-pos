@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { apiFetch } from '../../auth/api';
-import { describeError, ErrorNote, secondaryButton } from '../../components/ui';
+import { apiFetch } from '@/shared/api/http';
+import { describeError, ErrorNote, secondaryButton } from '@/shared/ui';
 
 interface AuditRow {
   id: string;

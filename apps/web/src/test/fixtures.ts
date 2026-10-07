@@ -1,5 +1,5 @@
-import type { Menu, MenuItem } from '../pages/admin/menu-types';
-import type { Bill, Order, OrderLine, QrRequest } from '../service/types';
+import type { Menu, MenuItem } from '@/pages/admin/menu-types';
+import type { Bill, Order, OrderLine, QrRequest } from '@/service/types';
 
 const tax = { id: 'tax', name: 'GST 5%', cgstBp: 250, sgstBp: 250 };
 

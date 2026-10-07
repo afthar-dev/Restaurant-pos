@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { apiFetch } from '../auth/api';
-import { describeError, ErrorNote, secondaryButton, Sheet } from '../components/ui';
-import { rupees } from '../pages/admin/menu-types';
+import { apiFetch } from '@/shared/api/http';
+import { describeError, ErrorNote, secondaryButton, Sheet } from '@/shared/ui';
+import { rupees } from '@/shared/lib/money';
 import { useFloorStatus } from './queries';
 import type { FloorTableStatus } from './types';
 

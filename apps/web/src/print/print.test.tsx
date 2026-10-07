@@ -1,8 +1,8 @@
 import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { useSession } from '../auth/store';
-import { callsTo, json, mockApi, sessionBody, type Handler } from '../test/mock-api';
-import { renderRoute, renderWithProviders } from '../test/render';
+import { useSession } from '@/shared/session/store';
+import { callsTo, json, mockApi, sessionBody, type Handler } from '@/test/mock-api';
+import { renderRoute, renderWithProviders } from '@/test/render';
 import { renderKotTicket, type KotPrintPayload } from './kotTicket';
 import { PrintWorker } from './PrintWorker';
 

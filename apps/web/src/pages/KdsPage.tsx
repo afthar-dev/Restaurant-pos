@@ -1,12 +1,12 @@
 import type { KotStatus } from '@rpos/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { apiFetch } from '../auth/api';
-import { useCurrentDevice } from '../auth/hooks';
-import { LoadingScreen } from '../auth/RequireAuth';
-import { describeError, ErrorNote } from '../components/ui';
-import { POLL_MS } from '../service/queries';
-import { orderLabel, type KdsTicket } from '../service/types';
+import { apiFetch } from '@/shared/api/http';
+import { useCurrentDevice } from '@/auth/hooks';
+import { LoadingScreen } from '@/auth/RequireAuth';
+import { describeError, ErrorNote } from '@/shared/ui';
+import { POLL_MS } from '@/shared/api/queryClient';
+import { orderLabel, type KdsTicket } from '@/service/types';
 
 const STATION_KEY = 'rpos.kds.station';
 

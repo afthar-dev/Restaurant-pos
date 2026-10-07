@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { callsTo, json, mockApi, sessionBody } from '../test/mock-api';
-import { apiFetch, ApiError } from './api';
-import { useSession } from './store';
+import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
+import { apiFetch, ApiError } from './http';
+import { useSession } from '@/shared/session/store';
 
 describe('apiFetch', () => {
   it('sends the access token and parses JSON', async () => {

@@ -1,8 +1,8 @@
 import { parseRupees } from '@rpos/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
-import { ApiError, apiFetch } from '../auth/api';
-import { useCan } from '../auth/store';
+import { ApiError, apiFetch } from '@/shared/api/http';
+import { useCan } from '@/shared/session/store';
 import {
   ConfirmBar,
   dangerButton,
@@ -12,12 +12,12 @@ import {
   inputClass,
   primaryButton,
   secondaryButton,
-} from '../components/ui';
-import { renderDayReport } from '../print/dayReport';
-import { printHtmlInIframe } from '../print/PrintWorker';
-import { useBusinessDay } from '../service/queries';
-import type { CloseCheck, DayBlockers, DayReport, DaySummary } from '../service/types';
-import { rupees } from './admin/menu-types';
+} from '@/shared/ui';
+import { renderDayReport } from '@/print/dayReport';
+import { printHtmlInIframe } from '@/print/PrintWorker';
+import { useBusinessDay } from '@/service/queries';
+import type { CloseCheck, DayBlockers, DayReport, DaySummary } from '@/service/types';
+import { rupees } from '@/shared/lib/money';
 
 const signed = (paise: number) =>
   paise < 0 ? `−${rupees(-paise)}` : paise > 0 ? `+${rupees(paise)}` : rupees(0);
