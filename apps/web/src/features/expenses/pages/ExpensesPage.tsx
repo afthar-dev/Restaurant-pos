@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { describeError, ErrorNote, LoadingScreen, secondaryButton } from '@/shared/ui';
+import { Button, describeError, ErrorNote, LoadingScreen, PageHeader } from '@/shared/ui';
 import { CategoriesSheet } from '../components/CategoriesSheet';
 import { ExpenseForm } from '../components/ExpenseForm';
 import { ExpenseList } from '../components/ExpenseList';
@@ -13,12 +13,15 @@ export function ExpensesPage() {
 
   return (
     <section className="mx-auto flex max-w-3xl flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Expenses</h1>
-        <button type="button" className={secondaryButton} onClick={() => setCategories(true)}>
-          Categories
-        </button>
-      </div>
+      <PageHeader
+        title="Expenses"
+        description="Money spent today. Cash expenses come out of the drawer and are subtracted at day close."
+        actions={
+          <Button variant="secondary" onClick={() => setCategories(true)}>
+            Categories
+          </Button>
+        }
+      />
       {!today.data ? (
         today.isError ? (
           <ErrorNote message={describeError(today.error)} />

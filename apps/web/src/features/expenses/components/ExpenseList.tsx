@@ -3,6 +3,7 @@ import { rupees } from '@/shared/lib/money';
 import {
   dangerButton,
   describeError,
+  EmptyState,
   ErrorNote,
   Field,
   inputClass,
@@ -10,6 +11,7 @@ import {
 } from '@/shared/ui';
 import { useVoidExpense } from '../mutations';
 import { MODE_LABEL, type Expense, type ExpenseTotals } from '../types';
+import { ReceiptIndianRupee } from 'lucide-react';
 
 const time = (iso: string) =>
   new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
@@ -59,7 +61,7 @@ export function ExpenseList({
   const [voiding, setVoiding] = useState<string | null>(null);
   return (
     <section aria-label="Today's expenses" className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-4 rounded-lg bg-slate-100 px-4 py-3 text-sm">
+      <div className="flex flex-wrap gap-4 rounded-lg bg-surface-2 px-4 py-3 text-sm">
         <span>
           Total <strong className="tabular-nums">{rupees(totals.total)}</strong>
         </span>
@@ -67,24 +69,30 @@ export function ExpenseList({
           Cash from the drawer <strong className="tabular-nums">{rupees(totals.cash)}</strong>
         </span>
       </div>
-      {expenses.length === 0 && <p className="text-sm text-slate-500">No expenses yet today.</p>}
-      <ul className="flex flex-col divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+      {expenses.length === 0 && (
+        <EmptyState
+          icon={<ReceiptIndianRupee />}
+          title="No expenses yet today"
+          description="Record money spent, like gas, transport or staff tea, so day close balances."
+        />
+      )}
+      <ul className="flex flex-col divide-y divide-border rounded-lg border border-border bg-surface">
         {expenses.map((e) => {
           const voided = e.voidedAt !== null;
           return (
             <li key={e.id} className="flex flex-col gap-2 px-3 py-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className={`flex flex-col ${voided ? 'text-slate-400 line-through' : ''}`}>
+                <div className={`flex flex-col ${voided ? 'text-subtle line-through' : ''}`}>
                   <span className="font-medium">
                     {e.category.name}
                     {e.note ? ` · ${e.note}` : ''}
                   </span>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-subtle">
                     {`${time(e.createdAt)} · ${MODE_LABEL[e.mode]} · ${e.createdBy.name}`}
                   </span>
                 </div>
                 <span className="flex items-center gap-3">
-                  <span className={`tabular-nums ${voided ? 'text-slate-400 line-through' : ''}`}>
+                  <span className={`tabular-nums ${voided ? 'text-subtle line-through' : ''}`}>
                     {rupees(e.amount)}
                   </span>
                   {canVoid && !voided && e.source === 'MANUAL' && (
@@ -99,9 +107,9 @@ export function ExpenseList({
                   )}
                 </span>
               </div>
-              {voided && <p className="text-xs text-slate-500">Voided: {e.voidReason}</p>}
+              {voided && <p className="text-xs text-subtle">Voided: {e.voidReason}</p>}
               {e.source === 'PURCHASE' && !voided && (
-                <p className="text-xs text-slate-500">From a purchase (void it on Purchases)</p>
+                <p className="text-xs text-subtle">From a purchase (void it on Purchases)</p>
               )}
               {voiding === e.id && <VoidForm expense={e} onDone={() => setVoiding(null)} />}
             </li>

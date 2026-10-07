@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { describeError, ErrorNote, inputClass } from '@/shared/ui';
+import { describeError, ErrorNote, inputClass, LoadingScreen, PageHeader } from '@/shared/ui';
 import { useToggleAddon, useToggleItem } from '../mutations';
 import { useMenu } from '../queries';
 import { FOOD_DOT, type MenuAddon } from '../types';
@@ -15,7 +15,7 @@ function Switch({ on, label, onToggle }: { on: boolean; label: string; onToggle:
       className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${on ? 'bg-green-600' : 'bg-slate-300'}`}
     >
       <span
-        className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${
+        className={`absolute top-0.5 h-6 w-6 rounded-full bg-surface shadow transition-transform ${
           on ? 'translate-x-5' : 'translate-x-0.5'
         }`}
       />
@@ -56,10 +56,10 @@ export function AvailabilityPage() {
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Item availability</h1>
-        <p className="text-sm text-slate-600">Switch off a dish when the kitchen runs out of it.</p>
-      </div>
+      <PageHeader
+        title="Item availability"
+        description="Switch off a dish when the kitchen runs out of it. It disappears from the POS, captain app and QR menu until switched back on."
+      />
       <label htmlFor="availability-search" className="sr-only">
         Search items
       </label>
@@ -73,18 +73,18 @@ export function AvailabilityPage() {
       />
       <ErrorNote message={failure} />
       <ErrorNote message={menu.isError ? describeError(menu.error) : null} />
-      {menu.isPending && <p className="text-slate-500">Loading…</p>}
+      {menu.isPending && <LoadingScreen />}
       {categories.map((c) => (
         <section key={c.id} className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{c.name}</h2>
-          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-subtle">{c.name}</h2>
+          <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
             {c.items.map((item) => (
               <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <span className="flex items-center gap-2">
                   <span
                     className={`inline-block h-2.5 w-2.5 rounded-full ${FOOD_DOT[item.foodType]}`}
                   />
-                  <span className={item.isAvailable ? '' : 'text-slate-400 line-through'}>
+                  <span className={item.isAvailable ? '' : 'text-subtle line-through'}>
                     {item.name}
                   </span>
                 </span>
@@ -100,13 +100,13 @@ export function AvailabilityPage() {
       ))}
       {addonSections.map(([id, group]) => (
         <section key={id} className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-subtle">
             Add-ons: {group.name}
           </h2>
-          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+          <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
             {[...group.addons.values()].map((addon) => (
               <li key={addon.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                <span className={addon.isAvailable ? '' : 'text-slate-400 line-through'}>
+                <span className={addon.isAvailable ? '' : 'text-subtle line-through'}>
                   {addon.name}
                 </span>
                 <Switch
@@ -120,7 +120,7 @@ export function AvailabilityPage() {
         </section>
       ))}
       {menu.data && categories.length === 0 && addonSections.length === 0 && (
-        <p className="text-slate-500">No items match.</p>
+        <p className="text-subtle">No items match.</p>
       )}
     </section>
   );

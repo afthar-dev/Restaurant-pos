@@ -40,7 +40,7 @@ export function CountSheet({ item, onClose }: { item: StockItem; onClose: () => 
   return (
     <Sheet label={`Count ${item.name}`} onClose={onClose}>
       <h3 className="text-lg font-semibold">Count {item.name}</h3>
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-muted">
         The books say {quantityLabel(item.currentMilli, item.unit)}.
       </p>
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3">

@@ -35,7 +35,7 @@ export function CategoriesSheet({ onClose }: { onClose: () => void }) {
   return (
     <Sheet label="Expense categories" onClose={onClose}>
       <h3 className="text-lg font-semibold">Expense categories</h3>
-      <ul className="flex flex-col divide-y divide-slate-100">
+      <ul className="flex flex-col divide-y divide-border">
         {categories.data?.map((c) => (
           <li key={c.id} className="flex flex-col gap-2 py-2">
             {renaming === c.id ? (
@@ -50,7 +50,7 @@ export function CategoriesSheet({ onClose }: { onClose: () => void }) {
               <div className="flex items-center justify-between gap-2">
                 <span>{c.name}</span>
                 {c.isSystem ? (
-                  <span className="text-xs text-slate-500">Used by purchases</span>
+                  <span className="text-xs text-subtle">Used by purchases</span>
                 ) : (
                   <span className="flex gap-2">
                     <button
