@@ -180,7 +180,7 @@ describe('PurchasesPage', () => {
     });
     renderRoute('/stock/purchases');
     const form = await fillPurchase();
-    expect(within(form).getByText('Total ₹1170.50')).toBeInTheDocument();
+    expect(within(form).getByText('Total ₹1,170.50')).toBeInTheDocument();
     fireEvent.click(within(form).getByRole('button', { name: 'Save purchase' }));
     expect(await within(form).findByRole('alert')).toBeInTheDocument();
     fireEvent.click(within(form).getByRole('button', { name: 'Save purchase' }));

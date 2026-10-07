@@ -8,7 +8,7 @@ import { ExpensesPage } from '@/features/expenses';
 import { ReportsPage } from '@/features/reports';
 import { PurchasesPage, StockPage } from '@/features/stock';
 import { KdsPage } from '@/features/kitchen';
-import { Home } from './Home';
+import { HomePage } from './home/HomePage';
 import { ADMIN_PERMISSIONS } from './navigation';
 import { NotFound } from './NotFound';
 import { AdminIndex, AdminLayout } from './admin/AdminLayout';
@@ -29,7 +29,7 @@ export const routes: RouteObject[] = [
         index: true,
         element: (
           <RequireAuth>
-            <Home />
+            <HomePage />
           </RequireAuth>
         ),
       },

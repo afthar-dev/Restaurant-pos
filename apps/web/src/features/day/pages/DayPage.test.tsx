@@ -119,7 +119,7 @@ describe('Day close', () => {
     });
     renderRoute('/day');
     expect(await screen.findByText('Expected in drawer')).toBeInTheDocument();
-    expect(screen.getByText('₹1032')).toBeInTheDocument();
+    expect(screen.getByText('₹1,032')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Counted cash (₹)'), { target: { value: '1030' } });
     fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'Short ₹2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Close day' }));

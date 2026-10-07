@@ -22,7 +22,7 @@ describe('LoginPage', () => {
     fillAndSubmit('9876543210', 'owner-pass-1');
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Restaurant POS' }),
+      await screen.findByRole('heading', { level: 1, name: /^Welcome, / }),
     ).toBeInTheDocument();
     expect(screen.getByText('Priya')).toBeInTheDocument();
     const loginCall = mock.mock.calls.find(([url]) => String(url) === '/api/auth/login');
