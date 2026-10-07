@@ -53,7 +53,7 @@ const report = (partial: Partial<DayReport> = {}): DayReport => ({
   voids: [],
   cancels: [],
   discounts: [],
-  expenses: { total: 0, cash: 0 },
+  expenses: { total: 0, cash: 0, byCategory: [] },
   cash: {
     opening: 100000,
     cashSales: 3200,

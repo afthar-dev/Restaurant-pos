@@ -10,6 +10,7 @@ import { apiThrottleLimit, THROTTLE_WINDOW_MS } from './common/throttle';
 import { RposThrottlerGuard } from './common/throttler.guard';
 import { ConfigModule } from './config/config.module';
 import { DevicesModule } from './devices/devices.module';
+import { ExpensesModule } from './expenses/expenses.module';
 import { FloorModule } from './floor/floor.module';
 import { HealthModule } from './health/health.module';
 import { KotsModule } from './kots/kots.module';
@@ -21,6 +22,8 @@ import { PrintModule } from './print/print.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { QrModule } from './qr/qr.module';
+import { ReportsModule } from './reports/reports.module';
+import { StockModule } from './stock/stock.module';
 import { TaxModule } from './tax/tax.module';
 import { UsersModule } from './users/users.module';
 
@@ -33,6 +36,9 @@ import { UsersModule } from './users/users.module';
       throttlers: [{ name: 'default', ttl: THROTTLE_WINDOW_MS, limit: apiThrottleLimit }],
     }),
     AuditModule,
+    ExpensesModule,
+    StockModule,
+    ReportsModule,
     AuthModule,
     DevicesModule,
     UsersModule,

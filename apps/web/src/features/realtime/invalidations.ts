@@ -1,9 +1,11 @@
 import type { QueryKey } from '@tanstack/react-query';
 import { dayKeys } from '@/features/day';
+import { expenseKeys } from '@/features/expenses';
 import { kitchenKeys } from '@/features/kitchen';
 import { menuKeys } from '@/features/menu';
 import { floorKeys, orderKeys, qrKeys } from '@/features/orders';
 import { printKeys } from '@/features/printing';
+import { stockKeys } from '@/features/stock';
 
 type Payload = Record<string, unknown>;
 
@@ -35,6 +37,9 @@ export const INVALIDATIONS: Record<string, (payload: Payload) => QueryKey[]> = {
   'kot.created': (p) => [kitchenKeys.all, orderKeys.detail(orderId(p))],
   'kot.updated': (p) => [kitchenKeys.all, orderKeys.detail(orderId(p))],
   'menu.availability': () => [menuKeys.all],
-  'day.updated': () => [dayKeys.current],
+  // A closed or reopened day changes which purchases and expenses can still be voided.
+  'day.updated': () => [dayKeys.current, expenseKeys.all, stockKeys.all],
   'print.job': () => [printKeys.jobs],
+  'expense.updated': () => [expenseKeys.all, dayKeys.closeCheck],
+  'stock.updated': () => [stockKeys.all],
 };

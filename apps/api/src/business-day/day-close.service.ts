@@ -5,11 +5,12 @@ import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';
 import { notFound } from '../common/master-data';
 import type { AuthUser } from '../common/request-context';
+import { cashExpenses, expenseTotals } from '../expenses/expense-totals';
 import { ACTIVE_STATUSES } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BusinessDayService, dayNotOpen } from './business-day.service';
 
-type Db = Pick<PrismaService, 'bill' | 'order' | 'orderItem' | 'businessDay' | 'user'>;
+type Db = Pick<PrismaService, 'bill' | 'order' | 'orderItem' | 'businessDay' | 'user' | 'expense'>;
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
@@ -29,14 +30,15 @@ export class DayCloseService {
     if (!day) throw dayNotOpen();
     const blockers = await this.blockers(this.prisma, day.id);
     const cashSales = await this.cashSales(this.prisma, day.id);
+    const spent = await cashExpenses(this.prisma, day.id);
     return {
       day: { id: day.id, openingCash: day.openingCash },
       blockers,
       cash: {
         opening: day.openingCash,
         cashSales,
-        cashExpenses: 0,
-        expected: day.openingCash + cashSales,
+        cashExpenses: spent,
+        expected: day.openingCash + cashSales - spent,
       },
     };
   }
@@ -60,7 +62,9 @@ export class DayCloseService {
           { blockers },
         );
       }
-      const expected = day.openingCash + (await this.cashSales(tx, day.id));
+      // Expected cash = opening + cash payments − cash expenses (spec §5.5.4).
+      const expected =
+        day.openingCash + (await this.cashSales(tx, day.id)) - (await cashExpenses(tx, day.id));
       const variance = request.countedCash - expected;
       await tx.businessDay.update({
         where: { id: day.id },
@@ -246,7 +250,8 @@ export class DayCloseService {
     });
 
     const cashSales = payments.CASH;
-    const expected = day.expectedCash ?? day.openingCash + cashSales;
+    const spent = await expenseTotals(this.prisma, day.id);
+    const expected = day.expectedCash ?? day.openingCash + cashSales - spent.cash;
     return {
       day: {
         id: day.id,
@@ -289,11 +294,11 @@ export class DayCloseService {
           amount: b.itemDiscount + b.billDiscount,
           reason: b.discountReason,
         })),
-      expenses: { total: 0, cash: 0 },
+      expenses: { total: spent.total, cash: spent.cash, byCategory: spent.byCategory },
       cash: {
         opening: day.openingCash,
         cashSales,
-        cashExpenses: 0,
+        cashExpenses: spent.cash,
         expected,
         counted: day.countedCash,
         variance: day.variance,

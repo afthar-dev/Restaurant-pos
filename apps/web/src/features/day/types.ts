@@ -59,7 +59,7 @@ export interface DayReport {
   voids: { billNo: number; total: number; reason: string | null; by: string | null }[];
   cancels: { itemName: string; quantity: number; reason: string | null }[];
   discounts: { billNo: number; amount: number; reason: string | null }[];
-  expenses: { total: number; cash: number };
+  expenses: { total: number; cash: number; byCategory: { name: string; amount: number }[] };
   cash: {
     opening: number;
     cashSales: number;

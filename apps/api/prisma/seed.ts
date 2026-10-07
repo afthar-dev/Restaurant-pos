@@ -1,6 +1,7 @@
 import { hash } from '@node-rs/argon2';
 import { PrismaClient } from '@prisma/client';
 import { nameSchema, passwordSchema, phoneSchema } from '@rpos/shared';
+import { ensureDefaultCategories } from '../src/expenses/expense-categories.service';
 
 type SeedEnv = Record<string, string | undefined>;
 
@@ -22,6 +23,8 @@ export async function seed(prisma: PrismaClient, env: SeedEnv): Promise<void> {
       data: { outletId: outlet.id, name: 'GST 5%', cgstBp: 250, sgstBp: 250 },
     });
   }
+
+  await ensureDefaultCategories(prisma, outlet.id);
 
   if (!env.OWNER_PHONE && !env.OWNER_PASSWORD) return;
 
