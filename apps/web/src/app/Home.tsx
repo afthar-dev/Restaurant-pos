@@ -70,6 +70,13 @@ export const AREAS: Area[] = [
     anyOf: ['expense.manage'],
   },
   {
+    to: '/reports',
+    title: 'Sales report',
+    short: 'Reports',
+    body: 'Sales, payments, dishes and expenses over any dates, with CSV export.',
+    anyOf: ['reports.all'],
+  },
+  {
     to: '/admin',
     title: 'Admin',
     short: 'Admin',
