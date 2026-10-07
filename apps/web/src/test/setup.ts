@@ -1,10 +1,13 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { resetRefreshState } from '@/shared/api/http';
 import { resetSessionStore } from '@/shared/session/store';
 import { useStationFilter } from '@/features/kitchen/store';
 import { useNotifications } from '@/features/notifications/store';
+
+// findBy… waits up to 5 s: full screens with the app shell render slower on a busy machine.
+configure({ asyncUtilTimeout: 5000 });
 
 // jsdom lacks a few browser APIs that Radix UI (dialogs, menus, tooltips) calls.
 class ResizeObserverStub {

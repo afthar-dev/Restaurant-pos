@@ -1,78 +1,150 @@
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
-import { useBootSession, useCurrentDevice, useSignOut } from '@/features/auth';
-import { useSession } from '@/shared/session/store';
-import { visibleAreas } from './Home';
+import { UtensilsCrossed } from 'lucide-react';
+import { useState } from 'react';
+import { Link, Outlet, useLocation } from 'react-router';
+import { useBootSession, useCurrentDevice } from '@/features/auth';
+import { ServerStatus } from '@/features/health';
+import { Toaster } from '@/features/notifications';
 import { PrintWorker } from '@/features/printing';
 import { RealtimeProvider } from '@/features/realtime';
-import { Toaster, useNotifications } from '@/features/notifications';
-import { ServerStatus } from '@/features/health';
+import { useOutlet } from '@/features/settings';
+import { cn } from '@/shared/lib/cn';
+import { useSession } from '@/shared/session/store';
+import { visibleNav } from './navigation';
+import { BottomNav } from './shell/BottomNav';
+import { DayStatusPill } from './shell/DayStatusPill';
+import { Sidebar } from './shell/Sidebar';
+import { UserMenu } from './shell/UserMenu';
 
-function SignOutButton() {
-  const navigate = useNavigate();
-  const signOut = useSignOut(() => {
-    // Alerts belong to the person who signed out.
-    useNotifications.getState().reset();
-    void navigate('/', { replace: true });
-  });
+const COLLAPSE_KEY = 'rpos.nav.collapsed';
+
+function readCollapsed(): boolean | null {
+  try {
+    const value = localStorage.getItem(COLLAPSE_KEY);
+    return value === null ? null : value === '1';
+  } catch {
+    return null;
+  }
+}
+
+function writeCollapsed(value: boolean) {
+  try {
+    localStorage.setItem(COLLAPSE_KEY, value ? '1' : '0');
+  } catch {
+    // Storage blocked: the choice lasts until reload.
+  }
+}
+
+/** Signed-in screens: sidebar on desktop, top bar and bottom tabs on phones and tablets. */
+function AppLayout() {
+  const permissions = useSession((s) => s.permissions);
+  const outlet = useOutlet();
+  const { pathname } = useLocation();
+  const entries = visibleNav(permissions);
+  const [userCollapsed, setUserCollapsed] = useState(readCollapsed);
+  // The POS needs both columns on a 1366 px counter screen: icons only unless the user chose.
+  const collapsed = userCollapsed ?? pathname.startsWith('/pos');
+  const wide = ['/pos', '/captain'].some((p) => pathname.startsWith(p));
+  const outletName = outlet.data?.name ?? 'Restaurant POS';
 
   return (
-    <button
-      type="button"
-      onClick={() => void signOut()}
-      className="text-sm text-slate-600 underline"
-    >
-      Sign out
-    </button>
+    <div className="flex min-h-dvh bg-bg text-text">
+      <Sidebar
+        entries={entries}
+        outletName={outletName}
+        collapsed={collapsed}
+        onToggle={() => {
+          writeCollapsed(!collapsed);
+          setUserCollapsed(!collapsed);
+        }}
+      />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-2 border-b border-border bg-surface/95 px-4 backdrop-blur">
+          <Link
+            to="/"
+            className="flex items-center gap-2 lg:hidden"
+            aria-label={`${outletName}, home`}
+          >
+            <span className="flex size-8 items-center justify-center rounded-lg bg-primary-700 text-white">
+              <UtensilsCrossed aria-hidden="true" className="size-4" />
+            </span>
+            <span className="max-w-40 truncate font-semibold">{outletName}</span>
+          </Link>
+          <div className="hidden lg:block">
+            <DayStatusPill />
+          </div>
+          <div className="flex items-center gap-2">
+            <ServerStatus />
+            <UserMenu />
+          </div>
+          <div className="w-full pb-2 lg:hidden">
+            <DayStatusPill />
+          </div>
+        </header>
+        <main
+          className={cn(
+            'flex-1 pb-24 lg:pb-8',
+            wide ? 'w-full px-3 pt-4' : 'mx-auto w-full max-w-6xl px-4 pt-6',
+          )}
+        >
+          <Outlet />
+        </main>
+      </div>
+      <BottomNav entries={entries} />
+    </div>
+  );
+}
+
+/** Sign-in, PIN pad and session restore: one centred column, nothing to navigate to yet. */
+function AuthLayout() {
+  return (
+    <div className="flex min-h-dvh flex-col bg-bg text-text">
+      <header className="flex min-h-16 items-center justify-between gap-2 px-4">
+        <span className="flex items-center gap-2 font-semibold">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-primary-700 text-white">
+            <UtensilsCrossed aria-hidden="true" className="size-4" />
+          </span>
+          Restaurant POS
+        </span>
+        <ServerStatus />
+      </header>
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 pb-16">
+        <Outlet />
+      </main>
+    </div>
+  );
+}
+
+/** The kitchen display: dark, no chrome, readable from across the kitchen. */
+function KitchenLayout() {
+  return (
+    <div data-theme="dark" className="min-h-dvh bg-bg text-text">
+      <div className="fixed top-3 right-3 z-20">
+        <ServerStatus />
+      </div>
+      <main className="px-3 py-3">
+        <Outlet />
+      </main>
+    </div>
   );
 }
 
 export function AppShell() {
   useBootSession();
-  const user = useSession((s) => s.user);
-  const permissions = useSession((s) => s.permissions);
   const status = useSession((s) => s.status);
   const device = useCurrentDevice();
   const { pathname } = useLocation();
-  // Service screens use the whole width; admin and sign-in pages stay readable.
-  const wide = ['/pos', '/captain', '/kds'].some((p) => pathname.startsWith(p));
+  const Layout = pathname.startsWith('/kds')
+    ? KitchenLayout
+    : status === 'authenticated'
+      ? AppLayout
+      : AuthLayout;
 
   return (
     <RealtimeProvider enabled={status === 'authenticated' || Boolean(device.data)}>
-      <div className="min-h-dvh bg-slate-50 text-slate-900">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
-          <nav className="flex flex-wrap items-center gap-4 text-sm font-medium">
-            <NavLink to="/" className="font-semibold text-emerald-800">
-              Restaurant POS
-            </NavLink>
-            {visibleAreas(permissions).map((area) => (
-              <NavLink
-                key={area.to}
-                to={area.to}
-                className={({ isActive }) =>
-                  isActive ? 'text-emerald-800 underline underline-offset-4' : 'text-slate-600'
-                }
-              >
-                {area.short}
-              </NavLink>
-            ))}
-          </nav>
-          <div className="flex flex-wrap items-center gap-3">
-            <ServerStatus />
-            {user && (
-              <>
-                <span className="text-sm font-medium">{user.name}</span>
-                <SignOutButton />
-              </>
-            )}
-          </div>
-        </header>
-        <main className={wide ? 'w-full px-3 py-4' : 'mx-auto max-w-5xl px-4 py-8'}>
-          <Outlet />
-        </main>
-        {/* Any registered screen may own a browser printer, so every one watches for jobs. */}
-        {device.data && <PrintWorker />}
-        <Toaster />
-      </div>
+      <Layout />
+      {/* Any registered screen may own a browser printer, so every one watches for jobs. */}
+      {device.data && <PrintWorker />}
+      <Toaster />
     </RealtimeProvider>
   );
 }
