@@ -6,6 +6,7 @@ import { useSession } from '@/shared/session/store';
 import { visibleAreas } from '@/pages/Home';
 import { PrintWorker } from '@/print/PrintWorker';
 import { RealtimeProvider } from '@/realtime/RealtimeProvider';
+import { Toaster } from '@/features/notifications';
 import { ServerStatus } from './ServerStatus';
 
 function SignOutButton() {
@@ -80,6 +81,7 @@ export function AppShell() {
         </main>
         {/* Any registered screen may own a browser printer, so every one watches for jobs. */}
         {device.data && <PrintWorker />}
+        <Toaster />
       </div>
     </RealtimeProvider>
   );

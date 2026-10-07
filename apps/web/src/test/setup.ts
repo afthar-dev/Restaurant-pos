@@ -3,6 +3,7 @@ import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { resetRefreshState } from '@/shared/api/http';
 import { resetSessionStore } from '@/shared/session/store';
+import { useNotifications } from '@/features/notifications';
 
 // No real sockets in tests. Tests that check realtime behaviour mock this module themselves.
 vi.mock('socket.io-client', () => ({
@@ -31,6 +32,7 @@ beforeEach(() => {
   );
   resetSessionStore();
   resetRefreshState();
+  useNotifications.getState().reset();
 });
 
 afterEach(() => {

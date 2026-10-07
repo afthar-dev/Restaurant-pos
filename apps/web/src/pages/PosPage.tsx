@@ -4,13 +4,14 @@ import { FloorGrid } from '@/service/FloorGrid';
 import { OrderWorkspace } from '@/service/OrderWorkspace';
 import { ParcelList } from '@/service/ParcelList';
 import { QrInbox } from '@/service/qr/QrInbox';
-import { ReadyAlerts } from '@/service/ReadyAlerts';
+import { useReadyAlerts } from '@/service/useReadyAlerts';
 
 /** Counter screen: floor and parcels on the left, the selected order and menu on the right. */
 export function PosPage() {
   const [params, setParams] = useSearchParams();
   const orderId = params.get('order');
   const select = (id: string | null) => setParams(id ? { order: id } : {}, { replace: true });
+  useReadyAlerts();
 
   return (
     <section className="flex flex-col gap-3">
@@ -37,7 +38,6 @@ export function PosPage() {
             )}
           </div>
         </div>
-        <ReadyAlerts />
       </DayGate>
     </section>
   );

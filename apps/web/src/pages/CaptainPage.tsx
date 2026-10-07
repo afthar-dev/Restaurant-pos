@@ -4,13 +4,14 @@ import { DayGate } from '@/service/DayGate';
 import { FloorGrid } from '@/service/FloorGrid';
 import { OrderWorkspace } from '@/service/OrderWorkspace';
 import { QrInbox } from '@/service/qr/QrInbox';
-import { ReadyAlerts } from '@/service/ReadyAlerts';
+import { useReadyAlerts } from '@/service/useReadyAlerts';
 
 /** Waiter phone screen: tables first, then one order at a time. */
 export function CaptainPage() {
   const [params, setParams] = useSearchParams();
   const orderId = params.get('order');
   const select = (id: string | null) => setParams(id ? { order: id } : {});
+  useReadyAlerts();
 
   return (
     <section className="mx-auto flex max-w-xl flex-col gap-3">
@@ -36,7 +37,6 @@ export function CaptainPage() {
         ) : (
           <FloorGrid selectedOrderId={null} onSelect={select} />
         )}
-        <ReadyAlerts />
       </DayGate>
     </section>
   );
