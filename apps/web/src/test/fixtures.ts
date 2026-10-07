@@ -1,5 +1,5 @@
 import type { Menu, MenuItem } from '../pages/admin/menu-types';
-import type { Bill, Order, OrderLine } from '../service/types';
+import type { Bill, Order, OrderLine, QrRequest } from '../service/types';
 
 const tax = { id: 'tax', name: 'GST 5%', cgstBp: 250, sgstBp: 250 };
 
@@ -131,6 +131,7 @@ export function order(partial: Partial<Order> = {}): Order {
     kots: [],
     bills: [],
     mergedTables: [],
+    qrPending: [],
     subtotal: 0,
     ...partial,
   };
@@ -196,6 +197,41 @@ export function bill(partial: Partial<Bill> = {}): Bill {
     version: 4,
     createdAt: '2026-10-06T14:12:00.000Z',
     createdBy: { id: 'c', name: 'Kavya' },
+    ...partial,
+  };
+}
+
+/** 2 × Paneer Tikka Half with cheese and 1 × Roti, asked for from T1's QR. */
+export function qrRequest(partial: Partial<QrRequest> = {}): QrRequest {
+  return {
+    id: 'q1',
+    orderId: 'o1',
+    tableName: 'T1',
+    createdAt: new Date(Date.now() - 120_000).toISOString(),
+    lines: [
+      {
+        variantId: 'paneer-h',
+        addonIds: ['cheese'],
+        quantity: 2,
+        note: null,
+        itemName: 'Paneer Tikka',
+        variantName: 'Half',
+        addons: ['Cheese'],
+        amount: 42000,
+      },
+      {
+        variantId: 'roti-r',
+        addonIds: [],
+        quantity: 1,
+        note: 'extra crisp',
+        itemName: 'Tandoori Roti',
+        variantName: 'Regular',
+        addons: [],
+        amount: 3000,
+      },
+    ],
+    note: 'peanut allergy',
+    total: 45000,
     ...partial,
   };
 }

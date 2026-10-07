@@ -114,6 +114,18 @@ describe('Captain app', () => {
     await expect.poll(() => callsTo(mock, 'POST', '/api/orders/o2/kot').length).toBe(1);
   });
 
+  it('alerts the waiter to a new QR order', async () => {
+    useSession.getState().setSession(sessionBody('WAITER', ['order.take', 'order.approveQr']));
+    serviceApi({ 'GET /api/qr/pending': () => json([]) });
+    renderRoute('/captain');
+    await screen.findByRole('button', { name: 'T2, 1 item, ₹30' });
+    act(() => {
+      for (const h of handlers.get('qr.submitted') ?? [])
+        h({ submissionId: 'q1', orderId: 'o1', tableName: 'T1' });
+    });
+    expect(await screen.findByText('New QR order at T1')).toBeInTheDocument();
+  });
+
   it('tells the waiter when a table’s food is ready', async () => {
     asWaiter();
     serviceApi();

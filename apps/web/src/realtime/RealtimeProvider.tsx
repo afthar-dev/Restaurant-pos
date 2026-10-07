@@ -32,9 +32,11 @@ const INVALIDATIONS: Record<string, (payload: Record<string, unknown>) => QueryK
     ['bills', p.orderId],
     ['floor'],
     ['orders', 'active'],
+    ['qr-pending'],
     // A moved order shows its new table on the kitchen screen.
     ['kds'],
   ],
+  'qr.submitted': (p) => [['qr-pending'], ['floor'], ['orders', 'active'], ['order', p.orderId]],
   'bill.updated': (p) => [
     ['bills', p.orderId],
     ['order', p.orderId],

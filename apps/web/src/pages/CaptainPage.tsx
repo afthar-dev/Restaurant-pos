@@ -3,6 +3,7 @@ import { secondaryButton } from '../components/ui';
 import { DayGate } from '../service/DayGate';
 import { FloorGrid } from '../service/FloorGrid';
 import { OrderWorkspace } from '../service/OrderWorkspace';
+import { QrInbox } from '../service/qr/QrInbox';
 import { ReadyAlerts } from '../service/ReadyAlerts';
 
 /** Waiter phone screen: tables first, then one order at a time. */
@@ -15,6 +16,7 @@ export function CaptainPage() {
     <section className="mx-auto flex max-w-xl flex-col gap-3">
       <h1 className="sr-only">Captain app</h1>
       <DayGate>
+        <QrInbox onOpen={select} />
         {orderId ? (
           <>
             <button
