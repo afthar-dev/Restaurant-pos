@@ -2,7 +2,9 @@ export { Badge, TONE_SOFT, type Tone } from './Badge';
 export { Button, IconButton, type ButtonProps } from './Button';
 export { Card, CardBody, CardHeader } from './Card';
 export { ConfirmBar } from './ConfirmBar';
+export { ConfirmDialog } from './ConfirmDialog';
 export { DataTable, type Column } from './DataTable';
+export { Dialog } from './Dialog';
 export { EmptyState } from './EmptyState';
 export { ErrorNote } from './ErrorNote';
 export { describeError, fieldErrors, type FieldErrors } from './errors';
@@ -12,8 +14,10 @@ export { PageHeader } from './PageHeader';
 export { RenameForm } from './RenameForm';
 export { Sheet } from './Sheet';
 export { LoadingScreen, Skeleton } from './Skeleton';
+export { DropdownMenu, MenuItem, MenuLabel, MenuSeparator, Tooltip } from './Menu';
 export { Spinner } from './Spinner';
 export { StatCard } from './StatCard';
+export { TabPanel, Tabs } from './Tabs';
 export {
   buttonClass,
   dangerButton,
