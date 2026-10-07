@@ -69,7 +69,7 @@ export function ItemPicker({
               <label
                 key={v.id}
                 className={`flex min-h-11 items-center gap-2 rounded-md border px-3 ${
-                  v.id === variantId ? 'border-emerald-700 bg-emerald-50' : 'border-slate-300'
+                  v.id === variantId ? 'border-primary-700 bg-primary-50' : 'border-slate-300'
                 }`}
               >
                 <input
@@ -108,7 +108,7 @@ export function ItemPicker({
                     key={addon.id}
                     className={`flex min-h-11 items-center gap-2 rounded-md border px-3 ${
                       chosen.includes(addon.id)
-                        ? 'border-emerald-700 bg-emerald-50'
+                        ? 'border-primary-700 bg-primary-50'
                         : 'border-slate-300'
                     } ${addon.isAvailable ? '' : 'opacity-50'}`}
                   >

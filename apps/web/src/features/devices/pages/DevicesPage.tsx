@@ -83,7 +83,7 @@ function RegisterForm() {
       <button type="submit" className={primaryButton} disabled={register.isPending}>
         Register this device
       </button>
-      {done && <p className="text-sm text-emerald-800 sm:col-span-3">{done}</p>}
+      {done && <p className="text-sm text-green-800 sm:col-span-3">{done}</p>}
       <div className="sm:col-span-3">
         <ErrorNote message={register.isError ? describeError(register.error) : null} />
       </div>

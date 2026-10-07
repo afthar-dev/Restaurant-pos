@@ -31,7 +31,7 @@ export function HistorySheet({ item, onClose }: { item: StockItem; onClose: () =
               <span className="text-xs text-slate-500">{`${when(t.createdAt)} · ${t.createdBy.name}`}</span>
             </span>
             <span className="text-right tabular-nums">
-              <span className={t.qtyMilli < 0 ? 'text-red-700' : 'text-emerald-800'}>
+              <span className={t.qtyMilli < 0 ? 'text-red-700' : 'text-green-800'}>
                 {`${t.qtyMilli > 0 ? '+' : ''}${formatQuantity(t.qtyMilli)} ${item.unit}`}
               </span>
               {t.amount !== null && (

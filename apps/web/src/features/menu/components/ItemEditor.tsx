@@ -149,7 +149,7 @@ export function ItemEditor({
     <form
       onSubmit={onSubmit}
       noValidate
-      className="flex flex-col gap-5 rounded-lg border border-emerald-200 bg-white p-4"
+      className="flex flex-col gap-5 rounded-lg border border-border bg-white p-4"
     >
       <h3 className="text-lg font-semibold">{existing ? `Edit ${existing.name}` : 'New item'}</h3>
 

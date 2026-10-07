@@ -106,7 +106,7 @@ export function PaymentSheet({
               aria-pressed={mode === m.mode}
               className={`min-h-12 rounded-lg border text-base font-semibold ${
                 mode === m.mode
-                  ? 'border-emerald-700 bg-emerald-700 text-white'
+                  ? 'border-primary-700 bg-primary-700 text-white'
                   : 'border-slate-300 bg-white'
               }`}
               onClick={() => setMode(m.mode)}
@@ -188,7 +188,7 @@ export function PaymentSheet({
             </div>
             {tenderedPaise !== null && amountPaise !== null && (
               <p
-                className={`text-lg font-semibold ${short > 0 ? 'text-red-700' : 'text-emerald-800'}`}
+                className={`text-lg font-semibold ${short > 0 ? 'text-red-700' : 'text-green-800'}`}
               >
                 {short > 0
                   ? `${rupees(short)} more needed`

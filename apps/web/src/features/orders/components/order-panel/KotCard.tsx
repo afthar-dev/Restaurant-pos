@@ -5,6 +5,14 @@ import type { KotPrintState, Order, OrderKot, OrderLine } from '../../types';
 import { CancelLineDialog } from './CancelLineDialog';
 import { lineDetail } from './lineDetail';
 
+/** Ticket state at a glance; the state is also written out next to it. */
+const KOT_DOT: Record<OrderKot['status'], string> = {
+  NEW: 'bg-sky-500',
+  PREPARING: 'bg-amber-500',
+  READY: 'bg-green-600',
+  SERVED: 'bg-slate-400',
+};
+
 const PRINT_LABEL: Record<Exclude<KotPrintState, 'NONE'>, string> = {
   WAITING: 'Not printed yet',
   PRINTED: 'Printed',
@@ -50,7 +58,7 @@ function ServedButton({ kot, orderId }: { kot: OrderKot; orderId: string }) {
       <button
         type="button"
         aria-label={`Served KOT ${kot.kotNo}`}
-        className="min-h-9 rounded-md bg-emerald-700 px-3 text-xs font-semibold text-white disabled:opacity-60"
+        className="min-h-9 rounded-md bg-primary-700 px-3 text-xs font-semibold text-white disabled:opacity-60"
         disabled={served.isPending}
         onClick={() => served.mutate()}
       >
@@ -79,10 +87,14 @@ export function KotCard({
   onCancelling: (lineId: string | null) => void;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+    <div className="rounded-lg border border-border bg-surface px-3 py-2 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          KOT {kot.kotNo} · {kot.stationName} · {kot.status.toLowerCase()}
+        <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-muted uppercase">
+          <span
+            aria-hidden="true"
+            className={'size-2.5 shrink-0 rounded-full ' + KOT_DOT[kot.status]}
+          />
+          {'KOT ' + kot.kotNo + ' · ' + kot.stationName + ' · ' + kot.status.toLowerCase()}
         </p>
         <span className="flex items-center gap-2">
           {kot.status === 'READY' && <ServedButton kot={kot} orderId={order.id} />}

@@ -231,7 +231,7 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
         <button type="submit" className={primaryButton} disabled={save.isPending}>
           Save settings
         </button>
-        <span role="status" aria-label="Save result" className="text-sm text-emerald-800">
+        <span role="status" aria-label="Save result" className="text-sm text-green-800">
           {result}
         </span>
       </div>

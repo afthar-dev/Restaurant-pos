@@ -32,16 +32,16 @@ export function QrInbox({ onOpen }: { onOpen: (orderId: string) => void }) {
   return (
     <section
       aria-label="QR orders waiting"
-      className="flex flex-col gap-2 rounded-lg border-2 border-amber-400 bg-amber-50 p-3"
+      className="flex flex-col gap-2 rounded-lg border-2 border-violet-300 bg-violet-50 p-3 shadow-card"
     >
-      <h2 className="text-sm font-semibold text-amber-950">QR orders waiting</h2>
+      <h2 className="text-sm font-semibold text-violet-950">QR orders waiting</h2>
       {requests.map((r) => {
         const dishes = r.lines.reduce((n, l) => n + l.quantity, 0);
         return (
           <button
             key={r.id}
             type="button"
-            className="flex min-h-11 items-center justify-between rounded-md bg-white px-3 text-left text-sm"
+            className="flex min-h-11 items-center justify-between rounded-md bg-surface px-3 text-left text-sm font-medium shadow-sm hover:bg-violet-100"
             onClick={() => onOpen(r.orderId)}
           >
             {`${r.tableName ?? 'Table'} · ${dishes} ${dishes === 1 ? 'dish' : 'dishes'} · ${ago(r.createdAt)}`}

@@ -100,7 +100,7 @@ function EditCategoryForm({
     <form
       onSubmit={onSubmit}
       noValidate
-      className="flex flex-wrap items-end gap-3 rounded-lg border border-emerald-200 bg-white p-4"
+      className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-white p-4"
     >
       <Field id="edit-category-name" label="Category name" error={error}>
         <input
@@ -187,7 +187,7 @@ export function MenuPage() {
                 }}
                 className={`flex items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
                   selected?.id === c.id
-                    ? 'bg-emerald-50 font-semibold text-emerald-900'
+                    ? 'bg-primary-50 font-semibold text-primary-900'
                     : 'hover:bg-slate-100'
                 }`}
               >

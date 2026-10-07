@@ -1,4 +1,6 @@
+import { MousePointerClick } from 'lucide-react';
 import { useSearchParams } from 'react-router';
+import { EmptyState } from '@/shared/ui';
 import { DayGate } from '@/features/day';
 import { FloorGrid, ParcelList, QrInbox } from '@/features/orders';
 import { OrderWorkspace } from '../components/OrderWorkspace';
@@ -30,9 +32,11 @@ export function PosPage() {
                 onClosed={() => select(null)}
               />
             ) : (
-              <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-slate-500">
-                Pick a table or start a parcel order.
-              </p>
+              <EmptyState
+                icon={<MousePointerClick />}
+                title="Pick a table or start a parcel"
+                description="Tap a free table to seat guests, or a running one to add dishes, bill or take payment."
+              />
             )}
           </div>
         </div>

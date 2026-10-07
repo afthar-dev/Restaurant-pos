@@ -118,7 +118,7 @@ export function ExpenseForm() {
           Save expense
         </button>
         {saved && (
-          <p role="status" className="text-sm text-emerald-800">
+          <p role="status" className="text-sm text-green-800">
             {saved}
           </p>
         )}

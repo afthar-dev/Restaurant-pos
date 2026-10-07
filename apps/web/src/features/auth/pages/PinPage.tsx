@@ -28,7 +28,7 @@ function PinPad({ staff, onBack }: { staff: StaffOption; onBack: () => void }) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p className="font-medium">{staff.name}</p>
-        <button type="button" onClick={onBack} className="text-sm text-emerald-800 underline">
+        <button type="button" onClick={onBack} className="text-sm text-primary-800 underline">
           Not you?
         </button>
       </div>
@@ -60,7 +60,7 @@ function PinPad({ staff, onBack }: { staff: StaffOption; onBack: () => void }) {
         type="button"
         disabled={pin.length < 4 || signIn.isPending}
         onClick={submit}
-        className="rounded-md bg-emerald-700 px-4 py-3 font-medium text-white disabled:opacity-60"
+        className="rounded-md bg-primary-700 px-4 py-3 font-medium text-white disabled:opacity-60"
       >
         Sign in
       </button>
@@ -81,7 +81,7 @@ export function PinPage() {
         <p className="text-slate-700">
           This device is not registered. Ask a manager to sign in and register it.
         </p>
-        <Link to="/login" className="text-emerald-800 underline">
+        <Link to="/login" className="text-primary-800 underline">
           Manager sign in
         </Link>
       </section>
@@ -116,7 +116,7 @@ export function PinPage() {
           )}
         </div>
       )}
-      <Link to="/login" className="text-sm text-emerald-800 underline">
+      <Link to="/login" className="text-sm text-primary-800 underline">
         Manager sign in
       </Link>
     </section>

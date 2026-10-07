@@ -1,4 +1,4 @@
-import { UtensilsCrossed } from 'lucide-react';
+import { ArrowLeft, UtensilsCrossed } from 'lucide-react';
 import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useBootSession, useCurrentDevice } from '@/features/auth';
@@ -114,14 +114,27 @@ function AuthLayout() {
   );
 }
 
-/** The kitchen display: dark, no chrome, readable from across the kitchen. */
+/**
+ * The kitchen display: dark, no chrome, readable from across the kitchen. A signed-in person
+ * who opened it from the app gets a way back; the kitchen TV itself has no one signed in.
+ */
 function KitchenLayout() {
+  const signedIn = useSession((s) => s.status === 'authenticated');
   return (
     <div data-theme="dark" className="min-h-dvh bg-bg text-text">
+      {signedIn && (
+        <Link
+          to="/"
+          className="fixed top-3 left-3 z-20 flex min-h-10 items-center gap-1 rounded-md bg-surface-2 px-3 text-sm font-medium text-text"
+        >
+          <ArrowLeft aria-hidden="true" className="size-4" />
+          Back
+        </Link>
+      )}
       <div className="fixed top-3 right-3 z-20">
         <ServerStatus />
       </div>
-      <main className="px-3 py-3">
+      <main className="px-3 pt-16 pb-3">
         <Outlet />
       </main>
     </div>

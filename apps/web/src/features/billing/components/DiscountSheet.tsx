@@ -131,7 +131,7 @@ export function DiscountSheet({ bill, onDone }: { bill: Bill; onDone: () => void
                 key={k}
                 type="button"
                 aria-pressed={kind === k}
-                className={`${secondaryButton} min-h-11 ${kind === k ? 'ring-2 ring-emerald-700' : ''}`}
+                className={`${secondaryButton} min-h-11 ${kind === k ? 'ring-2 ring-primary-700' : ''}`}
                 onClick={() => setKind(k)}
               >
                 {k === 'PERCENT' ? 'Percent' : 'Rupees'}

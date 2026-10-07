@@ -12,7 +12,7 @@ function Switch({ on, label, onToggle }: { on: boolean; label: string; onToggle:
       aria-checked={on}
       aria-label={label}
       onClick={onToggle}
-      className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${on ? 'bg-emerald-600' : 'bg-slate-300'}`}
+      className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${on ? 'bg-green-600' : 'bg-slate-300'}`}
     >
       <span
         className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${

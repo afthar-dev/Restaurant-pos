@@ -82,12 +82,12 @@ export function LoginPage() {
         <button
           type="submit"
           disabled={signIn.isPending}
-          className="rounded-md bg-emerald-700 px-4 py-2 font-medium text-white disabled:opacity-60"
+          className="rounded-md bg-primary-700 px-4 py-2 font-medium text-white disabled:opacity-60"
         >
           Sign in
         </button>
       </form>
-      <Link to="/pin" className="text-sm text-emerald-800 underline">
+      <Link to="/pin" className="text-sm text-primary-800 underline">
         Staff PIN sign in
       </Link>
     </section>

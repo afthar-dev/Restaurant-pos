@@ -43,7 +43,7 @@ export function OrderWorkspace({
         {settled && order.data && (
           <p
             role="status"
-            className="rounded-lg bg-emerald-700 px-4 py-3 text-base font-semibold text-white"
+            className="rounded-lg bg-green-700 px-4 py-3 text-base font-semibold text-white"
           >
             {`Bill ${paid.billNo} paid. ${orderLabel(order.data)} is free.`}
           </p>

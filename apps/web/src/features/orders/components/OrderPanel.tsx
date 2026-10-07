@@ -1,3 +1,4 @@
+import { BellRing } from 'lucide-react';
 import { useState } from 'react';
 import { rupees } from '@/shared/lib/money';
 import { describeError, ErrorNote, primaryButton } from '@/shared/ui';
@@ -36,17 +37,20 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
 
   return (
     <section className="flex flex-col gap-3">
-      <header className="flex items-baseline justify-between gap-2">
-        <h2 className="text-xl font-semibold">
+      <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border pb-3">
+        <h2 className="text-2xl font-semibold tracking-tight">
           {[orderLabel(o), ...o.mergedTables.map((t) => t.name)].join(' + ')}
         </h2>
-        <span className="text-sm text-slate-600">
+        <span className="text-sm text-muted">
           {o.guests ? `${o.guests} guests · ` : ''}
           {o.waiter?.name}
         </span>
       </header>
       {o.status === 'PENDING_APPROVAL' && (
-        <p className="text-sm font-medium text-amber-900">QR order waiting for approval</p>
+        <p className="flex items-center gap-2 rounded-md bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900">
+          <BellRing aria-hidden="true" className="size-4" />
+          QR order waiting for approval
+        </p>
       )}
       {o.qrPending.map((request) => (
         <QrRequestCard key={request.id} order={o} request={request} />
@@ -69,8 +73,8 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
       })}
 
       {newLines.length > 0 && (
-        <div className="rounded-lg border border-emerald-200 bg-white px-3 py-1">
-          <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+        <div className="rounded-lg border border-primary-200 bg-surface px-3 py-1">
+          <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-primary-800">
             Not sent yet
           </p>
           <ul className="divide-y divide-slate-100">

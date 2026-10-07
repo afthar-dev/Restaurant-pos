@@ -83,7 +83,7 @@ function TableSheet({ order, mode, onDone }: { order: Order; mode: Mode; onDone:
                   mode === 'move' ? `Move to ${t.name}` : `Merge ${t.name} into this order`
                 }
                 disabled={act.isPending}
-                className="h-14 rounded-lg border border-slate-300 bg-white text-lg font-semibold active:bg-emerald-50"
+                className="h-14 rounded-lg border border-slate-300 bg-white text-lg font-semibold active:bg-primary-50"
                 onClick={() => act.mutate(t)}
               >
                 {t.name}

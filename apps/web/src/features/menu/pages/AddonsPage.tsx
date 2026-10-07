@@ -72,7 +72,7 @@ function GroupForm({ existing, onDone }: { existing: MenuAddonGroup | null; onDo
     <form
       onSubmit={onSubmit}
       noValidate
-      className="flex flex-col gap-4 rounded-lg border border-emerald-200 bg-white p-4"
+      className="flex flex-col gap-4 rounded-lg border border-border bg-white p-4"
     >
       <h3 className="text-lg font-semibold">
         {existing ? `Edit ${existing.name}` : 'New add-on group'}

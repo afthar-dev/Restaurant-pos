@@ -62,7 +62,7 @@ export function QrStickers() {
         />
       )}
       {renewed && (
-        <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-emerald-800">
+        <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-green-800">
           <span>{`${renewed.name} has a new QR code.`}</span>
           <button
             type="button"

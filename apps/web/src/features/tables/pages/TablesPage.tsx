@@ -111,7 +111,7 @@ function EditTableForm({
     <form
       onSubmit={onSubmit}
       noValidate
-      className="flex flex-wrap items-end gap-3 rounded-md border border-emerald-200 p-3"
+      className="flex flex-wrap items-end gap-3 rounded-md border border-border p-3"
     >
       <Field
         id={`edit-table-name-${table.id}`}
@@ -283,7 +283,7 @@ export function TablesPage() {
                   <button
                     type="button"
                     aria-label={`Edit table ${t.name}`}
-                    className="text-slate-500 hover:text-emerald-800"
+                    className="text-slate-500 hover:text-primary-800"
                     onClick={() => setEditingTable(t.id)}
                   >
                     ✎

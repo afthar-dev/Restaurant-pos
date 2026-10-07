@@ -42,7 +42,7 @@ export function AdminLayout() {
             to={t.to}
             className={({ isActive }) =>
               `rounded-md px-3 py-1.5 text-sm font-medium ${
-                isActive ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600'
+                isActive ? 'bg-primary-50 text-green-800' : 'text-slate-600'
               }`
             }
           >

@@ -157,7 +157,7 @@ function StaffForm({ existing, onDone }: { existing: Staff | null; onDone: () =>
 function StatusBadge({ staff }: { staff: Staff }) {
   if (staff.archivedAt) return <span className="text-slate-500">Archived</span>;
   if (staff.lockedUntil) return <span className="text-amber-700">Locked</span>;
-  return <span className="text-emerald-700">Active</span>;
+  return <span className="text-green-700">Active</span>;
 }
 
 export function StaffPage() {

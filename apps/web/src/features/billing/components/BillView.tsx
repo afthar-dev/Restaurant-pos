@@ -57,7 +57,7 @@ export function BillView({ bill, actions }: { bill: Bill; actions?: ReactNode })
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
             bill.status === 'PAID'
-              ? 'bg-emerald-100 text-emerald-800'
+              ? 'bg-green-100 text-green-800'
               : bill.status === 'VOID'
                 ? 'bg-slate-200 text-slate-700'
                 : 'bg-amber-100 text-amber-900'
@@ -84,7 +84,7 @@ export function BillView({ bill, actions }: { bill: Bill; actions?: ReactNode })
                     </span>
                   )}
                   {l.itemDiscount > 0 && (
-                    <span className="block text-xs text-emerald-800">
+                    <span className="block text-xs text-green-800">
                       {rupees(l.itemDiscount)} off
                     </span>
                   )}

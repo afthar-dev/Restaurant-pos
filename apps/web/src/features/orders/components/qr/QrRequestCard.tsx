@@ -39,9 +39,9 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
   return (
     <section
       aria-label={`QR order from ${request.tableName ?? 'the table'}`}
-      className="flex flex-col gap-2 rounded-lg border-2 border-amber-400 bg-amber-50 p-3"
+      className="flex flex-col gap-2 rounded-lg border-2 border-violet-300 bg-violet-50 p-3 shadow-card"
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-amber-900">
+      <p className="text-xs font-semibold uppercase tracking-wide text-violet-900">
         From the table QR
       </p>
       <ul className="flex flex-col gap-1">
@@ -88,7 +88,7 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
           </li>
         ))}
       </ul>
-      {request.note && <p className="text-sm italic text-amber-950">“{request.note}”</p>}
+      {request.note && <p className="text-sm italic text-violet-950">“{request.note}”</p>}
       <p className="text-sm text-slate-600">About {rupees(request.total)} before tax</p>
       <ErrorNote message={decision.isError ? describeError(decision.error) : null} />
       {canApprove && mode === 'view' && (

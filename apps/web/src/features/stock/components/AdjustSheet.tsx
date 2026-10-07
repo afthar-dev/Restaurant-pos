@@ -45,7 +45,7 @@ export function AdjustSheet({ item, onClose }: { item: StockItem; onClose: () =>
               key={d}
               type="button"
               aria-pressed={direction === d}
-              className={`${secondaryButton} min-h-11 ${direction === d ? 'ring-2 ring-emerald-700' : ''}`}
+              className={`${secondaryButton} min-h-11 ${direction === d ? 'ring-2 ring-primary-700' : ''}`}
               onClick={() => setDirection(d)}
             >
               {d === 'remove' ? 'Remove' : 'Add'}
