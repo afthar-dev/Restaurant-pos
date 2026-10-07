@@ -105,9 +105,8 @@ Tests are exempt from rule 1: they may reach into another feature to set up a sc
 ## Tooling
 
 - `@/` is `src/`, configured in `tsconfig.json` and `vite.config.ts`.
-- `scripts/move-modules.mjs` moves modules and rewrites every import, `vi.mock` and
-  `import()` that points at them.
-- `scripts/use-feature-index.mjs` points cross-feature imports at each feature's index.
+- `scripts/check-feature-cycles.mjs` (run by `pnpm lint`) fails when features import each
+  other in a circle.
 
 ## The customer QR app (`apps/qr`)
 

@@ -1,4 +1,4 @@
-export { requestOverride, type CurrentDevice, type StaffOption } from './api';
+export { requestOverride } from './api';
 export { ApproverFields, isPin, ManagerApproval } from './components/ManagerApproval';
 export { RequireAuth } from './components/RequireAuth';
 export { useBootSession } from './hooks';

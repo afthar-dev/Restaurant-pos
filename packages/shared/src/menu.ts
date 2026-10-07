@@ -33,8 +33,6 @@ export type PrinterPurpose = (typeof PRINTER_PURPOSES)[number];
 export const PRINTER_MODES = ['BROWSER', 'AGENT'] as const;
 export type PrinterMode = (typeof PRINTER_MODES)[number];
 
-export const PAPER_WIDTHS = [58, 80] as const;
-
 export const priceSchema = z
   .number()
   .int('Price must be in whole paise')
@@ -111,7 +109,6 @@ export const variantInputSchema = z.strictObject({
   parcelPrice: priceSchema.optional(),
   packagingCharge: priceSchema.optional(),
 });
-export type VariantInput = z.infer<typeof variantInputSchema>;
 
 export const comboComponentSchema = z.strictObject({
   variantId: z.uuid(),
