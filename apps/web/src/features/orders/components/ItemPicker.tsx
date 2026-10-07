@@ -69,7 +69,7 @@ export function ItemPicker({
               <label
                 key={v.id}
                 className={`flex min-h-11 items-center gap-2 rounded-md border px-3 ${
-                  v.id === variantId ? 'border-primary-700 bg-primary-50' : 'border-slate-300'
+                  v.id === variantId ? 'border-primary-700 bg-primary-50' : 'border-border-strong'
                 }`}
               >
                 <input
@@ -93,7 +93,7 @@ export function ItemPicker({
         return (
           <fieldset key={group.id} className="flex flex-col gap-2">
             <legend className="text-sm font-semibold">
-              {group.name} <span className="font-normal text-slate-500">{requirement(group)}</span>
+              {group.name} <span className="font-normal text-subtle">{requirement(group)}</span>
             </legend>
             <div className="flex flex-wrap gap-2">
               {group.addons.map((addon) => {
@@ -109,7 +109,7 @@ export function ItemPicker({
                     className={`flex min-h-11 items-center gap-2 rounded-md border px-3 ${
                       chosen.includes(addon.id)
                         ? 'border-primary-700 bg-primary-50'
-                        : 'border-slate-300'
+                        : 'border-border-strong'
                     } ${addon.isAvailable ? '' : 'opacity-50'}`}
                   >
                     <input

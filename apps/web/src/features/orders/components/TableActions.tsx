@@ -59,21 +59,19 @@ function TableSheet({ order, mode, onDone }: { order: Order; mode: Mode; onDone:
     <Sheet label={label} onClose={onDone}>
       <h3 className="text-lg font-semibold">{label}</h3>
       {mode === 'merge' && (
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-muted">
           The other table&apos;s dishes join this order; both tables stay taken until the bill is
           paid.
         </p>
       )}
       {floor.data && areas.length === 0 && (
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-muted">
           {mode === 'move' ? 'No free tables right now.' : 'No other running tables.'}
         </p>
       )}
       {areas.map((area) => (
         <section key={area.id} className="flex flex-col gap-2">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            {area.name}
-          </h4>
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-subtle">{area.name}</h4>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(5rem,1fr))] gap-2">
             {area.tables.map((t) => (
               <button
@@ -83,7 +81,7 @@ function TableSheet({ order, mode, onDone }: { order: Order; mode: Mode; onDone:
                   mode === 'move' ? `Move to ${t.name}` : `Merge ${t.name} into this order`
                 }
                 disabled={act.isPending}
-                className="h-14 rounded-lg border border-slate-300 bg-white text-lg font-semibold active:bg-primary-50"
+                className="h-14 rounded-lg border border-border-strong bg-surface text-lg font-semibold active:bg-primary-50"
                 onClick={() => act.mutate(t)}
               >
                 {t.name}

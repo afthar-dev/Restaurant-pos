@@ -54,9 +54,9 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
                   : `${l.quantity} × ${dish(l.itemName, l.variantName)}`}
               </span>
               {l.addons.length > 0 && (
-                <span className="block text-xs text-slate-600">{l.addons.join(', ')}</span>
+                <span className="block text-xs text-muted">{l.addons.join(', ')}</span>
               )}
-              {l.note && <span className="block text-xs italic text-slate-600">“{l.note}”</span>}
+              {l.note && <span className="block text-xs italic text-muted">“{l.note}”</span>}
             </span>
             {mode === 'edit' ? (
               <span className="flex items-center gap-1">
@@ -89,7 +89,7 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
         ))}
       </ul>
       {request.note && <p className="text-sm italic text-violet-950">“{request.note}”</p>}
-      <p className="text-sm text-slate-600">About {rupees(request.total)} before tax</p>
+      <p className="text-sm text-muted">About {rupees(request.total)} before tax</p>
       <ErrorNote message={decision.isError ? describeError(decision.error) : null} />
       {canApprove && mode === 'view' && (
         <div className="flex flex-wrap gap-2">

@@ -107,7 +107,7 @@ export function PaymentSheet({
               className={`min-h-12 rounded-lg border text-base font-semibold ${
                 mode === m.mode
                   ? 'border-primary-700 bg-primary-700 text-white'
-                  : 'border-slate-300 bg-white'
+                  : 'border-border-strong bg-surface'
               }`}
               onClick={() => setMode(m.mode)}
             >

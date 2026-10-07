@@ -31,7 +31,7 @@ function KotPrint({ kot, orderId }: { kot: OrderKot; orderId: string }) {
             ? 'font-semibold text-red-700'
             : kot.print === 'WAITING'
               ? 'text-amber-800'
-              : 'text-slate-500'
+              : 'text-subtle'
         }
       >
         {PRINT_LABEL[kot.print]}
@@ -39,7 +39,7 @@ function KotPrint({ kot, orderId }: { kot: OrderKot; orderId: string }) {
       <button
         type="button"
         aria-label={`Reprint KOT ${kot.kotNo}`}
-        className="text-slate-700 underline disabled:opacity-50"
+        className="text-text underline disabled:opacity-50"
         disabled={reprint.isPending}
         onClick={() => reprint.mutate()}
       >
@@ -101,14 +101,14 @@ export function KotCard({
           <KotPrint kot={kot} orderId={order.id} />
         </span>
       </div>
-      <ul className="divide-y divide-slate-100">
+      <ul className="divide-y divide-border">
         {lines.map((line) => (
           <li key={line.id} className="flex flex-col gap-2 py-2">
             <div className="flex items-center justify-between gap-2">
               <span>
                 {line.quantity} × {line.itemName}
                 {lineDetail(line) && (
-                  <span className="text-xs text-slate-500"> · {lineDetail(line)}</span>
+                  <span className="text-xs text-subtle"> · {lineDetail(line)}</span>
                 )}
               </span>
               <span className="flex items-center gap-2">

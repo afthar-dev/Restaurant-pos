@@ -32,7 +32,7 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
 
   if (!menu.data) {
     if (menu.isError) return <ErrorNote message={describeError(menu.error)} />;
-    return <p className="text-slate-500">Loading menu…</p>;
+    return <p className="text-subtle">Loading menu…</p>;
   }
 
   const categories = menu.data.categories.filter((c) => c.items.length > 0);
@@ -81,7 +81,7 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
         </div>
       )}
       <ErrorNote message={addError} />
-      <p role="status" className="min-h-5 text-sm text-slate-500">
+      <p role="status" className="min-h-5 text-sm text-subtle">
         {saving > 0 ? `Adding ${saving} ${saving === 1 ? 'dish' : 'dishes'}…` : ''}
       </p>
       {picking && (

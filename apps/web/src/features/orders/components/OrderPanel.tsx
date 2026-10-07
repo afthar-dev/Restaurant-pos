@@ -19,13 +19,13 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
 
   if (!order.data) {
     if (order.isError) return <ErrorNote message={describeError(order.error)} />;
-    return <p className="text-slate-500">Loading order…</p>;
+    return <p className="text-subtle">Loading order…</p>;
   }
   const o = order.data;
 
   if (o.status === 'CANCELLED') {
     return (
-      <p className="text-slate-600">
+      <p className="text-muted">
         This order was cancelled{o.cancelReason ? `: ${o.cancelReason}` : '.'}
       </p>
     );
@@ -77,7 +77,7 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
           <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-primary-800">
             Not sent yet
           </p>
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-border">
             {newLines.map((line) => (
               <NewLineRow key={line.id} order={o} line={line} />
             ))}
@@ -85,10 +85,10 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
         </div>
       )}
 
-      {o.items.length === 0 && <p className="text-sm text-slate-500">Add dishes from the menu.</p>}
+      {o.items.length === 0 && <p className="text-sm text-subtle">Add dishes from the menu.</p>}
 
-      <div className="flex items-center justify-between border-t border-slate-200 pt-2">
-        <span className="text-sm text-slate-600">Total so far (before tax)</span>
+      <div className="flex items-center justify-between border-t border-border pt-2">
+        <span className="text-sm text-muted">Total so far (before tax)</span>
         <span className="text-lg font-semibold tabular-nums">{rupees(o.subtotal)}</span>
       </div>
 
@@ -105,7 +105,7 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
           </button>
         </>
       ) : o.status === 'BILLED' || o.status === 'CLOSED' ? (
-        <p role="status" className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">
+        <p role="status" className="rounded-md bg-surface-2 px-3 py-2 text-sm text-text">
           {o.status === 'BILLED'
             ? 'Bill printed. Waiting for payment.'
             : 'Paid and closed. The table is free.'}

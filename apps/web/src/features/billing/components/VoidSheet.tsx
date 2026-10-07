@@ -43,7 +43,7 @@ export function VoidSheet({ bill, onDone }: { bill: Bill; onDone: () => void }) 
   return (
     <Sheet label={`Void bill ${bill.billNo}`} onClose={onDone}>
       <h3 className="text-lg font-semibold">Void bill {bill.billNo}</h3>
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-muted">
         The bill number stays on record and the order opens again for a new bill.
         {bill.paid > 0 && ' Return the money or collect it again on the new bill.'}
       </p>

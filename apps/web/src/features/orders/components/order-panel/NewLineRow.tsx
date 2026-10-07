@@ -13,8 +13,8 @@ export function NewLineRow({ order, line }: { order: Order; line: OrderLine }) {
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 flex-col">
           <span className="font-medium">{line.itemName}</span>
-          {detail && <span className="text-xs text-slate-500">{detail}</span>}
-          {line.note && <span className="text-xs italic text-slate-500">“{line.note}”</span>}
+          {detail && <span className="text-xs text-subtle">{detail}</span>}
+          {line.note && <span className="text-xs italic text-subtle">“{line.note}”</span>}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <button
