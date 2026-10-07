@@ -9,7 +9,7 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "eslint . --max-warnings=0 && node scripts/check-feature-cycles.mjs apps/web/src apps/qr/src",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

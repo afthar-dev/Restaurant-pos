@@ -4,8 +4,58 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
-/** Feature boundaries for the two React apps (see apps/web/ARCHITECTURE.md). */
-const boundaryLevel = 'warn';
+/**
+ * Feature boundaries for the React apps (see apps/web/ARCHITECTURE.md):
+ * app/ wires features together; a feature imports another only through its index;
+ * only a feature's api.ts calls the HTTP client; components and pages use feature hooks;
+ * shared/ never imports features or app/.
+ */
+const appWiring = {
+  group: ['@/app', '@/app/*'],
+  message: 'Features and shared code must not import app wiring.',
+};
+const featureInternals = {
+  group: ['@/features/*/*'],
+  message: 'Import another feature only through its index (@/features/<name>).',
+};
+const httpClient = {
+  name: '@/shared/api/http',
+  importNames: ['apiFetch'],
+  message: "Only a feature's api.ts calls the HTTP client.",
+};
+const queryHooks = {
+  name: '@tanstack/react-query',
+  importNames: ['useQuery', 'useInfiniteQuery', 'useMutation', 'useQueryClient'],
+  message: 'Components use the hooks in the feature queries.ts and mutations.ts.',
+};
+
+/** @param {string} src the app's src folder */
+function boundaries(src) {
+  const restrict = (/** @type {object[]} */ patterns, /** @type {object[]} */ paths = []) => ({
+    'no-restricted-imports': ['error', { patterns, paths }],
+  });
+  return [
+    { files: [`${src}/app/**/*.{ts,tsx}`], rules: restrict([featureInternals]) },
+    {
+      files: [`${src}/features/**/*.{ts,tsx}`],
+      rules: restrict([appWiring, featureInternals], [httpClient]),
+    },
+    { files: [`${src}/features/**/api.ts`], rules: restrict([appWiring, featureInternals]) },
+    {
+      files: [`${src}/features/*/components/**/*.tsx`, `${src}/features/*/pages/**/*.tsx`],
+      rules: restrict([appWiring, featureInternals], [httpClient, queryHooks]),
+    },
+    {
+      files: [`${src}/shared/**/*.{ts,tsx}`],
+      rules: restrict([
+        {
+          group: ['@/features', '@/features/*', '@/app', '@/app/*'],
+          message: 'Shared code never imports features or app wiring.',
+        },
+      ]),
+    },
+  ];
+}
 
 export default tseslint.config(
   {
@@ -50,40 +100,7 @@ export default tseslint.config(
       'react-hooks/exhaustive-deps': 'error',
     },
   },
-  {
-    // Features and shared code never reach into app wiring or another feature's internals.
-    files: ['apps/web/src/features/**/*.{ts,tsx}', 'apps/web/src/shared/**/*.{ts,tsx}'],
-    rules: {
-      'no-restricted-imports': [
-        boundaryLevel,
-        {
-          patterns: [
-            {
-              group: ['@/app', '@/app/*'],
-              message: 'Features and shared code must not import app wiring.',
-            },
-            {
-              group: ['@/features/*/*'],
-              message: 'Import another feature only through its index (@/features/<name>).',
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    files: ['apps/web/src/shared/**/*.{ts,tsx}'],
-    rules: {
-      'no-restricted-imports': [
-        boundaryLevel,
-        {
-          patterns: [
-            { group: ['@/features/*', '@/app/*'], message: 'Shared code never imports features.' },
-          ],
-        },
-      ],
-    },
-  },
+  ...boundaries('apps/web/src'),
   {
     files: ['apps/api/**/*.ts'],
     languageOptions: { globals: globals.node },
