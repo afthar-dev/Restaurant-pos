@@ -5,6 +5,7 @@ import { kitchenKeys } from '@/features/kitchen';
 import { menuKeys } from '@/features/menu';
 import { floorKeys, orderKeys, qrKeys } from '@/features/orders';
 import { printKeys } from '@/features/printing';
+import { stockKeys } from '@/features/stock';
 
 type Payload = Record<string, unknown>;
 
@@ -39,4 +40,5 @@ export const INVALIDATIONS: Record<string, (payload: Payload) => QueryKey[]> = {
   'day.updated': () => [dayKeys.current],
   'print.job': () => [printKeys.jobs],
   'expense.updated': () => [expenseKeys.all, dayKeys.closeCheck],
+  'stock.updated': () => [stockKeys.all],
 };

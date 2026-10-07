@@ -37,7 +37,7 @@ export const AREAS: Area[] = [
   {
     to: '/availability',
     title: 'Item availability',
-    short: 'Stock',
+    short: 'Availability',
     body: 'Mark dishes out of stock.',
     anyOf: ['menu.availability'],
   },
@@ -54,6 +54,13 @@ export const AREAS: Area[] = [
     short: 'Day',
     body: 'Close the day, count the cash and see day reports.',
     anyOf: ['day.openClose', 'reports.dayClose'],
+  },
+  {
+    to: '/stock',
+    title: 'Stock and purchases',
+    short: 'Stock',
+    body: 'Raw materials on hand, purchases from vendors and counts.',
+    anyOf: ['stock.manage'],
   },
   {
     to: '/expenses',
