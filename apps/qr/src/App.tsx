@@ -22,7 +22,7 @@ const shell =
 type Stage =
   | { kind: 'starting' }
   | { kind: 'ready'; session: StoredSession }
-  | { kind: 'problem'; message: string }
+  | { kind: 'problem'; message: string; retry: boolean }
   | { kind: 'ended' };
 
 async function startSession(code: string): Promise<StoredSession> {
@@ -52,6 +52,8 @@ export function App({ search }: { search: string }) {
         setStage({
           kind: 'problem',
           message: error instanceof Error ? error.message : 'Please call the waiter.',
+          // An unknown sticker will not start working by trying again.
+          retry: !(error instanceof QrApiError && error.code === 'QR_UNKNOWN'),
         });
       }
     },
@@ -82,6 +84,15 @@ export function App({ search }: { search: string }) {
       <main className={shell}>
         <h1 className="text-2xl font-semibold">Sorry</h1>
         <p className="text-slate-700">{stage.message}</p>
+        {stage.retry && (
+          <button
+            type="button"
+            className={`${button} bg-emerald-700 text-white`}
+            onClick={() => void begin(false)}
+          >
+            Try again
+          </button>
+        )}
       </main>
     );
   }
@@ -137,12 +148,26 @@ function Ordering({ session, onEnded }: { session: StoredSession; onEnded: () =>
     [session.token],
   );
 
-  useEffect(() => {
+  const loadMenu = useCallback(() => {
+    setProblem(null);
     call<MenuData>('/api/qr/menu').then(setMenu, (error: unknown) => {
       if (!isSessionEnded(error)) setProblem((error as Error).message);
     });
+  }, [call]);
+
+  const loadRequests = useCallback(() => {
     call<Request[]>('/api/qr/orders').then(setRequests, () => undefined);
   }, [call]);
+
+  useEffect(() => {
+    loadMenu();
+    loadRequests();
+  }, [loadMenu, loadRequests]);
+
+  /** Any change to the cart makes it a different order, so it needs a new request id. */
+  function cartChanged() {
+    requestId.current = null;
+  }
 
   const waiting = requests.some((r) => r.status === 'PENDING');
   useEffect(() => {
@@ -154,6 +179,7 @@ function Ordering({ session, onEnded }: { session: StoredSession; onEnded: () =>
   }, [waiting, call]);
 
   function addToCart(line: CartLine) {
+    cartChanged();
     setCart((current) => {
       const same = current.find((l) => l.key === line.key);
       if (!same) return [...current, line];
@@ -191,6 +217,8 @@ function Ordering({ session, onEnded }: { session: StoredSession; onEnded: () =>
       setSendError(
         error instanceof QrApiError ? error.message : 'Could not send. Please try again.',
       );
+      // The order may have reached the staff even though the reply was lost: show it if so.
+      loadRequests();
     } finally {
       setBusy(false);
     }
@@ -206,7 +234,18 @@ function Ordering({ session, onEnded }: { session: StoredSession; onEnded: () =>
         <h1 className="text-2xl font-semibold">Table {session.table}</h1>
       </header>
       <Requests requests={requests} />
-      {problem && <p className="rounded-xl bg-red-50 px-3 py-2 text-red-800">{problem}</p>}
+      {problem && (
+        <div className="flex flex-col gap-2 rounded-xl bg-red-50 px-3 py-2 text-red-800">
+          <p>{problem}</p>
+          <button
+            type="button"
+            className={`${button} border border-red-300 bg-white`}
+            onClick={loadMenu}
+          >
+            Try again
+          </button>
+        </div>
+      )}
       {menu ? <Menu menu={menu} onPick={setPicking} /> : !problem && <p>Loading the menu…</p>}
       {picking && <ItemSheet item={picking} onAdd={addToCart} onClose={() => setPicking(null)} />}
       {dishes > 0 && (
@@ -225,13 +264,14 @@ function Ordering({ session, onEnded }: { session: StoredSession; onEnded: () =>
           lines={cart}
           busy={busy}
           error={sendError}
-          onQuantity={(key, quantity) =>
+          onQuantity={(key, quantity) => {
+            cartChanged();
             setCart((current) =>
               quantity <= 0
                 ? current.filter((l) => l.key !== key)
                 : current.map((l) => (l.key === key ? { ...l, quantity } : l)),
-            )
-          }
+            );
+          }}
           onSend={(note) => void send(note)}
           onClose={() => setCartOpen(false)}
         />

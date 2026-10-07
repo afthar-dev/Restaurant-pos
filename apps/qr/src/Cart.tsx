@@ -84,6 +84,9 @@ export function Cart({
       >
         {busy ? 'Sending…' : 'Send to the staff'}
       </button>
+      <button type="button" className={`${button} border border-slate-300`} onClick={onClose}>
+        Close
+      </button>
     </Sheet>
   );
 }
