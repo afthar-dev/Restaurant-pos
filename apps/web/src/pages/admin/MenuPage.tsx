@@ -23,7 +23,7 @@ import {
   type MenuAddonGroup,
   type MenuCategory,
   type MenuItem,
-} from './menu-types';
+} from '@/features/menu/types';
 import { taxRatesKey, type TaxRate } from './TaxPage';
 
 function AddCategoryForm({ stations }: { stations: Station[] }) {

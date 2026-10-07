@@ -1,14 +1,14 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useSession } from '@/shared/session/store';
-import type * as PrintWorker from '@/print/PrintWorker';
-import { renderQrStickers, stickerUrl } from '@/print/qrStickers';
+import type * as PrintWorker from '@/features/printing/PrintWorker';
+import { renderQrStickers, stickerUrl } from '@/features/printing/templates/qrStickers';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
 import { renderWithProviders } from '@/test/render';
 import { QrStickers } from './QrStickers';
 
 const printed: string[] = [];
-vi.mock('@/print/PrintWorker', async (original) => ({
+vi.mock('@/features/printing/PrintWorker', async (original) => ({
   ...(await original<typeof PrintWorker>()),
   printHtmlInIframe: vi.fn(async (html: string) => {
     printed.push(html);

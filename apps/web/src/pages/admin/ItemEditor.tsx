@@ -22,7 +22,7 @@ import {
   type MenuAddonGroup,
   type MenuCategory,
   type MenuItem,
-} from './menu-types';
+} from '@/features/menu/types';
 import type { TaxRate } from './TaxPage';
 
 interface VariantRow {

@@ -12,7 +12,7 @@ import {
   secondaryButton,
 } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
-import { addonGroupsKey, menuKey, type MenuAddonGroup } from './menu-types';
+import { addonGroupsKey, menuKey, type MenuAddonGroup } from '@/features/menu/types';
 
 interface Row {
   key: number;

@@ -2,7 +2,7 @@ import { DEVICE_TYPES, registerDeviceSchema, type DeviceType } from '@rpos/share
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { apiFetch } from '@/shared/api/http';
-import { useCurrentDevice } from '@/auth/hooks';
+import { useCurrentDevice } from '@/features/auth/hooks';
 import {
   ConfirmBar,
   describeError,
