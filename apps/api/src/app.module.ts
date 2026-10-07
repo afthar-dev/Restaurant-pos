@@ -22,6 +22,7 @@ import { PrintModule } from './print/print.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { QrModule } from './qr/qr.module';
+import { StockModule } from './stock/stock.module';
 import { TaxModule } from './tax/tax.module';
 import { UsersModule } from './users/users.module';
 
@@ -35,6 +36,7 @@ import { UsersModule } from './users/users.module';
     }),
     AuditModule,
     ExpensesModule,
+    StockModule,
     AuthModule,
     DevicesModule,
     UsersModule,
