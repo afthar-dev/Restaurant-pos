@@ -1,5 +1,6 @@
 import type { QueryKey } from '@tanstack/react-query';
 import { dayKeys } from '@/features/day';
+import { expenseKeys } from '@/features/expenses';
 import { kitchenKeys } from '@/features/kitchen';
 import { menuKeys } from '@/features/menu';
 import { floorKeys, orderKeys, qrKeys } from '@/features/orders';
@@ -37,4 +38,5 @@ export const INVALIDATIONS: Record<string, (payload: Payload) => QueryKey[]> = {
   'menu.availability': () => [menuKeys.all],
   'day.updated': () => [dayKeys.current],
   'print.job': () => [printKeys.jobs],
+  'expense.updated': () => [expenseKeys.all, dayKeys.closeCheck],
 };

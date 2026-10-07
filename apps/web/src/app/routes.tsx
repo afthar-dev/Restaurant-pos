@@ -4,6 +4,7 @@ import { AppShell } from './AppShell';
 import { AddonsPage, AvailabilityPage, MenuPage } from '@/features/menu';
 import { CaptainPage, PosPage } from '@/features/service';
 import { DayPage } from '@/features/day';
+import { ExpensesPage } from '@/features/expenses';
 import { KdsPage } from '@/features/kitchen';
 import { ADMIN_PERMISSIONS, Home } from './Home';
 import { NotFound } from './NotFound';
@@ -60,6 +61,14 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth anyOf={['day.openClose', 'reports.dayClose']}>
             <DayPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'expenses',
+        element: (
+          <RequireAuth anyOf={['expense.manage']}>
+            <ExpensesPage />
           </RequireAuth>
         ),
       },

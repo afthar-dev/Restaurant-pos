@@ -91,6 +91,7 @@ ${section(
     .map((d) => row(`Bill ${d.billNo}${d.reason ? ` · ${e(d.reason)}` : ''}`, money(d.amount)))
     .join(''),
 )}
+${section('Expenses', r.expenses.byCategory.map((x) => row(e(x.name), money(x.amount))).join(''))}
 ${section(
   'Cash',
   [

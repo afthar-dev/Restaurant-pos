@@ -56,6 +56,13 @@ export const AREAS: Area[] = [
     anyOf: ['day.openClose', 'reports.dayClose'],
   },
   {
+    to: '/expenses',
+    title: 'Expenses',
+    short: 'Expenses',
+    body: 'Record money spent today: gas, salaries, repairs.',
+    anyOf: ['expense.manage'],
+  },
+  {
     to: '/admin',
     title: 'Admin',
     short: 'Admin',
