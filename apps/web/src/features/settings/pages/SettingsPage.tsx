@@ -19,7 +19,7 @@ import {
   primaryButton,
   type FieldErrors,
 } from '@/shared/ui';
-import type { OutletSettings } from '@/features/settings';
+import type { OutletSettings } from '..';
 
 const TAX_LABEL: Record<TaxScheme, string> = {
   REGULAR: 'GST regular (CGST + SGST on bills)',

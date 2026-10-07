@@ -1,4 +1,4 @@
-import { FOOD_DOT, type Menu, type MenuAddon, type MenuItem, menuKeys } from '@/features/menu';
+import { FOOD_DOT, type Menu, type MenuAddon, type MenuItem, menuKeys } from '..';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { apiFetch } from '@/shared/api/http';

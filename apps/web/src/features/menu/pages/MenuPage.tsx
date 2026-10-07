@@ -6,7 +6,7 @@ import {
   type MenuCategory,
   type MenuItem,
   menuKeys,
-} from '@/features/menu';
+} from '..';
 import { rupees } from '@/shared/lib/money';
 import { categorySchema } from '@rpos/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -21,9 +21,9 @@ import {
   primaryButton,
   secondaryButton,
 } from '@/shared/ui';
-import { ItemEditor } from './ItemEditor';
-import { stationsKey, type Station } from './KitchenPage';
-import { taxRatesKey, type TaxRate } from './TaxPage';
+import { ItemEditor } from '../components/ItemEditor';
+import { stationsKey, type Station } from '@/features/kitchen-setup/pages/KitchenPage';
+import { taxRatesKey, type TaxRate } from '@/features/tax/pages/TaxPage';
 
 function AddCategoryForm({ stations }: { stations: Station[] }) {
   const queryClient = useQueryClient();

@@ -1,4 +1,4 @@
-import { type MenuAddonGroup, menuKeys } from '@/features/menu';
+import { type MenuAddonGroup, menuKeys } from '..';
 import { addonGroupSchema, paiseToRupeesInput, parseRupees } from '@rpos/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';

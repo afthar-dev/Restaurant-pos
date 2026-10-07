@@ -1,4 +1,4 @@
-import { QrStickers } from './QrStickers';
+import { QrStickers } from '../components/QrStickers';
 import { areaSchema, tableSchema } from '@rpos/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';

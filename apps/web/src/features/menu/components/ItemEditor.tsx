@@ -1,10 +1,4 @@
-import {
-  FOOD_LABEL,
-  type MenuAddonGroup,
-  type MenuCategory,
-  type MenuItem,
-  menuKeys,
-} from '@/features/menu';
+import { FOOD_LABEL, type MenuAddonGroup, type MenuCategory, type MenuItem, menuKeys } from '..';
 import {
   FOOD_TYPES,
   itemSchema,
@@ -23,7 +17,7 @@ import {
   primaryButton,
   secondaryButton,
 } from '@/shared/ui';
-import type { TaxRate } from './TaxPage';
+import type { TaxRate } from '@/features/tax/pages/TaxPage';
 
 interface VariantRow {
   key: number;
