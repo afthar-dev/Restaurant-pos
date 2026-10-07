@@ -25,5 +25,3 @@ export function expenseView(e: ExpenseRow) {
     voidReason: e.voidReason,
   };
 }
-
-export type ExpenseView = ReturnType<typeof expenseView>;

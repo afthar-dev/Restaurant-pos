@@ -109,6 +109,25 @@ describe('StockPage', () => {
   });
 });
 
+describe('StockPage remove item', () => {
+  it('removes an item after a confirmation', async () => {
+    asManager();
+    const mock = mockApi({
+      'GET /api/stock/items': () => json(ITEMS),
+      [`POST /api/stock/items/${ONION}/archive`]: () => json(item(), 201),
+    });
+    renderRoute('/stock');
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Onion' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Edit Onion' });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Remove this item' }));
+    expect(callsTo(mock, 'POST', `/api/stock/items/${ONION}/archive`)).toHaveLength(0);
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Yes, remove Onion' }));
+    await expect
+      .poll(() => callsTo(mock, 'POST', `/api/stock/items/${ONION}/archive`).length)
+      .toBe(1);
+  });
+});
+
 describe('StockPage zero count', () => {
   it('accepts "0.000" when the item ran out', async () => {
     asManager();

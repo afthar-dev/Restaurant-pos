@@ -7,6 +7,7 @@ import {
 } from '@rpos/shared';
 import { useState, type FormEvent } from 'react';
 import {
+  ConfirmBar,
   describeError,
   ErrorNote,
   Field,
@@ -17,7 +18,7 @@ import {
   Sheet,
   type FieldErrors,
 } from '@/shared/ui';
-import { useSaveStockItem } from '../mutations';
+import { useArchiveStockItem, useSaveStockItem } from '../mutations';
 import type { StockItem } from '../types';
 
 /** Add a stock item, or edit its name, unit and low-stock level. */
@@ -35,6 +36,9 @@ export function StockItemSheet({
   );
   const [errors, setErrors] = useState<FieldErrors>({});
   const save = useSaveStockItem(existing, onClose);
+  const [removing, setRemoving] = useState(false);
+  const archive = useArchiveStockItem(onClose);
+  const failed = [save, archive].find((m) => m.isError);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -94,7 +98,7 @@ export function StockItemSheet({
             onChange={(e) => setMinLevel(e.target.value)}
           />
         </Field>
-        <ErrorNote message={save.isError ? describeError(save.error) : null} />
+        <ErrorNote message={failed ? describeError(failed.error) : null} />
         <div className="flex gap-2">
           <button type="submit" className={primaryButton} disabled={save.isPending}>
             Save
@@ -104,6 +108,24 @@ export function StockItemSheet({
           </button>
         </div>
       </form>
+      {existing &&
+        (removing ? (
+          <ConfirmBar
+            question={`Remove ${existing.name} from the stock list? Its history is kept.`}
+            confirmLabel={`Yes, remove ${existing.name}`}
+            onConfirm={() => archive.mutate(existing)}
+            onCancel={() => setRemoving(false)}
+            busy={archive.isPending}
+          />
+        ) : (
+          <button
+            type="button"
+            className="self-start text-sm text-red-700 underline"
+            onClick={() => setRemoving(true)}
+          >
+            Remove this item
+          </button>
+        ))}
     </Sheet>
   );
 }

@@ -4,4 +4,6 @@ module.exports = {
   testRegex: '.*\.spec\.ts$',
   transform: { '^.+\.ts$': 'ts-jest' },
   testEnvironment: 'node',
+  // Keep coverage reports out of src/.
+  coverageDirectory: '../coverage',
 };
