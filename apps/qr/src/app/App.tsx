@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { isSessionEnded, qrFetch, QrApiError } from './api';
-import { Cart } from './Cart';
-import { button, ItemSheet } from './ItemSheet';
-import { Menu } from './Menu';
-import { rupees } from './money';
-import { Requests } from './Requests';
-import { forgetSession, loadSession, saveSession, type StoredSession } from './session';
-import type { CartLine, Menu as MenuData, MenuItem, Request } from './types';
+import { isSessionEnded, qrFetch, QrApiError } from '@/shared/api/http';
+import { Cart } from '@/features/cart/components/Cart';
+import { button, ItemSheet } from '@/features/menu/components/ItemSheet';
+import { Menu } from '@/features/menu/components/Menu';
+import { rupees } from '@/shared/lib/money';
+import { Requests } from '@/features/requests/components/Requests';
+import {
+  forgetSession,
+  loadSession,
+  saveSession,
+  type StoredSession,
+} from '@/features/session/storage';
+import type { CartLine, Menu as MenuData, MenuItem, Request } from '@/shared/types';
 
 /** While anything waits for staff, check for their decision this often. */
 const STATUS_POLL_MS = 5_000;

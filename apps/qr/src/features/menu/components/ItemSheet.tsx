@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { rupees } from './money';
-import type { CartLine, MenuItem } from './types';
+import { rupees } from '@/shared/lib/money';
+import type { CartLine, MenuItem } from '@/shared/types';
 
 export const button =
   'min-h-12 rounded-xl px-4 text-base font-semibold disabled:cursor-not-allowed disabled:opacity-50';

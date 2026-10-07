@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { App } from './App';
-import { callsTo, json, mockApi } from './test/mock';
+import { callsTo, json, mockApi } from '@/test/mock';
 
 const CODE = 'c'.repeat(43);
 

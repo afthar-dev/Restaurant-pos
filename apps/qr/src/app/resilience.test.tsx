@@ -1,8 +1,8 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { qrFetch, QrApiError } from './api';
+import { qrFetch, QrApiError } from '@/shared/api/http';
 import { App } from './App';
-import { callsTo, json, mockApi } from './test/mock';
+import { callsTo, json, mockApi } from '@/test/mock';
 
 const CODE = 'c'.repeat(43);
 

@@ -1,5 +1,5 @@
-import { rupees } from './money';
-import type { Request } from './types';
+import { rupees } from '@/shared/lib/money';
+import type { Request } from '@/shared/types';
 
 const TONE: Record<Request['status'], string> = {
   PENDING: 'border-amber-300 bg-amber-50 text-amber-950',
