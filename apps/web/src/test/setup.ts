@@ -1,8 +1,10 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
-import { resetRefreshState } from '../auth/api';
-import { resetSessionStore } from '../auth/store';
+import { resetRefreshState } from '@/shared/api/http';
+import { resetSessionStore } from '@/shared/session/store';
+import { useStationFilter } from '@/features/kitchen/store';
+import { useNotifications } from '@/features/notifications/store';
 
 // No real sockets in tests. Tests that check realtime behaviour mock this module themselves.
 vi.mock('socket.io-client', () => ({
@@ -31,6 +33,8 @@ beforeEach(() => {
   );
   resetSessionStore();
   resetRefreshState();
+  useNotifications.getState().reset();
+  useStationFilter.setState({ station: '' });
 });
 
 afterEach(() => {

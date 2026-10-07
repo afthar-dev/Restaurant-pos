@@ -33,6 +33,7 @@ jobs:
       - run: pnpm --filter @rpos/shared build
       - run: pnpm --filter @rpos/api exec prisma generate
       - run: pnpm format:check
+      - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm --filter @rpos/api test:e2e
