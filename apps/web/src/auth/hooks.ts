@@ -18,7 +18,8 @@ export function useBootSession(): void {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const attempt = async () => {
       const outcome = await refreshSession();
-      if (!cancelled && outcome === 'unavailable') timer = setTimeout(attempt, BOOT_RETRY_MS);
+      if (!cancelled && outcome === 'unavailable')
+        timer = setTimeout(() => void attempt(), BOOT_RETRY_MS);
     };
     void attempt();
     return () => {

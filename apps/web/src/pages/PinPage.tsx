@@ -30,7 +30,7 @@ function PinPad({ staff, onBack }: { staff: StaffOption; onBack: () => void }) {
         skipRefresh: true,
       });
       setSession(body);
-      navigate(from, { replace: true });
+      void navigate(from, { replace: true });
     } catch (err) {
       setError(signInErrorMessage(err, 'Wrong PIN.'));
       setPin('');

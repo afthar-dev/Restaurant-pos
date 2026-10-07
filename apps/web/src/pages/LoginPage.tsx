@@ -46,7 +46,7 @@ export function LoginPage() {
         skipRefresh: true,
       });
       setSession(body);
-      navigate(from, { replace: true });
+      void navigate(from, { replace: true });
     } catch (err) {
       setError(signInErrorMessage(err, 'Wrong phone number or password.'));
     } finally {

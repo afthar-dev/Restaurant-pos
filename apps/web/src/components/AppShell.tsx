@@ -21,7 +21,7 @@ function SignOutButton() {
     }
     clear();
     queryClient.clear();
-    navigate('/', { replace: true });
+    void navigate('/', { replace: true });
   }
 
   return (
