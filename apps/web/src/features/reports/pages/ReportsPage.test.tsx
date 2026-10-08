@@ -63,7 +63,9 @@ describe('ReportsPage', () => {
     asOwner();
     const mock = mockApi({ 'GET /api/reports/sales': () => json(REPORT) });
     renderRoute('/reports');
-    expect(await screen.findByText('₹1,170.50', { selector: 'span' })).toBeInTheDocument();
+    expect(
+      await screen.findByText('₹1,170.50', { selector: 'span:not([aria-hidden="true"] span)' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('₹1,160.50')).toBeInTheDocument();
     const url = String(callsTo(mock, 'GET', '/api/reports/sales')[0]?.[0]);
     expect(url).toMatch(/from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}/);

@@ -21,16 +21,16 @@ export function TopDishes({ items }: { items: Item[] }) {
         {top.map((i) => (
           <li
             key={`${i.itemName}-${i.variantName}`}
-            className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-sm"
+            className="grid grid-cols-[minmax(0,11rem)_1fr_auto] items-center gap-3 text-sm"
           >
             <span className="truncate text-text">{dishName(i)}</span>
-            <span aria-hidden="true" className="h-2.5 rounded-full bg-surface-2">
+            <span aria-hidden="true" className="h-2 rounded-full bg-surface-2">
               <span
                 className="block h-full rounded-full bg-primary-600"
                 style={{ width: `${max > 0 ? Math.round((i.amount / max) * 100) : 0}%` }}
               />
             </span>
-            <span className="font-medium tabular-nums">{rupees(i.amount)}</span>
+            <span className="text-right font-medium tabular-nums">{rupees(i.amount)}</span>
           </li>
         ))}
       </ol>

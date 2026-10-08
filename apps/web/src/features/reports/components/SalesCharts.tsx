@@ -4,7 +4,7 @@ import { Card, CardBody } from '@/shared/ui';
 import { AreaTrend } from '../charts/AreaTrend';
 import { ChartFrame } from '../charts/ChartFrame';
 import { ColumnChart } from '../charts/ColumnChart';
-import { PaymentMix } from '../charts/PaymentMix';
+import { PaymentDonut } from '../charts/PaymentDonut';
 import { dayPoints, hourPoints } from '../charts/points';
 import { billCount, dayLabel, hourRange } from '../charts/scale';
 import { TopDishes } from '../charts/TopDishes';
@@ -55,7 +55,7 @@ export function SalesCharts({ report }: { report: SalesReport }) {
         {paid > 0 && (
           <Card>
             <CardBody>
-              <PaymentMix payments={summary.payments} />
+              <PaymentDonut payments={summary.payments} />
             </CardBody>
           </Card>
         )}

@@ -75,10 +75,7 @@ describe('SalesCharts', () => {
     const legend = within(screen.getByRole('list', { name: 'Payment modes' }));
     expect(legend.getByText('Card').closest('li')).toHaveTextContent('Card₹00%');
     expect(legend.getByText('Cash').closest('li')).toHaveTextContent('Cash₹5,00033%');
-    expect(
-      screen.getByRole('img', { name: 'Cash ₹5,000 (33%), UPI ₹10,000 (67%), Card ₹0 (0%)' })
-        .children,
-    ).toHaveLength(2);
+    expect(document.querySelectorAll('.recharts-pie-sector')).toHaveLength(2);
   });
 
   it('lists every day for screen readers', () => {
