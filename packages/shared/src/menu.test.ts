@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyPriceChange,
+  bulkPriceSchema,
+  reorderSchema,
   addonGroupSchema,
   itemSchema,
   paiseToRupeesInput,
@@ -130,5 +133,59 @@ describe('taxRateSchema', () => {
     expect(taxRateSchema.safeParse({ name: 'GST 18%', totalBp: 1800 }).success).toBe(true);
     expect(taxRateSchema.safeParse({ name: 'Odd', totalBp: 501 }).success).toBe(false);
     expect(taxRateSchema.safeParse({ name: 'Too much', totalBp: 3000 }).success).toBe(false);
+  });
+});
+
+describe('applyPriceChange', () => {
+  const pct = (basisPoints: number) => ({ kind: 'percent' as const, basisPoints });
+  const amt = (paise: number) => ({ kind: 'amount' as const, paise });
+
+  it('raises and lowers by a percentage, rounded to ₹1, ₹5 or ₹10', () => {
+    expect(applyPriceChange(18000, pct(500), 100)).toBe(18900);
+    expect(applyPriceChange(18000, pct(500), 500)).toBe(19000);
+    expect(applyPriceChange(33000, pct(500), 500)).toBe(34500);
+    expect(applyPriceChange(18000, pct(500), 1000)).toBe(19000);
+    expect(applyPriceChange(18000, pct(-1000), 100)).toBe(16200);
+  });
+
+  it('rounds halves up', () => {
+    expect(applyPriceChange(12250, amt(0), 500)).toBe(12500);
+    expect(applyPriceChange(12249, amt(0), 500)).toBe(12000);
+  });
+
+  it('adds or takes away rupees, and can go below zero for the caller to refuse', () => {
+    expect(applyPriceChange(18000, amt(2000), 100)).toBe(20000);
+    expect(applyPriceChange(18000, amt(-20000), 100)).toBe(-2000);
+  });
+
+  it('keeps a free item free for percentages only', () => {
+    expect(applyPriceChange(0, pct(1000), 100)).toBe(0);
+    expect(applyPriceChange(0, amt(1000), 100)).toBe(1000);
+  });
+});
+
+describe('bulk menu schemas', () => {
+  const id = '00000000-0000-4000-8000-000000000001';
+  const id2 = '00000000-0000-4000-8000-000000000002';
+
+  it('accepts a reorder only with each id once', () => {
+    expect(reorderSchema.safeParse({ ids: [id, id2] }).success).toBe(true);
+    expect(reorderSchema.safeParse({ ids: [id, id] }).success).toBe(false);
+    expect(reorderSchema.safeParse({ ids: [] }).success).toBe(false);
+  });
+
+  it('accepts a bulk price change within limits', () => {
+    const ok = { itemIds: [id], change: { kind: 'percent', basisPoints: 500 }, roundTo: 500 };
+    expect(bulkPriceSchema.safeParse(ok).success).toBe(true);
+    for (const bad of [
+      { ...ok, itemIds: [] },
+      { ...ok, roundTo: 200 },
+      { ...ok, change: { kind: 'percent', basisPoints: 0 } },
+      { ...ok, change: { kind: 'percent', basisPoints: -9500 } },
+      { ...ok, change: { kind: 'amount', paise: 2_000_000 } },
+      { ...ok, change: { kind: 'amount', paise: 1.5 } },
+    ]) {
+      expect(bulkPriceSchema.safeParse(bad).success).toBe(false);
+    }
   });
 });
