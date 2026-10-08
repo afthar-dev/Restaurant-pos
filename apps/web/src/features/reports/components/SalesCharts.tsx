@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { rupees } from '@/shared/lib/money';
 import { Card, CardBody } from '@/shared/ui';
-import { BarChart } from '../charts/BarChart';
+import { AreaTrend } from '../charts/AreaTrend';
 import { ChartFrame } from '../charts/ChartFrame';
 import { ColumnChart } from '../charts/ColumnChart';
 import { PaymentMix } from '../charts/PaymentMix';
@@ -43,11 +43,12 @@ export function SalesCharts({ report }: { report: SalesReport }) {
         {peak && (
           <Card>
             <CardBody>
-              <BarChart
+              <ChartFrame
                 title="Busiest hours"
                 takeaway={`Busiest: ${hourRange(peak.hour)}, ${rupees(peak.total)} from ${billCount(peak.bills)}`}
-                bars={hourPoints(hours)}
-              />
+              >
+                <AreaTrend title="Busiest hours" points={hourPoints(hours)} />
+              </ChartFrame>
             </CardBody>
           </Card>
         )}
