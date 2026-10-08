@@ -427,4 +427,66 @@ describe('menu', () => {
       expect(res.body.code).toBe('IN_USE');
     });
   });
+
+  /** Creates a dish and returns its id. */
+  async function newItem(body: Record<string, unknown>) {
+    const res = await createItem(body);
+    expect(res.status).toBe(201);
+    return res.body.id as string;
+  }
+
+  async function order(): Promise<[string, string[]][]> {
+    const res = await ctx.http().get('/api/menu').set(as(waiter)).expect(200);
+    return (res.body.categories as { name: string; items: { name: string }[] }[]).map((c) => [
+      c.name,
+      c.items.map((i) => i.name),
+    ]);
+  }
+
+  const putOrder = (path: string, ids: string[], token = owner) =>
+    ctx.http().put(`/api/menu/${path}`).set(as(token)).send({ ids });
+
+  it('keeps the order owners set, and adds new dishes and categories last', async () => {
+    const starters = await category('Starters');
+    const mains = await category('Mains');
+    const paneer = await newItem(itemBody(starters, { name: 'Paneer Tikka' }));
+    const aloo = await newItem(itemBody(starters, { name: 'Aloo Tikki' }));
+    // New dishes go last, so Paneer (first added) comes before Aloo.
+    expect(await order()).toEqual([
+      ['Starters', ['Paneer Tikka', 'Aloo Tikki']],
+      ['Mains', []],
+    ]);
+
+    await putOrder('categories/order', [mains, starters], manager).expect(200);
+    await putOrder(`categories/${starters}/items/order`, [aloo, paneer], manager).expect(200);
+    await newItem(itemBody(starters, { name: 'Chilli Paneer' }));
+    await category('Drinks');
+
+    expect(await order()).toEqual([
+      ['Mains', []],
+      ['Starters', ['Aloo Tikki', 'Paneer Tikka', 'Chilli Paneer']],
+      ['Drinks', []],
+    ]);
+    const actions = (await ctx.prisma.auditEntry.findMany()).map((a) => a.action);
+    expect(actions).toEqual(expect.arrayContaining(['menu.category.reorder', 'menu.item.reorder']));
+  });
+
+  it('refuses an order that is not exactly the active categories or dishes', async () => {
+    const starters = await category('Starters');
+    const mains = await category('Mains');
+    const paneer = await newItem(itemBody(starters));
+    const curry = await newItem(itemBody(mains, { name: 'Dal' }));
+    const other = await createOutlet(ctx.prisma);
+    const foreign = await ctx.prisma.category.create({
+      data: { outletId: other.id, stationId: station.id, name: 'Elsewhere' },
+    });
+
+    await putOrder('categories/order', [starters]).expect(400);
+    await putOrder('categories/order', [starters, starters]).expect(400);
+    await putOrder('categories/order', [starters, mains, foreign.id]).expect(400);
+    await putOrder(`categories/${starters}/items/order`, [paneer, curry]).expect(400);
+    await putOrder(`categories/${foreign.id}/items/order`, [paneer]).expect(404);
+    await putOrder('categories/order', [mains, starters], waiter).expect(403);
+    expect((await order()).map(([name]) => name)).toEqual(['Starters', 'Mains']);
+  });
 });

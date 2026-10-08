@@ -23,6 +23,12 @@ import {
 type Tx = Prisma.TransactionClient;
 type VariantPrices = Pick<ItemVariant, 'dineInPrice' | 'parcelPrice' | 'packagingCharge'>;
 
+/** True when `ids` is exactly the set `active`, each once. */
+const sameSet = (active: string[], ids: string[]) =>
+  active.length === ids.length &&
+  new Set(ids).size === ids.length &&
+  ids.every((id) => active.includes(id));
+
 const prices = (v: VariantPrices) => ({
   dineInPrice: v.dineInPrice,
   parcelPrice: v.parcelPrice,
@@ -83,7 +89,7 @@ export class MenuService {
         outletId: actor.outletId,
         stationId: request.stationId,
         name: request.name,
-        sortOrder: request.sortOrder ?? 0,
+        sortOrder: request.sortOrder ?? (await this.nextCategoryOrder(actor.outletId)),
       },
     });
     await this.record(
@@ -139,6 +145,68 @@ export class MenuService {
     return categoryView(category);
   }
 
+  private async nextCategoryOrder(outletId: string) {
+    const last = await this.prisma.category.aggregate({
+      where: { outletId, archivedAt: null },
+      _max: { sortOrder: true },
+    });
+    return (last._max.sortOrder ?? -1) + 1;
+  }
+
+  /** Saves the order of every active category: `ids` must be exactly those, each once. */
+  async reorderCategories(actor: AuthUser, ids: string[]) {
+    const active = await this.prisma.category.findMany({
+      where: { outletId: actor.outletId, archivedAt: null },
+      select: { id: true, name: true },
+    });
+    if (
+      !sameSet(
+        active.map((c) => c.id),
+        ids,
+      )
+    )
+      throw invalidReference('ids');
+    await this.prisma.$transaction(
+      ids.map((id, index) =>
+        this.prisma.category.update({ where: { id }, data: { sortOrder: index } }),
+      ),
+    );
+    const names = new Map(active.map((c) => [c.id, c.name]));
+    await this.record(actor, 'menu.category.reorder', 'category', ids[0]!, undefined, {
+      order: ids.map((id) => names.get(id)),
+    });
+    return { updated: ids.length };
+  }
+
+  /** Saves the order of every active dish in one category. */
+  async reorderItems(actor: AuthUser, categoryId: string, ids: string[]) {
+    const category = await this.prisma.category.findFirst({
+      where: { id: categoryId, outletId: actor.outletId, archivedAt: null },
+    });
+    if (!category) throw notFound('Category');
+    const active = await this.prisma.item.findMany({
+      where: { categoryId, archivedAt: null },
+      select: { id: true, name: true },
+    });
+    if (
+      !sameSet(
+        active.map((i) => i.id),
+        ids,
+      )
+    )
+      throw invalidReference('ids');
+    await this.prisma.$transaction(
+      ids.map((id, index) =>
+        this.prisma.item.update({ where: { id }, data: { sortOrder: index } }),
+      ),
+    );
+    const names = new Map(active.map((i) => [i.id, i.name]));
+    await this.record(actor, 'menu.item.reorder', 'category', categoryId, undefined, {
+      order: ids.map((id) => names.get(id)),
+    });
+    return { updated: ids.length };
+  }
+
   // ---------- items ----------
 
   async createItem(actor: AuthUser, request: ItemRequest): Promise<ItemView> {
@@ -146,6 +214,10 @@ export class MenuService {
     await this.assertItemNameFree(request.categoryId, request.name);
 
     const id = await this.prisma.$transaction(async (tx) => {
+      const last = await tx.item.aggregate({
+        where: { categoryId: request.categoryId, archivedAt: null },
+        _max: { sortOrder: true },
+      });
       const item = await tx.item.create({
         data: {
           outletId: actor.outletId,
@@ -155,6 +227,7 @@ export class MenuService {
           description: request.description ?? null,
           foodType: request.foodType,
           isCombo: request.isCombo,
+          sortOrder: (last._max.sortOrder ?? -1) + 1,
         },
       });
       await tx.itemVariant.createMany({

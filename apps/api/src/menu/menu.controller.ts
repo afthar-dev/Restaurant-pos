@@ -4,9 +4,11 @@ import {
   availabilitySchema,
   categorySchema,
   itemSchema,
+  reorderSchema,
   type AddonGroupRequest,
   type CategoryRequest,
   type ItemRequest,
+  type ReorderRequest,
 } from '@rpos/shared';
 import { RequirePermissions } from '../auth/decorators';
 import { CurrentUser, type AuthUser } from '../common/request-context';
@@ -29,6 +31,25 @@ export class MenuController {
     @Body(new ZodBody(categorySchema)) body: CategoryRequest,
   ) {
     return this.menu.createCategory(user, body);
+  }
+
+  @Put('categories/order')
+  @RequirePermissions('menu.manage')
+  reorderCategories(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodBody(reorderSchema)) body: ReorderRequest,
+  ) {
+    return this.menu.reorderCategories(user, body.ids);
+  }
+
+  @Put('categories/:id/items/order')
+  @RequirePermissions('menu.manage')
+  reorderItems(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodBody(reorderSchema)) body: ReorderRequest,
+  ) {
+    return this.menu.reorderItems(user, id, body.ids);
   }
 
   @Put('categories/:id')
