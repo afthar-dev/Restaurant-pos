@@ -126,6 +126,9 @@ Screens are built from the kit, not from raw Tailwind colours.
 - **`cn()` merges conflicts** with `tailwind-merge`: a later class wins (`cn(inputClass,
 'w-24')`). Plain template strings do not merge, so pass overrides through `cn`.
 - **A crashed or unloadable screen** shows `app/RouteError.tsx` inside the shell, with Reload.
+- **Counter keys:** `features/billing/components/useSettleKeys.ts` handles C/U/K/Enter/Esc for
+  settling. Any new shortcut must ignore keys typed in fields, keys while a dialog is open and
+  Enter on a focused button, the same way.
 - **Empty lists explain the next step** with `EmptyState` (icon, title, one sentence), not a
   bare "No items".
 - **Touch targets** are at least 44 px (`min-h-11`); money and quantities use `tabular-nums`.
