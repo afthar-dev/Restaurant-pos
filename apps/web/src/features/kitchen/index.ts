@@ -1,3 +1,5 @@
+import { lazy } from 'react';
+// Pages load on first visit so the POS and captain screens start fast.
 export { kitchenKeys } from './keys';
-export { KdsPage } from './pages/KdsPage';
+export const KdsPage = lazy(() => import('./pages/KdsPage').then((m) => ({ default: m.KdsPage })));
 export { useStationFilter } from './store';

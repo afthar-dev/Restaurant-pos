@@ -1,8 +1,9 @@
+import { Suspense } from 'react';
 import type { Permission } from '@rpos/shared';
 import { Navigate, NavLink, Outlet } from 'react-router';
 import { cn } from '@/shared/lib/cn';
 import { useSession } from '@/shared/session/store';
-import { EmptyState, PageHeader } from '@/shared/ui';
+import { EmptyState, LoadingScreen, PageHeader } from '@/shared/ui';
 import { Settings2 } from 'lucide-react';
 
 export const ADMIN_TABS: { to: string; label: string; permission: Permission }[] = [
@@ -65,7 +66,9 @@ export function AdminLayout() {
           </NavLink>
         ))}
       </nav>
-      <Outlet />
+      <Suspense fallback={<LoadingScreen />}>
+        <Outlet />
+      </Suspense>
     </section>
   );
 }

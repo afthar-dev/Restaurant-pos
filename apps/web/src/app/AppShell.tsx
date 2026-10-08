@@ -1,5 +1,5 @@
 import { ArrowLeft, UtensilsCrossed } from 'lucide-react';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useBootSession, useCurrentDevice } from '@/features/auth';
 import { ServerStatus } from '@/features/health';
@@ -14,6 +14,7 @@ import { BottomNav } from './shell/BottomNav';
 import { DayStatusPill } from './shell/DayStatusPill';
 import { Sidebar } from './shell/Sidebar';
 import { UserMenu } from './shell/UserMenu';
+import { LoadingScreen } from '@/shared/ui';
 
 const COLLAPSE_KEY = 'rpos.nav.collapsed';
 
@@ -86,7 +87,9 @@ function AppLayout() {
             wide ? 'w-full px-3 pt-4' : 'mx-auto w-full max-w-6xl px-4 pt-6',
           )}
         >
-          <Outlet />
+          <Suspense fallback={<LoadingScreen />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       <BottomNav entries={entries} />
@@ -108,7 +111,9 @@ function AuthLayout() {
         <ServerStatus />
       </header>
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 pb-16">
-        <Outlet />
+        <Suspense fallback={<LoadingScreen />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );
@@ -135,7 +140,9 @@ function KitchenLayout() {
         <ServerStatus />
       </div>
       <main className="px-3 pt-16 pb-3">
-        <Outlet />
+        <Suspense fallback={<LoadingScreen />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );
