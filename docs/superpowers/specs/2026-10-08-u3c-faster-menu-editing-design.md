@@ -30,7 +30,7 @@ scheduled price changes, undo for bulk changes (the audit log has before/after).
 | Duplicate | Client-side: opens `ItemEditor` in create mode with copied fields; saved with the existing create endpoint. Name gets " (copy)" because names must be unique within a category. |
 | Bulk change maths | One pure function in `packages/shared` used by both the preview and the API, so the preview is exactly what is saved. |
 | Bulk change scope | Variants of the chosen active dishes; both dine-in and parcel prices; packaging charges untouched. |
-| Drag library | `@dnd-kit/core` + `@dnd-kit/sortable` (touch and keyboard support), loaded only with the lazy Menu page. |
+| Drag library | `@dnd-kit/core` + `@dnd-kit/sortable` for mouse and touch, loaded only with the lazy Menu page; Move up/down buttons for keyboard and single tap. |
 | Reorder save | Whole list order in one request (`ids` in the new order), applied as `sortOrder = index`. |
 
 ## 3. API
@@ -99,7 +99,9 @@ Bills already store their own prices, so past bills never change.
 ### 4.4 Reorder
 - A **Reorder** toggle in the Menu header switches the list into reorder mode: each category
   header and dish row gets a drag handle (`GripVertical`, label "Move {name}"). Other actions hide.
-- Drag with mouse or touch; keyboard: focus the handle, Space to lift, arrows to move, Space to
+- Drag the handle with mouse or touch (dnd-kit pointer and touch sensors). Every row also has
+  **Move up** / **Move down** buttons (labelled with the name), the keyboard, screen-reader and
+  single-tap way to reorder (WCAG 2.5.7 needs a non-drag alternative).
   drop, Escape to cancel (dnd-kit sortable keyboard sensor), with spoken announcements.
 - Dropping saves at once (optimistic): the list shows the new order; on error it returns to the
   server order and shows the error. **Done** leaves reorder mode.
@@ -126,5 +128,5 @@ Bills already store their own prices, so past bills never change.
   below-zero → 400 and nothing saved; archived item → 400; audit entries; non-manager → 403.
 - Web: `filterMenu`; search narrows and clears; Duplicate pre-fills and posts a new item without
   variant ids; bulk dialog preview matches `applyPriceChange`, disables save on negative,
-  posts the right body, shows the toast; reorder via keyboard sensor sends the new id order and
-  reverts on error; axe on the dialog and reorder mode.
+  posts the right body, shows the toast; reorder via Move up/down sends the new id order and
+  reverts on error; `moveId` pure helper for drag ends; axe on the dialog and reorder mode.
