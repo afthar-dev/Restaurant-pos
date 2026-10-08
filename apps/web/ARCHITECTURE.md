@@ -98,9 +98,39 @@ Tests are exempt from rule 1: they may reach into another feature to set up a sc
 1. Create `features/<name>/` with `types.ts`, `api.ts` and `keys.ts`.
 2. Add `queries.ts` and `mutations.ts` hooks. Poll with `POLL_MS` when realtime is not enough.
 3. Build components and pages that use only those hooks and `shared/ui`.
-4. Export the public pieces from `index.ts`, then wire the route in `app/routes.tsx`.
+4. Export the public pieces from `index.ts`, then wire the route in `app/routes.tsx`. Export
+   pages that service staff do not open first as `lazy(() => import('./pages/…'))` so they
+   stay out of the first bundle; the shell's `Suspense` shows the loading screen meanwhile.
 5. If server notices change this data, add its keys to `features/realtime/invalidations.ts`.
 6. Run `pnpm lint && pnpm typecheck && pnpm test`.
+
+## UI kit (`shared/ui`)
+
+Screens are built from the kit, not from raw Tailwind colours.
+
+- **Colours are tokens** from `app/index.css`: `bg-bg`, `bg-surface`, `bg-surface-2`,
+  `border-border`, `border-border-strong`, `text-text`, `text-muted`, `text-subtle`, and the
+  `primary-*` scale for actions and selection. Green, amber, red, sky and violet mean success,
+  warning, danger, info and QR orders. The kitchen display sets `data-theme="dark"`, which
+  redefines the same tokens, so token classes work there unchanged.
+- **Every screen starts with `PageHeader`**: a title and one plain sentence on what the screen
+  is for. Admin sections use `as="h2"` because the Admin layout owns the h1.
+- **Pieces:** `Button`/`IconButton` (`IconButton` needs a `label`), `Card`, `Badge`,
+  `StatCard`, `DataTable`, `EmptyState`, `Skeleton`/`LoadingScreen`, `ErrorNote` (pass
+  `onRetry`), `Field` with `Input`/`Select`/`Textarea`/`MoneyInput`/`QuantityInput`.
+- **Overlays** are Radix: `Dialog` (alias `Sheet`), `ConfirmDialog` for anything destructive,
+  `Tabs`, `DropdownMenu`/`MenuItem`, `Tooltip`. They trap focus and close on Escape; dialogs do
+  not close on an outside tap unless `dismissOnOutside` is set, so a half-filled form survives
+  a stray touch.
+- **Empty lists explain the next step** with `EmptyState` (icon, title, one sentence), not a
+  bare "No items".
+- **Touch targets** are at least 44 px (`min-h-11`); money and quantities use `tabular-nums`.
+- **Icons** come from `lucide-react`, always `aria-hidden` next to visible text. A dot or icon
+  that carries meaning on its own gets `role="img"` and an `aria-label`.
+- **Accessibility tests:** call `expectNoAxeViolations()` from `src/test/a11y.ts` at the end of
+  a test that has rendered a full screen.
+- **Bundle budget:** the first bundle stays within 45 kB gzip of the pre-kit baseline
+  (215 kB JS, 5.5 kB CSS). Check with `pnpm --filter @rpos/web build`.
 
 ## Tooling
 
