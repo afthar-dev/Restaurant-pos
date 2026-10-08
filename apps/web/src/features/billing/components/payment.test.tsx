@@ -215,9 +215,8 @@ describe('paying from the order screen', () => {
     });
     const onClosed = vi.fn();
     renderWithProviders(<OrderWorkspace orderId="o1" layout="stack" onClosed={onClosed} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Take payment' }));
-    const sheet = await screen.findByRole('dialog', { name: 'Payment for bill 12' });
-    fireEvent.click(within(sheet).getByRole('button', { name: 'Record payment' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'UPI' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm ₹473 by UPI' }));
     expect(await screen.findByText('Bill 12 paid. T1 is free.')).toBeInTheDocument();
     await expect.poll(() => onClosed.mock.calls.length, { timeout: 4000 }).toBe(1);
   });
@@ -234,6 +233,65 @@ describe('paying from the order screen', () => {
     });
     renderWithProviders(<OrderWorkspace orderId="o1" layout="stack" onClosed={() => undefined} />);
     await screen.findByRole('region', { name: 'Bill 12' });
-    expect(screen.queryByRole('button', { name: 'Take payment' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'UPI' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Split or part payment' })).toBeNull();
+  });
+
+  it('opens the full sheet for a part payment from the bill', async () => {
+    asCashier();
+    const billed = order({
+      status: 'BILLED',
+      items: [line({ id: 'l2', status: 'SENT', kotId: 'k2', billedQuantity: 1 })],
+    });
+    mockApi({
+      'GET /api/orders/o1': () => json(billed),
+      'GET /api/orders/o1/bills': () => json([bill()]),
+    });
+    renderWithProviders(<OrderWorkspace orderId="o1" layout="stack" onClosed={() => undefined} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Split or part payment' }));
+    expect(await screen.findByRole('dialog', { name: 'Payment for bill 12' })).toBeInTheDocument();
+  });
+
+  it('bills a parcel and settles it on the same screen', async () => {
+    asCashier();
+    let billed = false;
+    let paid = false;
+    const parcel = order({
+      type: 'PARCEL',
+      table: null,
+      tokenNo: 7,
+      items: [line({ id: 'l2', status: 'SENT', kotId: 'k2' })],
+    });
+    const parcelBill = (partial = {}) =>
+      bill({ orderType: 'PARCEL', tableName: null, tokenNo: 7, ...partial });
+    mockApi({
+      'GET /api/orders/o1': () =>
+        json(
+          paid
+            ? { ...parcel, status: 'CLOSED' }
+            : billed
+              ? { ...parcel, status: 'BILLED' }
+              : parcel,
+        ),
+      'GET /api/orders/o1/bills': () =>
+        json(
+          billed ? [paid ? parcelBill({ status: 'PAID', paid: 47300, due: 0 }) : parcelBill()] : [],
+        ),
+      'POST /api/orders/o1/bills': () => {
+        billed = true;
+        return json({ ...parcelBill(), printQueued: 1 }, 201);
+      },
+      'POST /api/bills/b1/payments': () => {
+        paid = true;
+        return json(parcelBill({ status: 'PAID', paid: 47300, due: 0 }), 201);
+      },
+    });
+    const onClosed = vi.fn();
+    renderWithProviders(<OrderWorkspace orderId="o1" layout="stack" onClosed={onClosed} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Bill' }));
+    expect(await screen.findByRole('button', { name: 'Cash' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'UPI' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm ₹473 by UPI' }));
+    await expect.poll(() => onClosed.mock.calls.length, { timeout: 4000 }).toBe(1);
   });
 });

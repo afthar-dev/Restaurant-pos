@@ -12,19 +12,23 @@ import { SplitSheet } from './SplitSheet';
 
 /**
  * Billing for one order: the Bill / Split bill buttons while dishes are unbilled, then its
- * bills (the unpaid one open). `billActions` adds per-bill buttons (payment, void).
+ * bills (the unpaid one open). `billActions` adds per-bill buttons (void); `settle` renders
+ * payment for the open bill, with `justCreated` true for a bill made on this screen.
  */
 export function BillArea({
   order,
   billActions,
+  settle,
 }: {
   order: Order;
   billActions?: (bill: Bill) => ReactNode;
+  settle?: (bill: Bill, justCreated: boolean) => ReactNode;
 }) {
   const canBill = useCan('bill.print');
   const bills = useOrderBills(order.id);
   const [splitting, setSplitting] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [created, setCreated] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
   const newLines = order.items.filter((i) => i.status === 'NEW');
@@ -35,6 +39,7 @@ export function BillArea({
   const create = useCreateBill(order, async (bill) => {
     setSplitting(false);
     setExpanded(bill.id);
+    setCreated(bill.id);
     try {
       // The server queued it on the bill printer while creating it; print here only if none.
       if ((bill.printQueued ?? 0) > 0) setNote('Sent to the bill printer.');
@@ -87,7 +92,12 @@ export function BillArea({
       )}
       {list.map((bill) =>
         bill.id === shown ? (
-          <BillView key={bill.id} bill={bill} actions={billActions?.(bill)} />
+          <BillView
+            key={bill.id}
+            bill={bill}
+            actions={billActions?.(bill)}
+            settle={settle?.(bill, bill.id === created)}
+          />
         ) : (
           <button
             key={bill.id}

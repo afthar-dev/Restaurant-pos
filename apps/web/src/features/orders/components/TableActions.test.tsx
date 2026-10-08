@@ -49,7 +49,7 @@ describe('voiding a bill', () => {
     const mock = mockApi({
       'POST /api/bills/b1/void': () => json(bill({ status: 'VOID' }), 201),
     });
-    renderWithProviders(<BillActions bill={bill()} onPaid={() => undefined} />);
+    renderWithProviders(<BillActions bill={bill()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Void' }));
     const sheet = await screen.findByRole('dialog', { name: 'Void bill 12' });
     fireEvent.change(within(sheet).getByLabelText('Reason'), { target: { value: 'Wrong table' } });
@@ -65,7 +65,7 @@ describe('voiding a bill', () => {
       'POST /api/auth/override': () => json({ overrideToken: 'tok' }, 201),
       'POST /api/bills/b1/void': () => json(bill({ status: 'VOID' }), 201),
     });
-    renderWithProviders(<BillActions bill={bill({ status: 'PAID' })} onPaid={() => undefined} />);
+    renderWithProviders(<BillActions bill={bill({ status: 'PAID' })} />);
     fireEvent.click(screen.getByRole('button', { name: 'Void (manager)' }));
     const sheet = await screen.findByRole('dialog', { name: 'Void bill 12' });
     fireEvent.change(within(sheet).getByLabelText('Reason'), { target: { value: 'Refund' } });
@@ -82,7 +82,7 @@ describe('voiding a bill', () => {
   it('needs a reason', async () => {
     as(['bill.print', 'bill.void'], 'MANAGER');
     const mock = mockApi({});
-    renderWithProviders(<BillActions bill={bill()} onPaid={() => undefined} />);
+    renderWithProviders(<BillActions bill={bill()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Void' }));
     const sheet = await screen.findByRole('dialog', { name: 'Void bill 12' });
     fireEvent.click(within(sheet).getByRole('button', { name: 'Void bill' }));

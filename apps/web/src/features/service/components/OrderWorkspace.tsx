@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { type Bill, BillActions, BillArea } from '@/features/billing';
+import { type Bill, BillActions, BillArea, BillSettle } from '@/features/billing';
 import { MenuBrowser, orderLabel, OrderPanel, useOrder } from '@/features/orders';
 
 /** How long "Bill paid" stays before the counter goes back to the floor. */
@@ -52,7 +52,10 @@ export function OrderWorkspace({
         {billable && (
           <BillArea
             order={order.data!}
-            billActions={(bill) => <BillActions bill={bill} onPaid={setPaid} />}
+            billActions={(bill) => <BillActions bill={bill} />}
+            settle={(bill, justCreated) => (
+              <BillSettle bill={bill} onPaid={setPaid} justCreated={justCreated} />
+            )}
           />
         )}
       </div>

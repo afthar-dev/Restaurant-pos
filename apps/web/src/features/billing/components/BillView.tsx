@@ -26,7 +26,16 @@ function Row({ label, value, strong }: { label: ReactNode; value: string; strong
 }
 
 /** One bill with the server's totals, and what staff can do with it. */
-export function BillView({ bill, actions }: { bill: Bill; actions?: ReactNode }) {
+export function BillView({
+  bill,
+  actions,
+  settle,
+}: {
+  bill: Bill;
+  actions?: ReactNode;
+  /** Payment for an open bill, shown under the heading. */
+  settle?: ReactNode;
+}) {
   const canDiscount = useCan('discount.apply');
   const [discounting, setDiscounting] = useState(false);
   const [printNote, setPrintNote] = useState<string | null>(null);
@@ -69,6 +78,7 @@ export function BillView({ bill, actions }: { bill: Bill; actions?: ReactNode })
       {bill.status === 'VOID' && bill.voidReason && (
         <p className="text-muted">Voided: {bill.voidReason}</p>
       )}
+      {settle}
 
       <ul className="divide-y divide-border">
         {bill.lines.map((l) => (
