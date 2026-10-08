@@ -10,7 +10,7 @@ import {
 import { Link } from 'react-router';
 import { useBusinessDay, useCloseCheck } from '@/features/day';
 import { useQrPending } from '@/features/orders';
-import { presetRange, useSalesReport } from '@/features/reports';
+import { presetRange, useSalesReport, WeekTrend } from '@/features/reports';
 import { SetupCard } from '@/features/setup';
 import { useStockItems } from '@/features/stock';
 import { rupees } from '@/shared/lib/money';
@@ -228,6 +228,7 @@ export function HomePage() {
       {day.data && !dayOpen && <DayNotOpen />}
       {canQr && dayOpen && <QrWaiting />}
       {canSales && <SalesToday />}
+      {canSales && <WeekTrend />}
       {canClose && dayOpen && <OpenWork />}
       {canStock && <LowStock />}
       <QuickActions />

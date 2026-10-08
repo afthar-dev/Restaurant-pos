@@ -179,4 +179,64 @@ describe('HomePage', () => {
     expect(screen.queryByText('Get your restaurant ready')).toBeNull();
     localStorage.clear();
   });
+  it('shows the owner the last 7 days with empty slots for closed days', async () => {
+    useSession.getState().setSession(sessionBody('OWNER', ['reports.all'], 'Asha'));
+    const to = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+    const shift = (n: number) =>
+      new Date(Date.parse(`${to}T00:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
+    const week = {
+      ...SALES,
+      days: [
+        {
+          dayId: 'a',
+          date: shift(1),
+          status: 'CLOSED',
+          bills: 4,
+          total: 200_000,
+          cash: 0,
+          upi: 0,
+          card: 0,
+          expenses: 0,
+        },
+        {
+          dayId: 'b',
+          date: to,
+          status: 'OPEN',
+          bills: 2,
+          total: 100_000,
+          cash: 0,
+          upi: 0,
+          card: 0,
+          expenses: 0,
+        },
+        {
+          dayId: 'c',
+          date: to,
+          status: 'CLOSED',
+          bills: 1,
+          total: 50_000,
+          cash: 0,
+          upi: 0,
+          card: 0,
+          expenses: 0,
+        },
+      ],
+    };
+    const mock = mockApi({
+      'GET /api/business-day/current': () => json(DAY_OPEN),
+      'GET /api/reports/sales': () => json(week),
+    });
+    renderRoute('/');
+    expect(await screen.findByRole('heading', { level: 2, name: 'Last 7 days' })).toBeVisible();
+    expect(screen.getByText('Today ₹1,500 · 7-day total ₹3,500')).toBeInTheDocument();
+    const bars = within(screen.getByRole('group', { name: /^Last 7 days/ })).getAllByRole('img');
+    expect(bars).toHaveLength(7);
+    expect(bars[5]).toHaveAccessibleName(expect.stringContaining('₹2,000 · 4 bills'));
+    expect(bars[4]).toHaveAccessibleName(expect.stringContaining('₹0 · 0 bills'));
+    expect(screen.getByRole('link', { name: 'See reports' })).toHaveAttribute('href', '/reports');
+    const weekCall = callsTo(mock, 'GET', '/api/reports/sales').find(([url]) =>
+      String(url).includes(`from=${shift(6)}`),
+    );
+    expect(weekCall).toBeDefined();
+  });
 });
