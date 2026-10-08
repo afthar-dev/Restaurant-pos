@@ -1,5 +1,5 @@
 import { Slot } from '@radix-ui/react-slot';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react';
 import { cn } from '@/shared/lib/cn';
 import { Spinner } from './Spinner';
 import { buttonClass, type ButtonSize, type ButtonVariant } from './styles';
@@ -13,6 +13,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon?: ReactNode;
   /** Render the child (e.g. a router Link) with button styles instead of a <button>. */
   asChild?: boolean;
+  ref?: Ref<HTMLButtonElement>;
 }
 
 export function Button({
