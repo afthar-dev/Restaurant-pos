@@ -4,10 +4,11 @@ import { useSession } from '@/shared/session/store';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
 import { expectNoAxeViolations } from '@/test/a11y';
 import { renderRoute } from '@/test/render';
+import type * as photo from '../photo';
 
 // jsdom has no canvas: the shrinker is replaced; the upload itself is what is tested here.
 vi.mock('../photo', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../photo')>()),
+  ...(await importOriginal<typeof photo>()),
   shrinkPhoto: vi.fn(async () => new Blob(['small'], { type: 'image/webp' })),
 }));
 
