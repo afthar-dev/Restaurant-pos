@@ -97,7 +97,6 @@ function EditCategoryForm({
     const parsed = categorySchema.safeParse({
       name: name.trim(),
       stationId,
-      sortOrder: category.sortOrder,
     });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message);

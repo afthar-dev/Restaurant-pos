@@ -91,9 +91,19 @@ describe('BulkPriceDialog', () => {
   it('picks single dishes', () => {
     open();
     fireEvent.click(screen.getByLabelText('Pick dishes'));
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Roti' }));
+    fireEvent.change(screen.getByLabelText('Find a dish'), { target: { value: 'rot' } });
+    expect(screen.getAllByRole('checkbox')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Roti Breads' }));
     fireEvent.change(screen.getByLabelText('By how much'), { target: { value: '10' } });
     expect(screen.getByText('1 price will change')).toBeInTheDocument();
+  });
+
+  it('says what the server would refuse before saving', () => {
+    open();
+    fireEvent.change(screen.getByLabelText('Change'), { target: { value: 'down-percent' } });
+    fireEvent.change(screen.getByLabelText('By how much'), { target: { value: '100' } });
+    expect(screen.getByText('A change can be from -90% to +200%.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Update/ })).toBeDisabled();
   });
 
   it('has no accessibility problems', async () => {

@@ -10,7 +10,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { IconButton } from '@/shared/ui';
 import { moveBy, moveId } from '../menuOrder';
 
@@ -35,6 +35,15 @@ export function SortableList<T extends Row>({
   render: (item: T) => ReactNode;
 }) {
   const ids = items.map((i) => i.id);
+  const [said, setSaid] = useState('');
+
+  /** Saves the new order and says where the row went, for screen readers. */
+  function move(next: string[], id: string) {
+    if (next === ids) return;
+    const name = items.find((i) => i.id === id)?.name ?? '';
+    setSaid(`${name} moved to position ${next.indexOf(id) + 1} of ${next.length}`);
+    onMove(next);
+  }
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
@@ -42,7 +51,7 @@ export function SortableList<T extends Row>({
 
   function onDragEnd({ active, over }: DragEndEvent) {
     if (!over || active.id === over.id) return;
-    onMove(moveId(ids, String(active.id), String(over.id)));
+    move(moveId(ids, String(active.id), String(over.id)), String(active.id));
   }
 
   return (
@@ -56,27 +65,33 @@ export function SortableList<T extends Row>({
             <SortableRow
               key={item.id}
               item={item}
+              index={index}
               first={index === 0}
               last={index === items.length - 1}
-              onStep={(step) => onMove(moveBy(ids, item.id, step))}
+              onStep={(step) => move(moveBy(ids, item.id, step), item.id)}
             >
               {render(item)}
             </SortableRow>
           ))}
         </ul>
       </SortableContext>
+      <p aria-live="polite" className="sr-only">
+        {said}
+      </p>
     </DndContext>
   );
 }
 
 function SortableRow({
   item,
+  index,
   first,
   last,
   onStep,
   children,
 }: {
   item: Row;
+  index: number;
   first: boolean;
   last: boolean;
   onStep: (step: -1 | 1) => void;
@@ -85,6 +100,21 @@ function SortableRow({
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
     id: item.id,
   });
+  const upRef = useRef<HTMLButtonElement>(null);
+  const downRef = useRef<HTMLButtonElement>(null);
+  const refocus = useRef<-1 | 1 | null>(null);
+  // Ends stay focusable (aria-disabled, not disabled) so keyboard focus is never dropped.
+  const step = (direction: -1 | 1, blocked: boolean) => {
+    if (blocked) return;
+    refocus.current = direction;
+    onStep(direction);
+  };
+  // Moving a row in the page drops focus; once it has moved, the pressed arrow gets it back.
+  useEffect(() => {
+    if (refocus.current === null) return;
+    (refocus.current === -1 ? upRef : downRef).current?.focus();
+    refocus.current = null;
+  }, [index]);
   return (
     <li
       ref={setNodeRef}
@@ -103,16 +133,20 @@ function SortableRow({
       <IconButton
         label={`Move ${item.name} up`}
         variant="ghost"
-        disabled={first}
+        ref={upRef}
+        aria-disabled={first}
+        className="aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
         icon={<ArrowUp />}
-        onClick={() => onStep(-1)}
+        onClick={() => step(-1, first)}
       />
       <IconButton
         label={`Move ${item.name} down`}
         variant="ghost"
-        disabled={last}
+        ref={downRef}
+        aria-disabled={last}
+        className="aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
         icon={<ArrowDown />}
-        onClick={() => onStep(1)}
+        onClick={() => step(1, last)}
       />
     </li>
   );

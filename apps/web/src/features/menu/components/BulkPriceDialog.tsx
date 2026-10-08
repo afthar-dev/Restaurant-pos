@@ -1,8 +1,15 @@
-import { applyPriceChange, MAX_PRICE_PAISE, parseRupees, type PriceChange } from '@rpos/shared';
+import {
+  applyPriceChange,
+  bulkPriceSchema,
+  MAX_PRICE_PAISE,
+  parseRupees,
+  type PriceChange,
+} from '@rpos/shared';
 import { useId, useState } from 'react';
 import { useNotify } from '@/features/notifications';
 import { rupees } from '@/shared/lib/money';
 import { Button, describeError, Dialog, ErrorNote, Field, Input, Select } from '@/shared/ui';
+import { filterMenu } from '../menuOrder';
 import { useBulkPrices } from '../mutations';
 import type { MenuCategory } from '../types';
 
@@ -40,6 +47,7 @@ export function BulkPriceDialog({
   const [scope, setScope] = useState<Scope>('all');
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? '');
   const [picked, setPicked] = useState<string[]>([]);
+  const [find, setFind] = useState('');
   const [mode, setMode] = useState<Mode>('up-percent');
   const [amount, setAmount] = useState('');
   const [roundTo, setRoundTo] = useState<100 | 500 | 1000>(100);
@@ -76,6 +84,10 @@ export function BulkPriceDialog({
   const below = rows.some((r) => r.dineIn[1] < 0 || r.parcel[1] < 0);
   const above = rows.some((r) => r.dineIn[1] > MAX_PRICE_PAISE || r.parcel[1] > MAX_PRICE_PAISE);
   const count = rows.length;
+  const itemIds = [...new Set(items.map((i) => i.id))];
+  // The server's own limits, said here before anyone presses Update.
+  const check = change ? bulkPriceSchema.safeParse({ itemIds, change, roundTo }) : null;
+  const limit = check && !check.success && count > 0 ? check.error.issues[0]?.message : null;
 
   return (
     <Dialog label="Change prices" onClose={onClose} wide>
@@ -117,24 +129,39 @@ export function BulkPriceDialog({
           </Field>
         )}
         {scope === 'pick' && (
-          <ul className="max-h-56 overflow-y-auto rounded-md border border-border p-2 text-sm">
-            {allItems.map((item) => (
-              <li key={item.id}>
-                <label className="flex min-h-11 items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={picked.includes(item.id)}
-                    onChange={(e) =>
-                      setPicked((ids) =>
-                        e.target.checked ? [...ids, item.id] : ids.filter((x) => x !== item.id),
-                      )
-                    }
-                  />
-                  {item.name}
-                </label>
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-col gap-2">
+            <Field id={`${id}-find`} label="Find a dish">
+              <Input
+                id={`${id}-find`}
+                type="search"
+                value={find}
+                onChange={(e) => setFind(e.target.value)}
+              />
+            </Field>
+            {/* Names are unique only within a category, so each row also names its category. */}
+            <ul className="max-h-56 overflow-y-auto rounded-md border border-border p-2 text-sm">
+              {filterMenu(categories, find).flatMap((c) =>
+                c.items.map((item) => (
+                  <li key={item.id}>
+                    <label className="flex min-h-11 items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={picked.includes(item.id)}
+                        onChange={(e) =>
+                          setPicked((ids) =>
+                            e.target.checked ? [...ids, item.id] : ids.filter((x) => x !== item.id),
+                          )
+                        }
+                      />
+                      {item.name}
+                      <span className="text-xs text-subtle"> {c.name}</span>
+                    </label>
+                  </li>
+                )),
+              )}
+            </ul>
+            {picked.length > 0 && <p className="text-xs text-muted">{`${picked.length} picked`}</p>}
+          </div>
         )}
       </fieldset>
       <div className="grid gap-3 sm:grid-cols-3">
@@ -215,19 +242,17 @@ export function BulkPriceDialog({
           Some prices would go above the highest price allowed.
         </p>
       )}
+      {limit && !below && !above && (
+        <p role="alert" className="text-sm text-red-700">
+          {limit}
+        </p>
+      )}
       <ErrorNote message={save.isError ? describeError(save.error) : null} />
       <div className="flex flex-wrap gap-2">
         <Button
           loading={save.isPending}
-          disabled={!change || count === 0 || below || above}
-          onClick={() =>
-            change &&
-            save.mutate({
-              itemIds: [...new Set(items.map((i) => i.id))],
-              change,
-              roundTo,
-            })
-          }
+          disabled={!change || count === 0 || below || above || Boolean(limit)}
+          onClick={() => change && save.mutate({ itemIds, change, roundTo })}
         >
           {`Update ${count} ${count === 1 ? 'price' : 'prices'}`}
         </Button>

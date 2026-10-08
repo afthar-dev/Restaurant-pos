@@ -215,8 +215,8 @@ export function applyPriceChange(price: number, change: PriceChange, roundTo: nu
 
 const idList = z
   .array(z.uuid())
-  .min(1)
-  .max(500)
+  .min(1, 'Pick at least one dish.')
+  .max(500, 'Pick at most 500 dishes at a time.')
   .refine((ids) => new Set(ids).size === ids.length, 'Each entry may appear only once');
 
 export const reorderSchema = z.strictObject({ ids: idList });
@@ -227,11 +227,21 @@ const nonZero = (n: number) => n !== 0;
 export const priceChangeSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('percent'),
-    basisPoints: z.number().int().min(-9000).max(20_000).refine(nonZero, 'Enter a change'),
+    basisPoints: z
+      .number()
+      .int()
+      .min(-9000, 'A change can be from -90% to +200%.')
+      .max(20_000, 'A change can be from -90% to +200%.')
+      .refine(nonZero, 'Enter a change'),
   }),
   z.strictObject({
     kind: z.literal('amount'),
-    paise: z.number().int().min(-1_000_000).max(1_000_000).refine(nonZero, 'Enter a change'),
+    paise: z
+      .number()
+      .int()
+      .min(-1_000_000, 'A change can be up to ₹10,000.')
+      .max(1_000_000, 'A change can be up to ₹10,000.')
+      .refine(nonZero, 'Enter a change'),
   }),
 ]);
 

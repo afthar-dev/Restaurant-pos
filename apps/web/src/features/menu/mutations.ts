@@ -168,6 +168,8 @@ export function useReorder(onFailed: (error: Error) => void) {
   const client = useQueryClient();
   const patch = usePatchMenu();
   return useMutation({
+    // One save at a time, in the order the moves were made, so the last move wins.
+    scope: { id: 'menu-order' },
     mutationFn: (move: Reorder) =>
       move.kind === 'categories'
         ? reorderCategories(move.ids)
