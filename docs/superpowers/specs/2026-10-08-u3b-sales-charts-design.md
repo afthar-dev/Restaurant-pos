@@ -12,7 +12,7 @@ home shows today's totals but no trend.
 - Reports shows four charts above the existing tables: **Sales by day**, **Busiest hours**,
   **How customers paid**, **Top dishes**.
 - The owner home's sales card adds a small **Last 7 days** chart that links to Reports.
-- Every chart has a title, a one-line takeaway in words (e.g. "Busiest: 1–2 pm, ₹8,400"), a
+- Every chart has a title, a one-line takeaway in words (e.g. "Busiest: 1pm–2pm, ₹8,400"), a
   hover/focus tooltip on each bar, and the tables below stay as the full data view.
 - No chart library: small SVG components on the kit's tokens. Reports stays lazy-loaded.
 - Money in charts uses `rupees()` (Indian grouping); short axis labels use `₹12k`/`₹1.2L`.
@@ -38,15 +38,16 @@ charts, dark mode for charts (Reports and Home are light screens).
 
 ## 3. Charts
 
-All charts share: a `<figure>` with a heading-level title, the takeaway line under it, and an
-SVG with `role="img"` and an `aria-label` that repeats the takeaway. Bars are anchored to the
+All charts share: a `<figure>` with a heading-level title and the takeaway line under it. Bars
+are plain HTML elements (not one SVG image), so each focusable bar can carry its own
+`role="img"` and `aria-label`; the plot is a `role="group"` labelled with the title and takeaway. Bars are anchored to the
 baseline, 4 px rounded top ends, 2 px gaps between bars, recessive grid (3 lines) and axis text
 in `text-subtle`. Values and labels use text colours, never the bar colour.
 
 | Chart | Form | Shown when | Takeaway |
 |---|---|---|---|
 | Sales by day | Vertical bars, one per business day in range, one hue (`primary-600`), x labels as "Mon 6" (thinned to at most 8 labels) | at least 2 days | "Best day: Sat 11 Oct, ₹18,250" |
-| Busiest hours | Vertical bars for every hour from the first to the last hour with sales (gaps shown as empty), one hue, x labels "9am", "12pm", "3pm" every 3 hours | any bills | "Busiest: 1–2 pm, ₹8,400 from 14 bills" |
+| Busiest hours | Vertical bars for every hour from the first to the last hour with sales (gaps shown as empty), one hue, x labels "9am", "12pm", "3pm" every 3 hours | any bills | "Busiest: 1pm–2pm, ₹8,400 from 14 bills" |
 | How customers paid | One horizontal 100% stacked bar, Cash / UPI / Card in fixed order with the validated colours `#1baf7a` (cash), `#2a78d6` (UPI), `#eb6834` (card), 2 px gaps; legend below with name, amount and percent for each mode (also the direct label) | total paid > 0 | "Most paid by UPI: 62%" |
 | Top dishes | Horizontal bars, top 8 `items` by amount, dish name (with size if not "Regular") on the left, amount on the right, one hue | any items | "Top seller: Paneer Tikka, ₹4,400" |
 | Last 7 days (home) | Small vertical bars (height 96 px), one slot for each of the 7 dates (a date with no business day shows an empty slot, value ₹0), today's bar `primary-700`, others `primary-300`, no axis, tooltip per bar; link "See reports" | owner (`reports.all`) | "Today ₹12,400 · 7-day total ₹68,900" |
