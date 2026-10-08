@@ -3,6 +3,6 @@ import { fetchOutlet } from './api';
 import { settingsKeys } from './keys';
 
 /** The restaurant's details: name and GST for bills, rules for cashiers and parcels. */
-export function useOutlet() {
-  return useQuery({ queryKey: settingsKeys.outlet, queryFn: fetchOutlet });
+export function useOutlet(enabled = true) {
+  return useQuery({ queryKey: settingsKeys.outlet, queryFn: fetchOutlet, enabled });
 }
