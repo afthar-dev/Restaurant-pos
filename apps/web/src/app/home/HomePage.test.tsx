@@ -90,9 +90,17 @@ describe('HomePage', () => {
       '/api/reports/sales',
       '/api/stock/items',
       '/api/business-day/close-check',
+      '/api/users',
+      '/api/printers',
+      '/api/menu',
     ]) {
       expect(callsTo(mock, 'GET', path)).toHaveLength(0);
     }
+    // Exact path: the sign-in check asks for /api/devices/current, which is fine.
+    expect(
+      callsTo(mock, 'GET', '/api/devices').filter(([url]) => String(url) === '/api/devices'),
+    ).toHaveLength(0);
+    expect(screen.queryByText('Get your restaurant ready')).toBeNull();
   });
 
   it('says when the day is not open, with a way in for managers only', async () => {

@@ -77,8 +77,10 @@ function StepRow({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {step.status === 'done' && <Badge tone="success">Done</Badge>}
+            {step.status === 'loading' && <Badge tone="neutral">Checking…</Badge>}
             {step.status === 'todo' && (
               <>
+                <Badge tone="neutral">To do</Badge>
                 <Button asChild>
                   <Link to={`${step.path}?from=setup`}>
                     Set up<span className="sr-only">{` ${step.title}`}</span>

@@ -44,6 +44,7 @@ describe('SetupPage', () => {
     renderRoute('/setup');
     expect(await screen.findByRole('heading', { level: 1, name: 'Setup guide' })).toBeVisible();
     expect(await screen.findByText('0 of 6 done')).toBeInTheDocument();
+    expect(screen.getAllByText('To do')).toHaveLength(6);
     expect(screen.getByRole('link', { name: 'Set up Restaurant details' })).toHaveAttribute(
       'href',
       '/admin/settings?from=setup',
