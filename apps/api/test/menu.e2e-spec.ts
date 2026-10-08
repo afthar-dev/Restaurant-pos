@@ -489,4 +489,55 @@ describe('menu', () => {
     await putOrder('categories/order', [mains, starters], waiter).expect(403);
     expect((await order()).map(([name]) => name)).toEqual(['Starters', 'Mains']);
   });
+
+  const bulk = (body: object, token = owner) =>
+    ctx.http().post('/api/menu/prices').set(as(token)).send(body);
+
+  it('changes prices in bulk with rounding and keeps a record', async () => {
+    const starters = await category();
+    const id = await newItem(itemBody(starters));
+
+    const res = await bulk(
+      { itemIds: [id], change: { kind: 'percent', basisPoints: 500 }, roundTo: 500 },
+      manager,
+    ).expect(201);
+    expect(res.body).toEqual({ updated: 2 });
+    let [item] = await menuItems();
+    expect(item!.variants.map((v) => [v.dineInPrice, v.parcelPrice, v.packagingCharge])).toEqual([
+      [19000, 19000, 0],
+      [33500, 34500, 1000],
+    ]);
+
+    await bulk({ itemIds: [id], change: { kind: 'amount', paise: -5000 }, roundTo: 100 }).expect(
+      201,
+    );
+    [item] = await menuItems();
+    expect(item!.variants[0]!.dineInPrice).toBe(14000);
+
+    const audit = await ctx.prisma.auditEntry.findFirst({ where: { action: 'menu.price.bulk' } });
+    expect(JSON.stringify(audit?.after)).toContain('"before":{"dineIn":18000,"parcel":18000}');
+  });
+
+  it('saves nothing when a price would go below ₹0, and refuses others', async () => {
+    const starters = await category();
+    const id = await newItem(itemBody(starters));
+    const res = await bulk({
+      itemIds: [id],
+      change: { kind: 'amount', paise: -20000 },
+      roundTo: 100,
+    }).expect(400);
+    expect(res.body.message).toBe('Paneer Tikka Half would go below ₹0.');
+    expect((await menuItems())[0]!.variants.map((v) => v.dineInPrice)).toEqual([18000, 32000]);
+
+    await ctx.http().post(`/api/menu/items/${id}/archive`).set(as(owner)).expect(201);
+    await bulk({
+      itemIds: [id],
+      change: { kind: 'percent', basisPoints: 500 },
+      roundTo: 100,
+    }).expect(400);
+    await bulk(
+      { itemIds: [id], change: { kind: 'percent', basisPoints: 500 }, roundTo: 100 },
+      waiter,
+    ).expect(403);
+  });
 });

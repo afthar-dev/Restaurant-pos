@@ -1,8 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Category, ItemVariant, Prisma } from '@prisma/client';
-import type { AddonGroupRequest, CategoryRequest, ItemRequest } from '@rpos/shared';
+import {
+  applyPriceChange,
+  MAX_PRICE_PAISE,
+  type AddonGroupRequest,
+  type BulkPriceRequest,
+  type CategoryRequest,
+  type ItemRequest,
+} from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
+import { ApiError } from '../common/api-error';
 import {
   inUse,
   invalidReference,
@@ -205,6 +213,60 @@ export class MenuService {
       order: ids.map((id) => names.get(id)),
     });
     return { updated: ids.length };
+  }
+
+  /**
+   * Changes the dine-in and parcel price of every size of the given dishes in one go. If any
+   * price would fall below ₹0 or above the limit, nothing is saved.
+   */
+  async bulkPrices(actor: AuthUser, request: BulkPriceRequest) {
+    const items = await this.prisma.item.findMany({
+      where: { id: { in: request.itemIds }, outletId: actor.outletId, archivedAt: null },
+      include: { variants: { where: { archivedAt: null }, orderBy: { sortOrder: 'asc' } } },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+    if (items.length !== request.itemIds.length) throw invalidReference('itemIds');
+
+    const changes = items.flatMap((item) =>
+      item.variants.map((variant) => ({
+        item,
+        variant,
+        dineIn: applyPriceChange(variant.dineInPrice, request.change, request.roundTo),
+        parcel: applyPriceChange(variant.parcelPrice, request.change, request.roundTo),
+      })),
+    );
+    const bad = changes.find(
+      (c) =>
+        c.dineIn < 0 || c.parcel < 0 || c.dineIn > MAX_PRICE_PAISE || c.parcel > MAX_PRICE_PAISE,
+    );
+    if (bad) {
+      const where = bad.dineIn < 0 || bad.parcel < 0 ? 'below ₹0' : 'above the highest price';
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        'VALIDATION',
+        `${bad.item.name} ${bad.variant.name} would go ${where}.`,
+      );
+    }
+
+    await this.prisma.$transaction(
+      changes.map((c) =>
+        this.prisma.itemVariant.update({
+          where: { id: c.variant.id },
+          data: { dineInPrice: c.dineIn, parcelPrice: c.parcel },
+        }),
+      ),
+    );
+    await this.record(actor, 'menu.price.bulk', 'item', items[0]!.id, undefined, {
+      change: request.change,
+      roundTo: request.roundTo,
+      prices: changes.map((c) => ({
+        item: c.item.name,
+        variant: c.variant.name,
+        before: { dineIn: c.variant.dineInPrice, parcel: c.variant.parcelPrice },
+        after: { dineIn: c.dineIn, parcel: c.parcel },
+      })),
+    });
+    return { updated: changes.length };
   }
 
   // ---------- items ----------

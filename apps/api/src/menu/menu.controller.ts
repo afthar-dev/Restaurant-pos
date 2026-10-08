@@ -2,10 +2,12 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put } from '@
 import {
   addonGroupSchema,
   availabilitySchema,
+  bulkPriceSchema,
   categorySchema,
   itemSchema,
   reorderSchema,
   type AddonGroupRequest,
+  type BulkPriceRequest,
   type CategoryRequest,
   type ItemRequest,
   type ReorderRequest,
@@ -66,6 +68,15 @@ export class MenuController {
   @RequirePermissions('menu.manage')
   archiveCategory(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.menu.archiveCategory(user, id);
+  }
+
+  @Post('prices')
+  @RequirePermissions('menu.manage')
+  bulkPrices(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodBody(bulkPriceSchema)) body: BulkPriceRequest,
+  ) {
+    return this.menu.bulkPrices(user, body);
   }
 
   @Post('items')
