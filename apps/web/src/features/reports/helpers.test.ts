@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { csvCell, csvRupees, toCsv } from './csv';
-import { presetRange } from './ranges';
+import { datesInRange, presetRange } from './ranges';
 
 describe('presetRange (India dates)', () => {
   // Wednesday 7 Oct 2026, 01:00 in India = Tuesday 6 Oct 19:30 UTC.
@@ -44,5 +44,24 @@ describe('CSV', () => {
   it('writes paise as rupees', () => {
     expect(csvRupees(117050)).toBe(1170.5);
     expect(csvRupees(3200)).toBe(32);
+  });
+});
+
+describe('last 7 days', () => {
+  it('runs from six days ago to today in India', () => {
+    // 06:00 UTC on 8 Oct is 11:30 in India.
+    expect(presetRange('last7Days', Date.UTC(2026, 9, 8, 6, 0))).toEqual({
+      from: '2026-10-02',
+      to: '2026-10-08',
+    });
+  });
+
+  it('lists every date in a range', () => {
+    expect(datesInRange({ from: '2026-09-29', to: '2026-10-02' })).toEqual([
+      '2026-09-29',
+      '2026-09-30',
+      '2026-10-01',
+      '2026-10-02',
+    ]);
   });
 });

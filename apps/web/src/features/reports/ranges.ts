@@ -8,11 +8,12 @@ export interface DateRange {
   to: string;
 }
 
-export type Preset = 'today' | 'yesterday' | 'thisWeek' | 'thisMonth' | 'lastMonth';
+export type Preset = 'today' | 'yesterday' | 'last7Days' | 'thisWeek' | 'thisMonth' | 'lastMonth';
 
 export const PRESET_LABEL: Record<Preset, string> = {
   today: 'Today',
   yesterday: 'Yesterday',
+  last7Days: 'Last 7 days',
   thisWeek: 'This week',
   thisMonth: 'This month',
   lastMonth: 'Last month',
@@ -37,6 +38,8 @@ export function presetRange(preset: Preset, now = Date.now()): DateRange {
       const day = new Date(today.getTime() - DAY_MS);
       return { from: iso(day), to: iso(day) };
     }
+    case 'last7Days':
+      return { from: iso(new Date(today.getTime() - 6 * DAY_MS)), to: iso(today) };
     case 'thisWeek': {
       // Weeks start on Monday.
       const sinceMonday = (today.getUTCDay() + 6) % 7;
@@ -60,4 +63,17 @@ export function dateLabel(date: string): string {
     year: 'numeric',
     timeZone: 'UTC',
   });
+}
+
+/** Every India date from `range.from` to `range.to`, inclusive. */
+export function datesInRange(range: DateRange): string[] {
+  const dates: string[] = [];
+  for (
+    let t = Date.parse(`${range.from}T00:00:00Z`);
+    t <= Date.parse(`${range.to}T00:00:00Z`);
+    t += DAY_MS
+  ) {
+    dates.push(iso(new Date(t)));
+  }
+  return dates;
 }
