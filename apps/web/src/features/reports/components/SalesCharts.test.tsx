@@ -79,6 +79,13 @@ describe('SalesCharts', () => {
     ).toHaveLength(2);
   });
 
+  it('lists every day for screen readers', () => {
+    render(<SalesCharts report={REPORT} />);
+    expect(screen.getByRole('list', { name: 'Sales by day data' })).toHaveTextContent(
+      'Sat 10 Oct · ₹18,250 · 10 bills',
+    );
+  });
+
   it('names dishes with their size when it is not Regular', () => {
     render(<SalesCharts report={REPORT} />);
     expect(screen.getByText('Biryani (Half)')).toBeInTheDocument();

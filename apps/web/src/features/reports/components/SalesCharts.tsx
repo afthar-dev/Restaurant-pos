@@ -2,6 +2,8 @@ import { useId } from 'react';
 import { rupees } from '@/shared/lib/money';
 import { Card, CardBody } from '@/shared/ui';
 import { BarChart } from '../charts/BarChart';
+import { ChartFrame } from '../charts/ChartFrame';
+import { ColumnChart } from '../charts/ColumnChart';
 import { PaymentMix } from '../charts/PaymentMix';
 import { dayPoints, hourPoints } from '../charts/points';
 import { billCount, dayLabel, hourRange } from '../charts/scale';
@@ -29,11 +31,12 @@ export function SalesCharts({ report }: { report: SalesReport }) {
         {bestDay && (
           <Card>
             <CardBody>
-              <BarChart
+              <ChartFrame
                 title="Sales by day"
                 takeaway={`Best day: ${dayLabel(bestDay.date)}, ${rupees(bestDay.total)}`}
-                bars={dayPoints(days)}
-              />
+              >
+                <ColumnChart title="Sales by day" points={dayPoints(days, true)} />
+              </ChartFrame>
             </CardBody>
           </Card>
         )}
