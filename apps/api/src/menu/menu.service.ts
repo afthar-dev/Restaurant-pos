@@ -227,14 +227,18 @@ export class MenuService {
     });
     if (items.length !== request.itemIds.length) throw invalidReference('itemIds');
 
-    const changes = items.flatMap((item) =>
-      item.variants.map((variant) => ({
-        item,
-        variant,
-        dineIn: applyPriceChange(variant.dineInPrice, request.change, request.roundTo),
-        parcel: applyPriceChange(variant.parcelPrice, request.change, request.roundTo),
-      })),
-    );
+    // Only sizes whose price moves are saved, counted and recorded (a free size stays free,
+    // rounding can land back on the old price), so the count matches the preview.
+    const changes = items
+      .flatMap((item) =>
+        item.variants.map((variant) => ({
+          item,
+          variant,
+          dineIn: applyPriceChange(variant.dineInPrice, request.change, request.roundTo),
+          parcel: applyPriceChange(variant.parcelPrice, request.change, request.roundTo),
+        })),
+      )
+      .filter((c) => c.dineIn !== c.variant.dineInPrice || c.parcel !== c.variant.parcelPrice);
     const bad = changes.find(
       (c) =>
         c.dineIn < 0 || c.parcel < 0 || c.dineIn > MAX_PRICE_PAISE || c.parcel > MAX_PRICE_PAISE,
@@ -247,6 +251,7 @@ export class MenuService {
         `${bad.item.name} ${bad.variant.name} would go ${where}.`,
       );
     }
+    if (changes.length === 0) return { updated: 0 };
 
     await this.prisma.$transaction(
       changes.map((c) =>

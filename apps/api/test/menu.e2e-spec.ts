@@ -540,4 +540,24 @@ describe('menu', () => {
       waiter,
     ).expect(403);
   });
+
+  it('counts and records only the sizes whose price changes', async () => {
+    const starters = await category();
+    const id = await newItem(
+      itemBody(starters, {
+        variants: [
+          { name: 'Free', dineInPrice: 0 },
+          { name: 'Half', dineInPrice: 18000 },
+        ],
+      }),
+    );
+    const res = await bulk({
+      itemIds: [id],
+      change: { kind: 'percent', basisPoints: 500 },
+      roundTo: 100,
+    }).expect(201);
+    expect(res.body).toEqual({ updated: 1 });
+    const audit = await ctx.prisma.auditEntry.findFirst({ where: { action: 'menu.price.bulk' } });
+    expect((audit?.after as { prices: unknown[] }).prices).toHaveLength(1);
+  });
 });
