@@ -33,12 +33,12 @@ export function QrStickers() {
   return (
     <section
       aria-label="QR stickers"
-      className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4"
+      className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-lg font-semibold">QR stickers</h3>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-muted">
             Customers scan the sticker on their table to see the menu and send an order for the
             staff to approve.
           </p>
@@ -62,7 +62,7 @@ export function QrStickers() {
         />
       )}
       {renewed && (
-        <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-emerald-800">
+        <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-green-800">
           <span>{`${renewed.name} has a new QR code.`}</span>
           <button
             type="button"
@@ -81,7 +81,7 @@ export function QrStickers() {
             <button
               type="button"
               aria-label={`New QR code for ${t.name}`}
-              className="min-h-11 rounded-md border border-slate-200 px-3 text-sm"
+              className="min-h-11 rounded-md border border-border px-3 text-sm"
               onClick={() => {
                 setRenewed(null);
                 setConfirming(t);

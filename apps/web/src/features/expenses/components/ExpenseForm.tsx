@@ -62,7 +62,7 @@ export function ExpenseForm() {
       onSubmit={onSubmit}
       noValidate
       aria-label="New expense"
-      className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2"
+      className="grid gap-3 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2"
     >
       <Field id="expense-category" label="Category" error={errors.categoryId}>
         <select
@@ -118,7 +118,7 @@ export function ExpenseForm() {
           Save expense
         </button>
         {saved && (
-          <p role="status" className="text-sm text-emerald-800">
+          <p role="status" className="text-sm text-green-800">
             {saved}
           </p>
         )}

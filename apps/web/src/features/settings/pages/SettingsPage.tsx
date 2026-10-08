@@ -13,9 +13,11 @@ import {
   ErrorNote,
   Field,
   fieldErrors,
-  inputClass,
-  primaryButton,
   type FieldErrors,
+  inputClass,
+  LoadingScreen,
+  PageHeader,
+  primaryButton,
 } from '@/shared/ui';
 import { useUpdateOutlet } from '../mutations';
 import { useOutlet } from '../queries';
@@ -135,7 +137,7 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
 
   return (
     <form onSubmit={onSubmit} noValidate className="flex flex-col gap-6">
-      <fieldset className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2">
+      <fieldset className="grid gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
         <legend className="px-1 text-sm font-semibold">Restaurant details</legend>
         {text('name', 'Restaurant name')}
         {text('phone', 'Phone on bills')}
@@ -145,7 +147,7 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
         {text('billFooter', 'Bill footer text', 'For example: Thank you, visit again!')}
       </fieldset>
 
-      <fieldset className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2">
+      <fieldset className="grid gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
         <legend className="px-1 text-sm font-semibold">Tax</legend>
         {text('gstin', 'GSTIN', 'From the GST certificate. Leave empty if not registered.')}
         <Field id="setting-taxScheme" label="GST scheme">
@@ -164,7 +166,7 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
         </Field>
       </fieldset>
 
-      <fieldset className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2">
+      <fieldset className="grid gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
         <legend className="px-1 text-sm font-semibold">Counter rules</legend>
         <Field
           id="setting-cap"
@@ -231,7 +233,7 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
         <button type="submit" className={primaryButton} disabled={save.isPending}>
           Save settings
         </button>
-        <span role="status" aria-label="Save result" className="text-sm text-emerald-800">
+        <span role="status" aria-label="Save result" className="text-sm text-green-800">
           {result}
         </span>
       </div>
@@ -244,8 +246,12 @@ export function SettingsPage() {
   const outlet = useOutlet();
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-xl font-semibold">Outlet settings</h2>
-      {outlet.isPending && <p className="text-slate-500">Loading…</p>}
+      <PageHeader
+        as="h2"
+        title="Outlet settings"
+        description="Your restaurant's details for bills, the GST scheme and the rules for discounts and parcels."
+      />
+      {outlet.isPending && <LoadingScreen />}
       <ErrorNote message={outlet.isError ? describeError(outlet.error) : null} />
       {outlet.data && <SettingsForm saved={outlet.data} />}
     </section>

@@ -39,9 +39,9 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
   return (
     <section
       aria-label={`QR order from ${request.tableName ?? 'the table'}`}
-      className="flex flex-col gap-2 rounded-lg border-2 border-amber-400 bg-amber-50 p-3"
+      className="flex flex-col gap-2 rounded-lg border-2 border-violet-300 bg-violet-50 p-3 shadow-card"
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-amber-900">
+      <p className="text-xs font-semibold uppercase tracking-wide text-violet-900">
         From the table QR
       </p>
       <ul className="flex flex-col gap-1">
@@ -54,9 +54,9 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
                   : `${l.quantity} × ${dish(l.itemName, l.variantName)}`}
               </span>
               {l.addons.length > 0 && (
-                <span className="block text-xs text-slate-600">{l.addons.join(', ')}</span>
+                <span className="block text-xs text-muted">{l.addons.join(', ')}</span>
               )}
-              {l.note && <span className="block text-xs italic text-slate-600">“{l.note}”</span>}
+              {l.note && <span className="block text-xs italic text-muted">“{l.note}”</span>}
             </span>
             {mode === 'edit' ? (
               <span className="flex items-center gap-1">
@@ -88,8 +88,8 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
           </li>
         ))}
       </ul>
-      {request.note && <p className="text-sm italic text-amber-950">“{request.note}”</p>}
-      <p className="text-sm text-slate-600">About {rupees(request.total)} before tax</p>
+      {request.note && <p className="text-sm italic text-violet-950">“{request.note}”</p>}
+      <p className="text-sm text-muted">About {rupees(request.total)} before tax</p>
       <ErrorNote message={decision.isError ? describeError(decision.error) : null} />
       {canApprove && mode === 'view' && (
         <div className="flex flex-wrap gap-2">

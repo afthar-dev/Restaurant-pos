@@ -149,7 +149,7 @@ export function ItemEditor({
     <form
       onSubmit={onSubmit}
       noValidate
-      className="flex flex-col gap-5 rounded-lg border border-emerald-200 bg-white p-4"
+      className="flex flex-col gap-5 rounded-lg border border-border bg-surface p-4"
     >
       <h3 className="text-lg font-semibold">{existing ? `Edit ${existing.name}` : 'New item'}</h3>
 
@@ -218,7 +218,7 @@ export function ItemEditor({
 
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 text-sm font-semibold">Sizes and prices</legend>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-subtle">
           Leave parcel price empty to use the dine-in price. Packaging is added to parcel orders
           only.
         </p>

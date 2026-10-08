@@ -131,7 +131,7 @@ export function DiscountSheet({ bill, onDone }: { bill: Bill; onDone: () => void
                 key={k}
                 type="button"
                 aria-pressed={kind === k}
-                className={`${secondaryButton} min-h-11 ${kind === k ? 'ring-2 ring-emerald-700' : ''}`}
+                className={`${secondaryButton} min-h-11 ${kind === k ? 'ring-2 ring-primary-700' : ''}`}
                 onClick={() => setKind(k)}
               >
                 {k === 'PERCENT' ? 'Percent' : 'Rupees'}
@@ -150,7 +150,7 @@ export function DiscountSheet({ bill, onDone }: { bill: Bill; onDone: () => void
               onChange={(e) => setValue(e.target.value)}
             />
           </Field>
-          <details className="rounded-md border border-slate-200 p-2">
+          <details className="rounded-md border border-border p-2">
             <summary className="cursor-pointer text-sm font-medium">Discount a dish</summary>
             <div className="mt-2 flex flex-col gap-2">
               {bill.lines.map((l) => (

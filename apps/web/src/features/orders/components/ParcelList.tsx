@@ -1,4 +1,5 @@
-import { describeError, ErrorNote, primaryButton } from '@/shared/ui';
+import { Plus, ShoppingBag } from 'lucide-react';
+import { Button, describeError, ErrorNote } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
 import { useOpenParcel } from '../mutations';
 import { useActiveOrders } from '../queries';
@@ -19,15 +20,18 @@ export function ParcelList({
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Parcels</h2>
-        <button
-          type="button"
-          className={primaryButton}
-          disabled={create.isPending}
+        <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted uppercase">
+          <ShoppingBag aria-hidden="true" className="size-4" />
+          Parcels
+        </h2>
+        <Button
+          size="sm"
+          icon={<Plus />}
+          loading={create.isPending}
           onClick={() => create.mutate()}
         >
           New parcel
-        </button>
+        </Button>
       </div>
       <ErrorNote message={create.isError ? describeError(create.error) : null} />
       <div className="flex flex-wrap gap-2">
@@ -38,17 +42,17 @@ export function ParcelList({
             aria-label={`${orderLabel(p)}, ${rupees(p.subtotal)}`}
             aria-pressed={p.id === selectedOrderId}
             onClick={() => onSelect(p.id)}
-            className={`rounded-lg border px-3 py-2 text-sm font-medium ${
+            className={`min-h-11 rounded-lg border-2 px-3 text-sm font-semibold tabular-nums shadow-card ${
               p.id === selectedOrderId
-                ? 'border-emerald-700 bg-emerald-700 text-white'
-                : 'border-slate-200 bg-white'
+                ? 'border-primary-700 bg-primary-700 text-white'
+                : 'border-amber-300 bg-amber-50 text-amber-950 hover:border-amber-400'
             }`}
           >
             #{p.tokenNo} · {rupees(p.subtotal)}
           </button>
         ))}
         {orders.data && parcels.length === 0 && (
-          <p className="text-sm text-slate-500">No parcel orders open.</p>
+          <p className="text-sm text-muted">No parcel orders open.</p>
         )}
       </div>
     </section>

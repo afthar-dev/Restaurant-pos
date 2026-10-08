@@ -1,40 +1,38 @@
-import { useServerHealth } from '../queries';
+import { CloudOff, Loader, Wifi, WifiOff } from 'lucide-react';
+import { Badge, type Tone } from '@/shared/ui';
 import { useRealtimeStatus } from '@/shared/realtime/context';
+import { useServerHealth } from '../queries';
 
-type Tone = 'muted' | 'good' | 'bad';
-
-const toneClasses: Record<Tone, string> = {
-  muted: 'bg-slate-100 text-slate-600',
-  good: 'bg-emerald-50 text-emerald-800',
-  bad: 'bg-red-50 text-red-800',
-};
-
-const dotClasses: Record<Tone, string> = {
-  muted: 'bg-slate-400',
-  good: 'bg-emerald-600',
-  bad: 'bg-red-600',
-};
-
-function Pill({ tone, label }: { tone: Tone; label: string }) {
+function Pill({ tone, label, icon }: { tone: Tone; label: string; icon: React.ReactNode }) {
   return (
-    <span
-      role="status"
-      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${toneClasses[tone]}`}
-    >
-      <span aria-hidden="true" className={`h-2 w-2 rounded-full ${dotClasses[tone]}`} />
-      {label}
+    <span role="status">
+      <Badge tone={tone} icon={icon} className="px-2.5 py-1 text-sm">
+        {label}
+      </Badge>
     </span>
   );
 }
 
+/** Whether this screen can reach the server, and whether live updates are flowing. */
 export function ServerStatus() {
   const live = useRealtimeStatus();
   const { data, isPending, isError } = useServerHealth();
 
-  if (isPending) return <Pill tone="muted" label="Checking server…" />;
-  if (isError) return <Pill tone="bad" label="Server offline. Check the internet connection." />;
-  if (data.db === 'down') return <Pill tone="bad" label="Database unavailable" />;
+  if (isPending) return <Pill tone="neutral" icon={<Loader />} label="Checking server…" />;
+  if (isError) {
+    return (
+      <Pill
+        tone="danger"
+        icon={<CloudOff />}
+        label="Server offline. Check the internet connection."
+      />
+    );
+  }
+  if (data.db === 'down')
+    return <Pill tone="danger" icon={<CloudOff />} label="Database unavailable" />;
   // Screens still poll every 15 s, but staff should know updates may lag.
-  if (live === 'disconnected') return <Pill tone="muted" label="Online · live updates paused" />;
-  return <Pill tone="good" label="Server online" />;
+  if (live === 'disconnected') {
+    return <Pill tone="warning" icon={<WifiOff />} label="Online · live updates paused" />;
+  }
+  return <Pill tone="success" icon={<Wifi />} label="Server online" />;
 }

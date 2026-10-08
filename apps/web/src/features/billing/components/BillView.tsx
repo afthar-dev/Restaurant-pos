@@ -46,20 +46,20 @@ export function BillView({ bill, actions }: { bill: Bill; actions?: ReactNode })
   return (
     <section
       aria-label={`Bill ${bill.billNo}`}
-      className={`flex flex-col gap-2 rounded-lg border bg-white p-3 text-sm ${
-        bill.status === 'VOID' ? 'border-slate-200 opacity-70' : 'border-slate-300'
+      className={`flex flex-col gap-2 rounded-lg border bg-surface p-3 text-sm ${
+        bill.status === 'VOID' ? 'border-border opacity-70' : 'border-border-strong'
       }`}
     >
       <header className="flex items-baseline justify-between gap-2">
         <h3 className="text-base font-semibold">
-          Bill {bill.billNo} <span className="font-normal text-slate-500">{bill.title}</span>
+          Bill {bill.billNo} <span className="font-normal text-subtle">{bill.title}</span>
         </h3>
         <span
           className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
             bill.status === 'PAID'
-              ? 'bg-emerald-100 text-emerald-800'
+              ? 'bg-green-100 text-green-800'
               : bill.status === 'VOID'
-                ? 'bg-slate-200 text-slate-700'
+                ? 'bg-slate-200 text-text'
                 : 'bg-amber-100 text-amber-900'
           }`}
         >
@@ -67,10 +67,10 @@ export function BillView({ bill, actions }: { bill: Bill; actions?: ReactNode })
         </span>
       </header>
       {bill.status === 'VOID' && bill.voidReason && (
-        <p className="text-slate-600">Voided: {bill.voidReason}</p>
+        <p className="text-muted">Voided: {bill.voidReason}</p>
       )}
 
-      <ul className="divide-y divide-slate-100">
+      <ul className="divide-y divide-border">
         {bill.lines.map((l) => (
           <li key={l.id} className="py-1">
             <Row
@@ -79,12 +79,12 @@ export function BillView({ bill, actions }: { bill: Bill; actions?: ReactNode })
                   {l.quantity} × {l.itemName}
                   {l.variantName !== 'Regular' && ` (${l.variantName})`}
                   {l.addons.length > 0 && (
-                    <span className="block text-xs text-slate-500">
+                    <span className="block text-xs text-subtle">
                       {l.addons.map((a) => a.name).join(', ')}
                     </span>
                   )}
                   {l.itemDiscount > 0 && (
-                    <span className="block text-xs text-emerald-800">
+                    <span className="block text-xs text-green-800">
                       {rupees(l.itemDiscount)} off
                     </span>
                   )}
@@ -96,7 +96,7 @@ export function BillView({ bill, actions }: { bill: Bill; actions?: ReactNode })
         ))}
       </ul>
 
-      <div className="flex flex-col gap-0.5 border-t border-slate-200 pt-2">
+      <div className="flex flex-col gap-0.5 border-t border-border pt-2">
         <Row label="Subtotal" value={rupees(bill.grossSubtotal)} />
         {discount > 0 && (
           <Row
@@ -148,7 +148,7 @@ export function BillView({ bill, actions }: { bill: Bill; actions?: ReactNode })
         </button>
       </div>
       {printNote && (
-        <p role="status" className="text-xs text-slate-600">
+        <p role="status" className="text-xs text-muted">
           {printNote}
         </p>
       )}

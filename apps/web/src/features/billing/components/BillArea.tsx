@@ -75,13 +75,13 @@ export function BillArea({
             )}
           </div>
           {blocked && (
-            <p className="text-sm text-slate-600">Send the new dishes to the kitchen first.</p>
+            <p className="text-sm text-muted">Send the new dishes to the kitchen first.</p>
           )}
         </div>
       )}
       <ErrorNote message={create.isError ? describeError(create.error) : null} />
       {note && (
-        <p role="status" className="text-sm text-slate-600">
+        <p role="status" className="text-sm text-muted">
           {note}
         </p>
       )}
@@ -92,7 +92,7 @@ export function BillArea({
           <button
             key={bill.id}
             type="button"
-            className="flex min-h-11 justify-between rounded-lg border border-slate-200 bg-white px-3 text-left text-sm"
+            className="flex min-h-11 justify-between rounded-lg border border-border bg-surface px-3 text-left text-sm"
             onClick={() => setExpanded(bill.id)}
           >
             {`Bill ${bill.billNo} · ${rupees(bill.total)} · ${STATUS_LABEL[bill.status]}`}

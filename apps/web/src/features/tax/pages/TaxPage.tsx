@@ -6,10 +6,11 @@ import {
   ErrorNote,
   Field,
   fieldErrors,
+  type FieldErrors,
   inputClass,
+  PageHeader,
   primaryButton,
   secondaryButton,
-  type FieldErrors,
 } from '@/shared/ui';
 
 import { useArchiveTaxRate, useSaveTaxRate } from '../mutations';
@@ -50,7 +51,7 @@ function TaxForm({ existing, onDone }: { existing: TaxRate | null; onDone: () =>
     <form
       onSubmit={onSubmit}
       noValidate
-      className="grid gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-[2fr_1fr_auto] sm:items-end"
+      className="grid gap-3 rounded-lg border border-border bg-surface p-4 sm:grid-cols-[2fr_1fr_auto] sm:items-end"
     >
       <Field id={`${idPrefix}-name`} label="Name" error={errors.name}>
         <input
@@ -101,12 +102,11 @@ export function TaxPage() {
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-xl font-semibold">Tax rates</h2>
-        <p className="text-sm text-slate-600">
-          Most restaurants charge 5% GST. Ask your accountant if you are unsure which rate applies.
-        </p>
-      </div>
+      <PageHeader
+        as="h2"
+        title="Tax rates"
+        description="Most restaurants charge 5% GST. Ask your accountant if you are unsure which rate applies."
+      />
       {editing ? (
         <TaxForm existing={editing} onDone={() => setEditing(null)} />
       ) : (
@@ -123,12 +123,12 @@ export function TaxPage() {
       )}
       <ErrorNote message={archive.isError ? describeError(archive.error) : null} />
       <ErrorNote message={rates.isError ? describeError(rates.error) : null} />
-      <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
         {rates.data?.map((r) => (
           <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
             <div className="flex flex-col">
               <span className="font-medium">{r.name}</span>
-              <span className="text-sm text-slate-600">
+              <span className="text-sm text-muted">
                 {percent(r.cgstBp)} + {percent(r.sgstBp)}
               </span>
             </div>
@@ -143,7 +143,7 @@ export function TaxPage() {
           </li>
         ))}
         {rates.data?.length === 0 && (
-          <li className="px-4 py-3 text-sm text-slate-500">No tax rates yet.</li>
+          <li className="px-4 py-3 text-sm text-subtle">No tax rates yet.</li>
         )}
       </ul>
     </section>

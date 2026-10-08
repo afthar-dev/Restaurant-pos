@@ -3,19 +3,22 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { rupees } from '@/shared/lib/money';
 import {
+  Button,
   dangerButton,
   describeError,
+  EmptyState,
   ErrorNote,
   Field,
   inputClass,
   LoadingScreen,
-  primaryButton,
+  PageHeader,
   secondaryButton,
 } from '@/shared/ui';
 import { PurchaseForm } from '../components/PurchaseForm';
 import { useVoidPurchase } from '../mutations';
 import { usePurchases, useStockItems } from '../queries';
 import type { Purchase } from '../types';
+import { Plus, ShoppingBasket } from 'lucide-react';
 
 function VoidPurchase({ purchase, onDone }: { purchase: Purchase; onDone: () => void }) {
   const [reason, setReason] = useState('');
@@ -59,24 +62,27 @@ export function PurchasesPage() {
 
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Purchases today</h1>
-        <div className="flex gap-2">
-          <Link to="/stock" className={`${secondaryButton} min-h-11 content-center`}>
-            Stock
-          </Link>
-          {!adding && (
-            <button type="button" className={primaryButton} onClick={() => setAdding(true)}>
-              New purchase
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Purchases today"
+        description="Goods bought from vendors. Saving a purchase adds the stock and records it as a Raw material expense."
+        actions={
+          <>
+            <Button asChild variant="secondary">
+              <Link to="/stock">Stock</Link>
+            </Button>
+            {!adding && (
+              <Button icon={<Plus />} onClick={() => setAdding(true)}>
+                New purchase
+              </Button>
+            )}
+          </>
+        }
+      />
       {adding &&
         (items.data && items.data.length > 0 ? (
           <PurchaseForm items={items.data} onDone={() => setAdding(false)} />
         ) : items.data ? (
-          <p className="text-slate-600">
+          <p className="text-muted">
             Add stock items first on the{' '}
             <Link to="/stock" className="underline">
               Stock
@@ -87,25 +93,31 @@ export function PurchasesPage() {
           <LoadingScreen />
         ))}
       <ErrorNote message={purchases.isError ? describeError(purchases.error) : null} />
-      {purchases.data?.length === 0 && <p className="text-slate-500">No purchases today.</p>}
+      {purchases.data?.length === 0 && !adding && (
+        <EmptyState
+          icon={<ShoppingBasket />}
+          title="No purchases today"
+          description="Use New purchase when goods arrive from a vendor."
+        />
+      )}
       <ul className="flex flex-col gap-2">
         {purchases.data?.map((p) => {
           const voided = p.voidedAt !== null;
           return (
             <li
               key={p.id}
-              className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-3"
+              className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3"
             >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className={`font-semibold ${voided ? 'text-slate-400 line-through' : ''}`}>
+                <span className={`font-semibold ${voided ? 'text-subtle line-through' : ''}`}>
                   {p.vendorName}
                   {p.billRef ? ` #${p.billRef}` : ''}
                 </span>
-                <span className={`tabular-nums ${voided ? 'text-slate-400 line-through' : ''}`}>
+                <span className={`tabular-nums ${voided ? 'text-subtle line-through' : ''}`}>
                   {`${rupees(p.total)} · ${p.paidMode}`}
                 </span>
               </div>
-              <ul className="text-sm text-slate-600">
+              <ul className="text-sm text-muted">
                 {p.lines.map((l) => (
                   <li
                     key={l.id}
@@ -113,7 +125,7 @@ export function PurchasesPage() {
                 ))}
               </ul>
               {voided ? (
-                <p className="text-xs text-slate-500">Voided: {p.voidReason}</p>
+                <p className="text-xs text-subtle">Voided: {p.voidReason}</p>
               ) : (
                 voiding !== p.id && (
                   <button

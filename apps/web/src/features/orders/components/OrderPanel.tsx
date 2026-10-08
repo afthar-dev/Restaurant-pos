@@ -1,3 +1,4 @@
+import { BellRing } from 'lucide-react';
 import { useState } from 'react';
 import { rupees } from '@/shared/lib/money';
 import { describeError, ErrorNote, primaryButton } from '@/shared/ui';
@@ -18,13 +19,13 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
 
   if (!order.data) {
     if (order.isError) return <ErrorNote message={describeError(order.error)} />;
-    return <p className="text-slate-500">Loading order…</p>;
+    return <p className="text-subtle">Loading order…</p>;
   }
   const o = order.data;
 
   if (o.status === 'CANCELLED') {
     return (
-      <p className="text-slate-600">
+      <p className="text-muted">
         This order was cancelled{o.cancelReason ? `: ${o.cancelReason}` : '.'}
       </p>
     );
@@ -36,17 +37,20 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
 
   return (
     <section className="flex flex-col gap-3">
-      <header className="flex items-baseline justify-between gap-2">
-        <h2 className="text-xl font-semibold">
+      <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border pb-3">
+        <h2 className="text-2xl font-semibold tracking-tight">
           {[orderLabel(o), ...o.mergedTables.map((t) => t.name)].join(' + ')}
         </h2>
-        <span className="text-sm text-slate-600">
+        <span className="text-sm text-muted">
           {o.guests ? `${o.guests} guests · ` : ''}
           {o.waiter?.name}
         </span>
       </header>
       {o.status === 'PENDING_APPROVAL' && (
-        <p className="text-sm font-medium text-amber-900">QR order waiting for approval</p>
+        <p className="flex items-center gap-2 rounded-md bg-violet-50 px-3 py-2 text-sm font-medium text-violet-900">
+          <BellRing aria-hidden="true" className="size-4" />
+          QR order waiting for approval
+        </p>
       )}
       {o.qrPending.map((request) => (
         <QrRequestCard key={request.id} order={o} request={request} />
@@ -69,11 +73,11 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
       })}
 
       {newLines.length > 0 && (
-        <div className="rounded-lg border border-emerald-200 bg-white px-3 py-1">
-          <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">
+        <div className="rounded-lg border border-primary-200 bg-surface px-3 py-1">
+          <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-primary-800">
             Not sent yet
           </p>
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-border">
             {newLines.map((line) => (
               <NewLineRow key={line.id} order={o} line={line} />
             ))}
@@ -81,10 +85,10 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
         </div>
       )}
 
-      {o.items.length === 0 && <p className="text-sm text-slate-500">Add dishes from the menu.</p>}
+      {o.items.length === 0 && <p className="text-sm text-subtle">Add dishes from the menu.</p>}
 
-      <div className="flex items-center justify-between border-t border-slate-200 pt-2">
-        <span className="text-sm text-slate-600">Total so far (before tax)</span>
+      <div className="flex items-center justify-between border-t border-border pt-2">
+        <span className="text-sm text-muted">Total so far (before tax)</span>
         <span className="text-lg font-semibold tabular-nums">{rupees(o.subtotal)}</span>
       </div>
 
@@ -101,7 +105,7 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
           </button>
         </>
       ) : o.status === 'BILLED' || o.status === 'CLOSED' ? (
-        <p role="status" className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">
+        <p role="status" className="rounded-md bg-surface-2 px-3 py-2 text-sm text-text">
           {o.status === 'BILLED'
             ? 'Bill printed. Waiting for payment.'
             : 'Paid and closed. The table is free.'}

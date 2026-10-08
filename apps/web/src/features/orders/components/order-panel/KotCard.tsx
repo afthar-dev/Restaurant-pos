@@ -5,6 +5,14 @@ import type { KotPrintState, Order, OrderKot, OrderLine } from '../../types';
 import { CancelLineDialog } from './CancelLineDialog';
 import { lineDetail } from './lineDetail';
 
+/** Ticket state at a glance; the state is also written out next to it. */
+const KOT_DOT: Record<OrderKot['status'], string> = {
+  NEW: 'bg-sky-500',
+  PREPARING: 'bg-amber-500',
+  READY: 'bg-green-600',
+  SERVED: 'bg-slate-400',
+};
+
 const PRINT_LABEL: Record<Exclude<KotPrintState, 'NONE'>, string> = {
   WAITING: 'Not printed yet',
   PRINTED: 'Printed',
@@ -23,7 +31,7 @@ function KotPrint({ kot, orderId }: { kot: OrderKot; orderId: string }) {
             ? 'font-semibold text-red-700'
             : kot.print === 'WAITING'
               ? 'text-amber-800'
-              : 'text-slate-500'
+              : 'text-subtle'
         }
       >
         {PRINT_LABEL[kot.print]}
@@ -31,7 +39,7 @@ function KotPrint({ kot, orderId }: { kot: OrderKot; orderId: string }) {
       <button
         type="button"
         aria-label={`Reprint KOT ${kot.kotNo}`}
-        className="text-slate-700 underline disabled:opacity-50"
+        className="text-text underline disabled:opacity-50"
         disabled={reprint.isPending}
         onClick={() => reprint.mutate()}
       >
@@ -50,7 +58,7 @@ function ServedButton({ kot, orderId }: { kot: OrderKot; orderId: string }) {
       <button
         type="button"
         aria-label={`Served KOT ${kot.kotNo}`}
-        className="min-h-9 rounded-md bg-emerald-700 px-3 text-xs font-semibold text-white disabled:opacity-60"
+        className="min-h-11 rounded-md bg-primary-700 px-4 text-sm font-semibold text-white disabled:opacity-60"
         disabled={served.isPending}
         onClick={() => served.mutate()}
       >
@@ -79,24 +87,28 @@ export function KotCard({
   onCancelling: (lineId: string | null) => void;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+    <div className="rounded-lg border border-border bg-surface px-3 py-2 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          KOT {kot.kotNo} · {kot.stationName} · {kot.status.toLowerCase()}
+        <p className="flex items-center gap-2 text-xs font-semibold tracking-wide text-muted uppercase">
+          <span
+            aria-hidden="true"
+            className={'size-2.5 shrink-0 rounded-full ' + KOT_DOT[kot.status]}
+          />
+          {'KOT ' + kot.kotNo + ' · ' + kot.stationName + ' · ' + kot.status.toLowerCase()}
         </p>
         <span className="flex items-center gap-2">
           {kot.status === 'READY' && <ServedButton kot={kot} orderId={order.id} />}
           <KotPrint kot={kot} orderId={order.id} />
         </span>
       </div>
-      <ul className="divide-y divide-slate-100">
+      <ul className="divide-y divide-border">
         {lines.map((line) => (
           <li key={line.id} className="flex flex-col gap-2 py-2">
             <div className="flex items-center justify-between gap-2">
               <span>
                 {line.quantity} × {line.itemName}
                 {lineDetail(line) && (
-                  <span className="text-xs text-slate-500"> · {lineDetail(line)}</span>
+                  <span className="text-xs text-subtle"> · {lineDetail(line)}</span>
                 )}
               </span>
               <span className="flex items-center gap-2">

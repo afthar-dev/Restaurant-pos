@@ -29,8 +29,8 @@ export function SplitSheet({
   return (
     <Sheet label="Split bill" onClose={onClose}>
       <h3 className="text-lg font-semibold">Split bill</h3>
-      <p className="text-sm text-slate-600">Choose the dishes for this bill.</p>
-      <ul className="flex flex-col divide-y divide-slate-100">
+      <p className="text-sm text-muted">Choose the dishes for this bill.</p>
+      <ul className="flex flex-col divide-y divide-border">
         {lines
           .filter((l) => left(l) > 0)
           .map((l) => (
@@ -38,7 +38,7 @@ export function SplitSheet({
               <span>
                 {l.itemName}
                 {l.variantName !== 'Regular' && ` (${l.variantName})`}
-                <span className="block text-xs text-slate-500">{left(l)} not billed</span>
+                <span className="block text-xs text-subtle">{left(l)} not billed</span>
               </span>
               <span className="flex items-center gap-1">
                 <button

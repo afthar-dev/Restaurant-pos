@@ -43,43 +43,45 @@ function TicketCard({
   return (
     <article
       aria-label={label}
-      className={`flex flex-col gap-3 rounded-xl border-2 bg-white p-4 ${
-        cancelled ? 'border-red-600 bg-red-50' : late ? 'border-amber-500' : 'border-slate-200'
+      className={`flex flex-col gap-3 rounded-xl border-2 p-4 shadow-card ${
+        cancelled
+          ? 'border-red-500 bg-red-950/50'
+          : `bg-surface ${late ? 'border-amber-400' : 'border-border'}`
       }`}
     >
       <header className="flex items-baseline justify-between gap-2">
         <span className="text-2xl font-bold">
-          {cancelled && <span className="mr-2 text-red-700">CANCEL</span>}
+          {cancelled && <span className="mr-2 text-red-400">CANCEL</span>}
           KOT {ticket.kotNo}
         </span>
         <span className="text-xl font-semibold">{orderLabel(ticket)}</span>
       </header>
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-muted">
         {ticket.stationName} · {ticket.waiterName} · {minutes} min
       </p>
       <ul className="flex flex-col gap-2 text-lg">
         {ticket.lines.map((l) => (
-          <li key={l.id} className={cancelled ? 'text-red-800 line-through' : ''}>
+          <li key={l.id} className={cancelled ? 'text-red-300 line-through' : ''}>
             <span className="font-semibold">
               {l.quantity} × {l.itemName}
               {l.variantName !== 'Regular' ? ` (${l.variantName})` : ''}
             </span>
             {l.addons.map((a) => (
-              <span key={a} className="block pl-6 text-base text-slate-700">
+              <span key={a} className="block pl-6 text-base text-muted">
                 {a}
               </span>
             ))}
             {l.comboComponents.map((c) => (
               <span
                 key={`${c.itemName}-${c.variantName}`}
-                className="block pl-6 text-base text-slate-700"
+                className="block pl-6 text-base text-muted"
               >
                 {c.quantity * l.quantity} × {c.itemName}
                 {c.variantName !== 'Regular' ? ` (${c.variantName})` : ''}
               </span>
             ))}
             {l.note && (
-              <span className="block pl-6 text-base italic text-amber-800">“{l.note}”</span>
+              <span className="block pl-6 text-base italic text-amber-300">“{l.note}”</span>
             )}
           </li>
         ))}
@@ -91,7 +93,7 @@ function TicketCard({
           disabled={busy}
           onClick={() => onAdvance(next.status)}
           className={`min-h-14 rounded-lg text-lg font-semibold text-white disabled:opacity-60 ${
-            cancelled ? 'bg-red-700' : 'bg-emerald-700'
+            cancelled ? 'bg-red-700' : 'bg-primary-700'
           }`}
         >
           {next.verb}
@@ -145,7 +147,7 @@ function KitchenBoard() {
           Station
           <select
             id="kds-station"
-            className="min-h-11 rounded-md border border-slate-300 bg-white px-3"
+            className="min-h-11 rounded-md border border-border-strong bg-surface px-3 text-text"
             value={station}
             onChange={(e) => {
               setStation(e.target.value);
@@ -170,7 +172,7 @@ function KitchenBoard() {
           const list = shown.filter(column.match);
           return (
             <section key={column.name} aria-label={column.name} className="flex flex-col gap-3">
-              <h2 className="text-lg font-semibold uppercase tracking-wide text-slate-500">
+              <h2 className="text-lg font-semibold uppercase tracking-wide text-muted">
                 {column.name} <span className="tabular-nums">({list.length})</span>
               </h2>
               {list.map((t) => (
@@ -194,12 +196,12 @@ function KitchenBoard() {
 export function KdsPage() {
   const device = useCurrentDevice();
   if (device.data === undefined) {
-    if (device.isError) return <p className="text-slate-700">Cannot reach the server. Retrying…</p>;
+    if (device.isError) return <p className="text-muted">Cannot reach the server. Retrying…</p>;
     return <LoadingScreen />;
   }
   if (!device.data) {
     return (
-      <p className="mx-auto max-w-md rounded-lg border border-slate-200 bg-white p-6 text-slate-700">
+      <p className="mx-auto max-w-md rounded-lg border border-border bg-surface p-6 text-muted">
         This screen is not set up yet. A manager can register it as a kitchen screen in Admin →
         Devices.
       </p>
@@ -207,7 +209,7 @@ export function KdsPage() {
   }
   if (device.data.type !== 'KDS') {
     return (
-      <p className="mx-auto max-w-md rounded-lg border border-slate-200 bg-white p-6 text-slate-700">
+      <p className="mx-auto max-w-md rounded-lg border border-border bg-surface p-6 text-muted">
         {device.data.name} is registered as a counter, not a kitchen screen.
       </p>
     );

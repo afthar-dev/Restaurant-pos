@@ -1,10 +1,27 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { resetRefreshState } from '@/shared/api/http';
 import { resetSessionStore } from '@/shared/session/store';
 import { useStationFilter } from '@/features/kitchen/store';
 import { useNotifications } from '@/features/notifications/store';
+
+// findBy… waits up to 5 s: full screens with the app shell render slower on a busy machine.
+configure({ asyncUtilTimeout: 5000 });
+
+// jsdom lacks a few browser APIs that Radix UI (dialogs, menus, tooltips) calls.
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObserver;
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.releasePointerCapture ??= () => undefined;
+Element.prototype.scrollIntoView ??= () => undefined;
+// axe probes a canvas to spot icon fonts; jsdom has none, so answer "no canvas" quietly.
+HTMLCanvasElement.prototype.getContext = (() =>
+  null) as typeof HTMLCanvasElement.prototype.getContext;
 
 // No real sockets in tests. Tests that check realtime behaviour mock this module themselves.
 vi.mock('socket.io-client', () => ({

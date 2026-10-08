@@ -1,20 +1,23 @@
 import { createUserSchema, PASSWORD_ROLES, ROLES, updateUserSchema, type Role } from '@rpos/shared';
 import { useState, type FormEvent } from 'react';
 import {
+  Button,
   ConfirmBar,
   describeError,
   ErrorNote,
   Field,
   fieldErrors,
+  type FieldErrors,
   inputClass,
+  PageHeader,
   primaryButton,
   secondaryButton,
-  type FieldErrors,
 } from '@/shared/ui';
 
 import { useSaveStaff, useToggleStaffArchive } from '../mutations';
 import { useStaff } from '../queries';
 import type { Staff } from '../types';
+import { Plus } from 'lucide-react';
 
 const ROLE_LABEL: Record<Role, string> = {
   OWNER: 'Owner',
@@ -62,7 +65,7 @@ function StaffForm({ existing, onDone }: { existing: Staff | null; onDone: () =>
     <form
       onSubmit={onSubmit}
       noValidate
-      className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-2"
+      className="grid gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2"
     >
       <h2 className="text-lg font-semibold sm:col-span-2">
         {existing ? `Edit ${existing.name}` : 'Add staff'}
@@ -155,9 +158,9 @@ function StaffForm({ existing, onDone }: { existing: Staff | null; onDone: () =>
 }
 
 function StatusBadge({ staff }: { staff: Staff }) {
-  if (staff.archivedAt) return <span className="text-slate-500">Archived</span>;
+  if (staff.archivedAt) return <span className="text-subtle">Archived</span>;
   if (staff.lockedUntil) return <span className="text-amber-700">Locked</span>;
-  return <span className="text-emerald-700">Active</span>;
+  return <span className="text-green-700">Active</span>;
 }
 
 export function StaffPage() {
@@ -169,14 +172,18 @@ export function StaffPage() {
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">Staff</h2>
-        {editing === null && (
-          <button type="button" className={primaryButton} onClick={() => setEditing('new')}>
-            Add staff
-          </button>
-        )}
-      </div>
+      <PageHeader
+        as="h2"
+        title="Staff"
+        description="Owners and managers sign in with phone and password; cashiers and waiters use a PIN on a registered device."
+        actions={
+          editing === null && (
+            <Button icon={<Plus />} onClick={() => setEditing('new')}>
+              Add staff
+            </Button>
+          )
+        }
+      />
 
       {editing !== null && (
         <StaffForm existing={editing === 'new' ? null : editing} onDone={() => setEditing(null)} />
@@ -194,16 +201,26 @@ export function StaffPage() {
       <ErrorNote message={toggleArchive.isError ? describeError(toggleArchive.error) : null} />
       <ErrorNote message={users.isError ? describeError(users.error) : null} />
 
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-card">
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-surface-2 text-xs font-semibold uppercase tracking-wide text-muted">
             <tr>
-              <th className="px-3 py-2">Name</th>
-              <th className="px-3 py-2">Mobile</th>
-              <th className="px-3 py-2">Role</th>
-              <th className="px-3 py-2">Signs in with</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">
+              <th scope="col" className="px-3 py-2.5">
+                Name
+              </th>
+              <th scope="col" className="px-3 py-2.5">
+                Mobile
+              </th>
+              <th scope="col" className="px-3 py-2.5">
+                Role
+              </th>
+              <th scope="col" className="px-3 py-2.5">
+                Signs in with
+              </th>
+              <th scope="col" className="px-3 py-2.5">
+                Status
+              </th>
+              <th scope="col" className="px-3 py-2.5">
                 <span className="sr-only">Actions</span>
               </th>
             </tr>
@@ -211,13 +228,13 @@ export function StaffPage() {
           <tbody>
             {users.isPending && (
               <tr>
-                <td className="px-3 py-3 text-slate-500" colSpan={6}>
+                <td className="px-3 py-3 text-subtle" colSpan={6}>
                   Loading…
                 </td>
               </tr>
             )}
             {users.data?.map((s) => (
-              <tr key={s.id} className="border-t border-slate-100">
+              <tr key={s.id} className="border-t border-border">
                 <td className="px-3 py-2 font-medium">{s.name}</td>
                 <td className="px-3 py-2 tabular-nums">{s.phone}</td>
                 <td className="px-3 py-2">{ROLE_LABEL[s.role]}</td>

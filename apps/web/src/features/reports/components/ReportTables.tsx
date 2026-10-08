@@ -9,9 +9,9 @@ const num = 'px-3 py-2 text-right tabular-nums';
 
 function Table({ label, head, children }: { label: string; head: string[]; children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+    <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-card">
       <table aria-label={label} className="w-full text-left text-sm">
-        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+        <thead className="bg-surface-2 text-xs font-semibold uppercase tracking-wide text-muted">
           <tr>
             {head.map((h, i) => (
               <th key={h} className={i === 0 ? th : `${th} text-right`}>
@@ -20,7 +20,7 @@ function Table({ label, head, children }: { label: string; head: string[]; child
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">{children}</tbody>
+        <tbody className="divide-y divide-border">{children}</tbody>
       </table>
     </div>
   );

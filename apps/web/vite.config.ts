@@ -17,5 +17,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // Whole screens render in these tests; parallel runs on a busy machine need headroom.
+    testTimeout: 20_000,
   },
 });

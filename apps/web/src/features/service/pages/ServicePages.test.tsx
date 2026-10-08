@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSession } from '@/shared/session/store';
 import { line, MENU, order } from '@/test/fixtures';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
+import { expectNoAxeViolations } from '@/test/a11y';
 import { renderRoute } from '@/test/render';
 
 type Handler = (payload?: unknown) => void;
@@ -82,6 +83,7 @@ describe('POS counter', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'T2' })).toBeInTheDocument();
     expect(await screen.findByLabelText('Search dishes')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'New parcel' })).toBeInTheDocument();
+    await expectNoAxeViolations();
   });
 });
 

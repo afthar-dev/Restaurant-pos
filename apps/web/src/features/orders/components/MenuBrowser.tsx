@@ -32,7 +32,7 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
 
   if (!menu.data) {
     if (menu.isError) return <ErrorNote message={describeError(menu.error)} />;
-    return <p className="text-slate-500">Loading menu…</p>;
+    return <p className="text-subtle">Loading menu…</p>;
   }
 
   const categories = menu.data.categories.filter((c) => c.items.length > 0);
@@ -69,10 +69,10 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
               role="tab"
               aria-selected={c.id === active?.id}
               onClick={() => setCategoryId(c.id)}
-              className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-medium ${
+              className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-medium transition-colors ${
                 c.id === active?.id
-                  ? 'bg-emerald-700 text-white'
-                  : 'bg-white text-slate-700 ring-1 ring-slate-200'
+                  ? 'bg-primary-700 text-white shadow-sm'
+                  : 'bg-surface text-text ring-1 ring-border-strong hover:bg-surface-2'
               }`}
             >
               {c.name}
@@ -81,7 +81,7 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
         </div>
       )}
       <ErrorNote message={addError} />
-      <p role="status" className="min-h-5 text-sm text-slate-500">
+      <p role="status" className="min-h-5 text-sm text-subtle">
         {saving > 0 ? `Adding ${saving} ${saving === 1 ? 'dish' : 'dishes'}…` : ''}
       </p>
       {picking && (
@@ -93,7 +93,7 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
           onClose={() => setPicking(null)}
         />
       )}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2">
         {items.map((item) => {
           const prices = item.variants.map((v) => unitPrice(v, orderType));
           return (
@@ -103,7 +103,7 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
               aria-label={tileLabel(item, orderType)}
               disabled={!item.isAvailable}
               onClick={() => choose(item)}
-              className="flex min-h-20 flex-col items-start justify-between rounded-lg border border-slate-200 bg-white p-2 text-left active:bg-emerald-50 disabled:opacity-50"
+              className="flex min-h-22 flex-col items-start justify-between gap-2 rounded-lg border border-border bg-surface p-3 text-left shadow-card transition-colors hover:border-primary-300 active:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="flex items-start gap-1.5 text-sm font-medium leading-tight">
                 <span
@@ -111,7 +111,7 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
                 />
                 {item.name}
               </span>
-              <span className="text-xs text-slate-600 tabular-nums">
+              <span className="text-sm font-semibold text-primary-800 tabular-nums">
                 {item.isAvailable
                   ? `${item.variants.length > 1 ? 'from ' : ''}${rupees(Math.min(...prices))}`
                   : 'Out of stock'}
@@ -119,7 +119,9 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
             </button>
           );
         })}
-        {items.length === 0 && <p className="text-sm text-slate-500">No dishes match.</p>}
+        {items.length === 0 && (
+          <p className="col-span-full py-6 text-center text-sm text-muted">No dishes match.</p>
+        )}
       </div>
     </div>
   );

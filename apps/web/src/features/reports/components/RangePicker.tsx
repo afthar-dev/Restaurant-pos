@@ -25,7 +25,7 @@ export function RangePicker({
             key={p}
             type="button"
             aria-pressed={active === p}
-            className={`${secondaryButton} min-h-11 ${active === p ? 'ring-2 ring-emerald-700' : ''}`}
+            className={`${secondaryButton} min-h-11 ${active === p ? 'ring-2 ring-primary-700' : ''}`}
             onClick={() => {
               setCustom(false);
               onChange(presetRange(p));
@@ -37,7 +37,7 @@ export function RangePicker({
         <button
           type="button"
           aria-pressed={custom}
-          className={`${secondaryButton} min-h-11 ${custom ? 'ring-2 ring-emerald-700' : ''}`}
+          className={`${secondaryButton} min-h-11 ${custom ? 'ring-2 ring-primary-700' : ''}`}
           onClick={() => setCustom(true)}
         >
           Custom

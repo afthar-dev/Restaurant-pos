@@ -8,8 +8,10 @@ import { ExpensesPage } from '@/features/expenses';
 import { ReportsPage } from '@/features/reports';
 import { PurchasesPage, StockPage } from '@/features/stock';
 import { KdsPage } from '@/features/kitchen';
-import { ADMIN_PERMISSIONS, Home } from './Home';
+import { HomePage } from './home/HomePage';
+import { ADMIN_PERMISSIONS } from './navigation';
 import { NotFound } from './NotFound';
+import { RouteError } from './RouteError';
 import { AdminIndex, AdminLayout } from './admin/AdminLayout';
 import { AuditPage } from '@/features/audit';
 import { DevicesPage } from '@/features/devices';
@@ -25,167 +27,173 @@ export const routes: RouteObject[] = [
     element: <AppShell />,
     children: [
       {
-        index: true,
-        element: (
-          <RequireAuth>
-            <Home />
-          </RequireAuth>
-        ),
-      },
-      { path: 'login', element: <LoginPage /> },
-      { path: 'pin', element: <PinPage /> },
-      {
-        path: 'pos',
-        element: (
-          <RequireAuth anyOf={['bill.print']}>
-            <PosPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: 'captain',
-        element: (
-          <RequireAuth anyOf={['order.take']}>
-            <CaptainPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: 'availability',
-        element: (
-          <RequireAuth anyOf={['menu.availability']}>
-            <AvailabilityPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: 'day',
-        element: (
-          <RequireAuth anyOf={['day.openClose', 'reports.dayClose']}>
-            <DayPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: 'expenses',
-        element: (
-          <RequireAuth anyOf={['expense.manage']}>
-            <ExpensesPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: 'stock',
-        element: (
-          <RequireAuth anyOf={['stock.manage']}>
-            <StockPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: 'stock/purchases',
-        element: (
-          <RequireAuth anyOf={['stock.manage']}>
-            <PurchasesPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: 'reports',
-        element: (
-          <RequireAuth anyOf={['reports.all']}>
-            <ReportsPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: 'kds',
-        element: <KdsPage />,
-      },
-      {
-        path: 'admin',
-        element: (
-          <RequireAuth anyOf={ADMIN_PERMISSIONS}>
-            <AdminLayout />
-          </RequireAuth>
-        ),
+        // Pathless, so a crashed or unloadable screen keeps the shell around it.
+        errorElement: <RouteError />,
         children: [
-          { index: true, element: <AdminIndex /> },
           {
-            path: 'menu',
+            index: true,
             element: (
-              <RequireAuth anyOf={['menu.manage']}>
-                <MenuPage />
+              <RequireAuth>
+                <HomePage />
+              </RequireAuth>
+            ),
+          },
+          { path: 'login', element: <LoginPage /> },
+          { path: 'pin', element: <PinPage /> },
+          {
+            path: 'pos',
+            element: (
+              <RequireAuth anyOf={['bill.print']}>
+                <PosPage />
               </RequireAuth>
             ),
           },
           {
-            path: 'addons',
+            path: 'captain',
             element: (
-              <RequireAuth anyOf={['menu.manage']}>
-                <AddonsPage />
+              <RequireAuth anyOf={['order.take']}>
+                <CaptainPage />
               </RequireAuth>
             ),
           },
           {
-            path: 'staff',
+            path: 'availability',
             element: (
-              <RequireAuth anyOf={['users.manage']}>
-                <StaffPage />
+              <RequireAuth anyOf={['menu.availability']}>
+                <AvailabilityPage />
               </RequireAuth>
             ),
           },
           {
-            path: 'settings',
+            path: 'day',
             element: (
-              <RequireAuth anyOf={['settings.manage']}>
-                <SettingsPage />
+              <RequireAuth anyOf={['day.openClose', 'reports.dayClose']}>
+                <DayPage />
               </RequireAuth>
             ),
           },
           {
-            path: 'tables',
+            path: 'expenses',
             element: (
-              <RequireAuth anyOf={['settings.manage']}>
-                <TablesPage />
+              <RequireAuth anyOf={['expense.manage']}>
+                <ExpensesPage />
               </RequireAuth>
             ),
           },
           {
-            path: 'kitchen',
+            path: 'stock',
             element: (
-              <RequireAuth anyOf={['settings.manage']}>
-                <KitchenPage />
+              <RequireAuth anyOf={['stock.manage']}>
+                <StockPage />
               </RequireAuth>
             ),
           },
           {
-            path: 'tax',
+            path: 'stock/purchases',
             element: (
-              <RequireAuth anyOf={['settings.manage']}>
-                <TaxPage />
+              <RequireAuth anyOf={['stock.manage']}>
+                <PurchasesPage />
               </RequireAuth>
             ),
           },
           {
-            path: 'devices',
+            path: 'reports',
             element: (
-              <RequireAuth anyOf={['devices.manage']}>
-                <DevicesPage />
+              <RequireAuth anyOf={['reports.all']}>
+                <ReportsPage />
               </RequireAuth>
             ),
           },
           {
-            path: 'audit',
+            path: 'kds',
+            element: <KdsPage />,
+          },
+          {
+            path: 'admin',
             element: (
-              <RequireAuth anyOf={['audit.view']}>
-                <AuditPage />
+              <RequireAuth anyOf={ADMIN_PERMISSIONS}>
+                <AdminLayout />
               </RequireAuth>
             ),
+            children: [
+              { index: true, element: <AdminIndex /> },
+              {
+                path: 'menu',
+                element: (
+                  <RequireAuth anyOf={['menu.manage']}>
+                    <MenuPage />
+                  </RequireAuth>
+                ),
+              },
+              {
+                path: 'addons',
+                element: (
+                  <RequireAuth anyOf={['menu.manage']}>
+                    <AddonsPage />
+                  </RequireAuth>
+                ),
+              },
+              {
+                path: 'staff',
+                element: (
+                  <RequireAuth anyOf={['users.manage']}>
+                    <StaffPage />
+                  </RequireAuth>
+                ),
+              },
+              {
+                path: 'settings',
+                element: (
+                  <RequireAuth anyOf={['settings.manage']}>
+                    <SettingsPage />
+                  </RequireAuth>
+                ),
+              },
+              {
+                path: 'tables',
+                element: (
+                  <RequireAuth anyOf={['settings.manage']}>
+                    <TablesPage />
+                  </RequireAuth>
+                ),
+              },
+              {
+                path: 'kitchen',
+                element: (
+                  <RequireAuth anyOf={['settings.manage']}>
+                    <KitchenPage />
+                  </RequireAuth>
+                ),
+              },
+              {
+                path: 'tax',
+                element: (
+                  <RequireAuth anyOf={['settings.manage']}>
+                    <TaxPage />
+                  </RequireAuth>
+                ),
+              },
+              {
+                path: 'devices',
+                element: (
+                  <RequireAuth anyOf={['devices.manage']}>
+                    <DevicesPage />
+                  </RequireAuth>
+                ),
+              },
+              {
+                path: 'audit',
+                element: (
+                  <RequireAuth anyOf={['audit.view']}>
+                    <AuditPage />
+                  </RequireAuth>
+                ),
+              },
+            ],
           },
+          { path: '*', element: <NotFound /> },
         ],
       },
-      { path: '*', element: <NotFound /> },
     ],
   },
 ];

@@ -31,7 +31,7 @@ describe('routes', () => {
     signInAs('OWNER', OWNER_PERMS);
     renderRoute('/');
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Restaurant POS' }),
+      await screen.findByRole('heading', { level: 1, name: /^Welcome, / }),
     ).toBeInTheDocument();
     const main = within(screen.getByRole('main'));
     for (const name of ['POS counter', 'Captain app', 'Kitchen display', 'Admin']) {

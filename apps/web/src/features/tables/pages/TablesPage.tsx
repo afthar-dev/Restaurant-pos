@@ -7,11 +7,12 @@ import {
   ErrorNote,
   Field,
   fieldErrors,
+  type FieldErrors,
   inputClass,
+  PageHeader,
   primaryButton,
   RenameForm,
   secondaryButton,
-  type FieldErrors,
 } from '@/shared/ui';
 
 import {
@@ -111,7 +112,7 @@ function EditTableForm({
     <form
       onSubmit={onSubmit}
       noValidate
-      className="flex flex-wrap items-end gap-3 rounded-md border border-emerald-200 p-3"
+      className="flex flex-wrap items-end gap-3 rounded-md border border-border p-3"
     >
       <Field
         id={`edit-table-name-${table.id}`}
@@ -220,7 +221,11 @@ export function TablesPage() {
 
   return (
     <section className="flex flex-col gap-6">
-      <h2 className="text-xl font-semibold">Tables</h2>
+      <PageHeader
+        as="h2"
+        title="Tables"
+        description="Dining areas and their tables, and the QR stickers customers scan to order."
+      />
       <AddAreaForm />
       <QrStickers />
       {pending && (
@@ -239,7 +244,7 @@ export function TablesPage() {
         return (
           <section
             key={area.id}
-            className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4"
+            className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4"
           >
             {renamingArea === area.id ? (
               <RenameForm
@@ -276,14 +281,14 @@ export function TablesPage() {
               {area.tables.map((t) => (
                 <li
                   key={t.id}
-                  className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm"
+                  className="flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm"
                 >
                   <span className="font-medium">{t.name}</span>
-                  <span className="text-slate-500">{t.seats} seats</span>
+                  <span className="text-subtle">{t.seats} seats</span>
                   <button
                     type="button"
                     aria-label={`Edit table ${t.name}`}
-                    className="text-slate-500 hover:text-emerald-800"
+                    className="text-subtle hover:text-primary-800"
                     onClick={() => setEditingTable(t.id)}
                   >
                     ✎
@@ -291,16 +296,14 @@ export function TablesPage() {
                   <button
                     type="button"
                     aria-label={`Archive table ${t.name}`}
-                    className="text-slate-400 hover:text-red-700"
+                    className="text-subtle hover:text-red-700"
                     onClick={() => setPending({ kind: 'table', table: t })}
                   >
                     ×
                   </button>
                 </li>
               ))}
-              {area.tables.length === 0 && (
-                <li className="text-sm text-slate-500">No tables yet.</li>
-              )}
+              {area.tables.length === 0 && <li className="text-sm text-subtle">No tables yet.</li>}
             </ul>
             {editing && (
               <EditTableForm

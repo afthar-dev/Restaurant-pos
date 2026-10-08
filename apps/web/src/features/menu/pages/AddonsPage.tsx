@@ -6,6 +6,7 @@ import {
   ErrorNote,
   Field,
   inputClass,
+  PageHeader,
   primaryButton,
   secondaryButton,
 } from '@/shared/ui';
@@ -72,7 +73,7 @@ function GroupForm({ existing, onDone }: { existing: MenuAddonGroup | null; onDo
     <form
       onSubmit={onSubmit}
       noValidate
-      className="flex flex-col gap-4 rounded-lg border border-emerald-200 bg-white p-4"
+      className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4"
     >
       <h3 className="text-lg font-semibold">
         {existing ? `Edit ${existing.name}` : 'New add-on group'}
@@ -194,7 +195,11 @@ export function AddonsPage() {
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-xl font-semibold">Add-ons</h2>
+      <PageHeader
+        as="h2"
+        title="Add-ons"
+        description="Extras like cheese or a choice of chutney. Attach a group to dishes in the menu."
+      />
       <GroupForm
         key={editing ? editing.id : `new-${formKey}`}
         existing={editing}
@@ -212,12 +217,12 @@ export function AddonsPage() {
           busy={archive.isPending}
         />
       )}
-      <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
         {groups.data?.map((g) => (
           <li key={g.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
             <div className="flex min-w-0 flex-col">
               <span className="font-medium">{g.name}</span>
-              <span className="text-sm text-slate-600">
+              <span className="text-sm text-muted">
                 {g.addons
                   .map((a) => `${a.name} ${a.price === 0 ? 'free' : rupees(a.price)}`)
                   .join(' · ')}
@@ -234,7 +239,7 @@ export function AddonsPage() {
           </li>
         ))}
         {groups.data?.length === 0 && (
-          <li className="px-4 py-3 text-sm text-slate-500">No add-on groups yet.</li>
+          <li className="px-4 py-3 text-sm text-subtle">No add-on groups yet.</li>
         )}
       </ul>
     </section>

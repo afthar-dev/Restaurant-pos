@@ -2,6 +2,7 @@ import { fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useSession } from '@/shared/session/store';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
+import { expectNoAxeViolations } from '@/test/a11y';
 import { renderRoute } from '@/test/render';
 import type { Purchase, StockItem } from '../types';
 
@@ -64,6 +65,7 @@ describe('StockPage', () => {
     expect(within(table).getByText('2.5 kg')).toBeInTheDocument();
     expect(within(table).getByText('-0.5 L')).toHaveClass('text-red-700');
     expect(within(table).getByText('₹40/kg')).toBeInTheDocument();
+    await expectNoAxeViolations();
   });
 
   it('records a physical count in thousandths and shows the difference', async () => {
@@ -180,7 +182,7 @@ describe('PurchasesPage', () => {
     });
     renderRoute('/stock/purchases');
     const form = await fillPurchase();
-    expect(within(form).getByText('Total ₹1170.50')).toBeInTheDocument();
+    expect(within(form).getByText('Total ₹1,170.50')).toBeInTheDocument();
     fireEvent.click(within(form).getByRole('button', { name: 'Save purchase' }));
     expect(await within(form).findByRole('alert')).toBeInTheDocument();
     fireEvent.click(within(form).getByRole('button', { name: 'Save purchase' }));

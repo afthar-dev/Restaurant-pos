@@ -5,9 +5,11 @@ import {
   ConfirmBar,
   dangerButton,
   describeError,
+  EmptyState,
   ErrorNote,
   Field,
   inputClass,
+  PageHeader,
   primaryButton,
   secondaryButton,
 } from '@/shared/ui';
@@ -18,6 +20,7 @@ import { useCloseDay, useRefreshDays, useReopenDay } from '../mutations';
 import { useBusinessDay, useCloseCheck, useDayReport, usePastDays } from '../queries';
 import type { DayBlockers, DayReport, DaySummary } from '../types';
 import { rupees } from '@/shared/lib/money';
+import { Sunrise } from 'lucide-react';
 
 const signed = (paise: number) =>
   paise < 0 ? `−${rupees(-paise)}` : paise > 0 ? `+${rupees(paise)}` : rupees(0);
@@ -42,8 +45,8 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
 
 function Block({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</h3>
+    <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-3 text-sm">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-subtle">{title}</h3>
       {children}
     </div>
   );
@@ -206,10 +209,10 @@ function ReportView({
           <Row label="Cash" value={rupees(report.payments.CASH)} />
           <Row label="UPI" value={rupees(report.payments.UPI)} />
           <Row label="Card" value={rupees(report.payments.CARD)} />
-          <p className="pt-1 text-slate-600">
+          <p className="pt-1 text-muted">
             {`Dine-in · ${report.byType.DINE_IN.orders} orders · ${rupees(report.byType.DINE_IN.total)}`}
           </p>
-          <p className="text-slate-600">
+          <p className="text-muted">
             {`Parcel · ${report.byType.PARCEL.orders} orders · ${rupees(report.byType.PARCEL.total)}`}
           </p>
         </Block>
@@ -229,10 +232,10 @@ function ReportView({
               <span className="tabular-nums">{signed(cash.variance)}</span>
             </div>
           )}
-          {report.day.closeNote && <p className="text-slate-600">Note: {report.day.closeNote}</p>}
+          {report.day.closeNote && <p className="text-muted">Note: {report.day.closeNote}</p>}
         </Block>
         <Block title="Top items">
-          {report.topItems.length === 0 && <p className="text-slate-500">No sales.</p>}
+          {report.topItems.length === 0 && <p className="text-subtle">No sales.</p>}
           {report.topItems.map((i) => (
             <div key={`${i.itemName}-${i.variantName}`} className="flex justify-between gap-2">
               <span>
@@ -339,11 +342,11 @@ function PastDays({
             <button
               type="button"
               aria-pressed={selected === d.id}
-              className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 text-left text-sm"
+              className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 text-left text-sm"
               onClick={() => onSelect(d, index === 0)}
             >
               <span>{`${shortDate(d.openedAt)} · ${rupees(d.total)}`}</span>
-              <span className={d.variance ? 'text-red-700' : 'text-slate-500'}>
+              <span className={d.variance ? 'text-red-700' : 'text-subtle'}>
                 {d.status === 'OPEN'
                   ? 'Open'
                   : d.variance === null
@@ -373,10 +376,17 @@ export function DayPage() {
 
   return (
     <section className="mx-auto flex max-w-4xl flex-col gap-5">
-      <h1 className="text-2xl font-semibold">Day close</h1>
+      <PageHeader
+        title="Day close"
+        description="Settle every table, count the cash in the drawer and close the day. Past day reports are below."
+      />
       {canClose && open && !justClosed && <CloseToday onClosed={setJustClosed} />}
       {canClose && day.data && !open && !justClosed && (
-        <p className="text-slate-600">No business day is open.</p>
+        <EmptyState
+          icon={<Sunrise />}
+          title="No business day is open"
+          description="Open the day from the POS screen to start taking orders. Closed days are listed below."
+        />
       )}
       {shown && (
         <ReportView

@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { describeError, ErrorNote, LoadingScreen, secondaryButton } from '@/shared/ui';
+import {
+  describeError,
+  EmptyState,
+  ErrorNote,
+  LoadingScreen,
+  PageHeader,
+  secondaryButton,
+} from '@/shared/ui';
 import { CategoriesTable, DaysTable, ItemsTable } from '../components/ReportTables';
 import { RangePicker } from '../components/RangePicker';
 import { SummaryCards } from '../components/SummaryCards';
@@ -7,6 +14,7 @@ import { csvRupees, downloadCsv, toCsv } from '../csv';
 import { useSalesReport } from '../queries';
 import { dateLabel, presetRange, type DateRange } from '../ranges';
 import type { SalesReport } from '../types';
+import { CalendarX } from 'lucide-react';
 
 const fileRange = (report: SalesReport) => `${report.range.from}-to-${report.range.to}`;
 
@@ -47,8 +55,11 @@ export function ReportsPage() {
 
   return (
     <section className="mx-auto flex max-w-6xl flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Sales report</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <PageHeader
+          title="Sales report"
+          description="Sales, payments, dishes and expenses for any dates. Download CSV files for your accountant."
+        />
         <div className="flex gap-2">
           {(
             [
@@ -69,7 +80,7 @@ export function ReportsPage() {
         </div>
       </div>
       <RangePicker range={range} onChange={setRange} />
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-muted">
         {range.from === range.to
           ? dateLabel(range.from)
           : `${dateLabel(range.from)} – ${dateLabel(range.to)}`}
@@ -82,7 +93,11 @@ export function ReportsPage() {
         <>
           <SummaryCards summary={data.summary} />
           {data.days.length === 0 ? (
-            <p className="text-slate-600">No business days in this range.</p>
+            <EmptyState
+              icon={<CalendarX />}
+              title="No business days in this range"
+              description="Pick other dates, or open a day on the POS screen to start recording sales."
+            />
           ) : (
             <>
               <h2 className="text-lg font-semibold">Days</h2>

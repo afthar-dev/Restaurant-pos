@@ -3,10 +3,12 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { rupees } from '@/shared/lib/money';
 import {
+  Button,
   describeError,
+  EmptyState,
   ErrorNote,
   LoadingScreen,
-  primaryButton,
+  PageHeader,
   secondaryButton,
 } from '@/shared/ui';
 import { AdjustSheet } from '../components/AdjustSheet';
@@ -15,6 +17,7 @@ import { HistorySheet } from '../components/HistorySheet';
 import { StockItemSheet } from '../components/StockItemSheet';
 import { useStockItems } from '../queries';
 import { quantityLabel, type StockItem } from '../types';
+import { Package, Plus } from 'lucide-react';
 
 type Open =
   { kind: 'new' } | { kind: 'edit' | 'count' | 'adjust' | 'history'; item: StockItem } | null;
@@ -28,17 +31,20 @@ export function StockPage() {
 
   return (
     <section className="mx-auto flex max-w-5xl flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Stock</h1>
-        <div className="flex gap-2">
-          <Link to="/stock/purchases" className={`${secondaryButton} min-h-11 content-center`}>
-            Purchases
-          </Link>
-          <button type="button" className={primaryButton} onClick={() => setOpen({ kind: 'new' })}>
-            Add stock item
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Stock"
+        description="Raw materials on hand. Purchases add stock; counts and adjustments correct it."
+        actions={
+          <>
+            <Button asChild variant="secondary">
+              <Link to="/stock/purchases">Purchases</Link>
+            </Button>
+            <Button icon={<Plus />} onClick={() => setOpen({ kind: 'new' })}>
+              Add stock item
+            </Button>
+          </>
+        }
+      />
       {low.length > 0 && (
         <p
           role="status"
@@ -54,22 +60,34 @@ export function StockPage() {
           <LoadingScreen />
         )
       ) : items.data.length === 0 ? (
-        <p className="text-slate-600">No stock items yet. Add the raw materials you buy.</p>
+        <EmptyState
+          icon={<Package />}
+          title="No stock items yet"
+          description="Use Add stock item for the raw materials you buy, like rice, oil or chicken. Set an alert level to get a low-stock warning on the home screen."
+        />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-card">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-surface-2 text-xs font-semibold uppercase tracking-wide text-muted">
               <tr>
-                <th className="px-3 py-2">Item</th>
-                <th className="px-3 py-2 text-right">On hand</th>
-                <th className="px-3 py-2 text-right">Alert at</th>
-                <th className="px-3 py-2 text-right">Last rate</th>
-                <th className="px-3 py-2">
+                <th scope="col" className="px-3 py-2.5">
+                  Item
+                </th>
+                <th scope="col" className="px-3 py-2.5 text-right">
+                  On hand
+                </th>
+                <th scope="col" className="px-3 py-2.5 text-right">
+                  Alert at
+                </th>
+                <th scope="col" className="px-3 py-2.5 text-right">
+                  Last rate
+                </th>
+                <th scope="col" className="px-3 py-2.5">
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               {items.data.map((item) => (
                 <tr key={item.id} className={item.low ? 'bg-amber-50' : ''}>
                   <td className="px-3 py-2 font-medium">{item.name}</td>
@@ -78,12 +96,12 @@ export function StockPage() {
                   >
                     {quantityLabel(item.currentMilli, item.unit)}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-slate-600">
+                  <td className="px-3 py-2 text-right tabular-nums text-muted">
                     {item.minLevelMilli > 0
                       ? `${formatQuantity(item.minLevelMilli)} ${item.unit}`
                       : '—'}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-slate-600">
+                  <td className="px-3 py-2 text-right tabular-nums text-muted">
                     {item.lastPurchase ? `${rupees(item.lastPurchase.rate)}/${item.unit}` : '—'}
                   </td>
                   <td className="px-3 py-2">

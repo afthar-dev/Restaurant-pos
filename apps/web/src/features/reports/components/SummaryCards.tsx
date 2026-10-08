@@ -3,8 +3,8 @@ import type { SalesReport } from '../types';
 
 function Card({ label, value, tone }: { label: string; value: string; tone?: 'bad' }) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-4">
-      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</span>
+    <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4">
+      <span className="text-xs font-semibold uppercase tracking-wide text-subtle">{label}</span>
       <span
         className={`text-2xl font-semibold tabular-nums ${tone === 'bad' ? 'text-red-700' : ''}`}
       >
@@ -16,8 +16,8 @@ function Card({ label, value, tone }: { label: string; value: string; tone?: 'ba
 
 function Split({ title, rows }: { title: string; rows: [string, string][] }) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-4 text-sm">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</h3>
+    <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4 text-sm">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-subtle">{title}</h3>
       {rows.map(([label, value]) => (
         <div key={label} className="flex justify-between gap-2">
           <span>{label}</span>

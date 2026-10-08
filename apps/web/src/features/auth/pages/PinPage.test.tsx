@@ -28,7 +28,7 @@ describe('PinPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Restaurant POS' }),
+      await screen.findByRole('heading', { level: 1, name: /^Welcome, / }),
     ).toBeInTheDocument();
     const call = mock.mock.calls.find(([url]) => String(url) === '/api/auth/pin-login');
     expect(JSON.parse(String(call?.[1]?.body))).toEqual({ userId: ARUN, pin: '1234' });

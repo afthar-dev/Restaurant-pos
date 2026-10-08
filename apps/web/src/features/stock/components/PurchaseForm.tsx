@@ -77,7 +77,7 @@ export function PurchaseForm({ items, onDone }: { items: StockItem[]; onDone: ()
       onSubmit={onSubmit}
       noValidate
       aria-label="New purchase"
-      className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4"
+      className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4"
     >
       <div className="grid gap-3 sm:grid-cols-3">
         <Field id="purchase-vendor" label="Vendor">
