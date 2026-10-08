@@ -24,13 +24,13 @@ export function ConfirmBar({
       <p className="flex-1 text-sm text-red-900">{question}</p>
       <button
         type="button"
-        className={buttonClass('danger', 'sm')}
+        className={buttonClass('danger', 'md')}
         onClick={onConfirm}
         disabled={busy}
       >
         {confirmLabel}
       </button>
-      <button type="button" className={buttonClass('secondary', 'sm')} onClick={onCancel}>
+      <button type="button" className={buttonClass('secondary', 'md')} onClick={onCancel}>
         Cancel
       </button>
     </div>

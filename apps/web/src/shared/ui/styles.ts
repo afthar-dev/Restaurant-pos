@@ -27,7 +27,7 @@ export const buttonClass = (variant: ButtonVariant = 'primary', size: ButtonSize
   cn(base, variants[variant], sizes[size]);
 
 export const inputClass =
-  'min-h-11 w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-base ' +
+  'min-h-11 rounded-md border border-border-strong bg-surface px-3 py-2 text-base ' +
   'text-text placeholder:text-subtle shadow-xs transition-colors ' +
   'focus:border-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-600/30 ' +
   'aria-invalid:border-red-600 aria-invalid:focus:ring-red-600/30 ' +
@@ -35,5 +35,5 @@ export const inputClass =
 
 // Older names kept for screens built before the kit; they now share the kit's look.
 export const primaryButton = buttonClass('primary', 'md');
-export const secondaryButton = buttonClass('secondary', 'sm');
-export const dangerButton = buttonClass('danger', 'sm');
+export const secondaryButton = buttonClass('secondary', 'md');
+export const dangerButton = buttonClass('danger', 'md');

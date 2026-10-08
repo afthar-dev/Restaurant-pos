@@ -121,7 +121,11 @@ Screens are built from the kit, not from raw Tailwind colours.
 - **Overlays** are Radix: `Dialog` (alias `Sheet`), `ConfirmDialog` for anything destructive,
   `Tabs`, `DropdownMenu`/`MenuItem`, `Tooltip`. They trap focus and close on Escape; dialogs do
   not close on an outside tap unless `dismissOnOutside` is set, so a half-filled form survives
-  a stray touch.
+  a stray touch. While a dialog is open, toasts behind it are not announced or clickable;
+  they stay on screen and can be read or dismissed after the dialog closes.
+- **`cn()` merges conflicts** with `tailwind-merge`: a later class wins (`cn(inputClass,
+'w-24')`). Plain template strings do not merge, so pass overrides through `cn`.
+- **A crashed or unloadable screen** shows `app/RouteError.tsx` inside the shell, with Reload.
 - **Empty lists explain the next step** with `EmptyState` (icon, title, one sentence), not a
   bare "No items".
 - **Touch targets** are at least 44 px (`min-h-11`); money and quantities use `tabular-nums`.

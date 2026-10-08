@@ -43,13 +43,14 @@ export function Dialog({
           )}
         >
           <RadixDialog.Title className="sr-only">{label}</RadixDialog.Title>
+          {children}
+          {/* After the content, so opening a dialog focuses its first field, not Close. */}
           <RadixDialog.Close
             aria-label="Close"
             className="absolute top-3 right-3 flex size-10 items-center justify-center rounded-md text-muted hover:bg-surface-2 hover:text-text"
           >
             <X aria-hidden="true" className="size-5" />
           </RadixDialog.Close>
-          {children}
         </RadixDialog.Content>
       </RadixDialog.Portal>
     </RadixDialog.Root>

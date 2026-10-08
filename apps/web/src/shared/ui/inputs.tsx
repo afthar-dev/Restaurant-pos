@@ -9,7 +9,7 @@ import { inputClass } from './styles';
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   function Input({ className, ...rest }, ref) {
-    return <input ref={ref} className={cn(inputClass, className)} {...rest} />;
+    return <input ref={ref} className={cn(inputClass, 'w-full', className)} {...rest} />;
   },
 );
 
@@ -17,13 +17,15 @@ export const Textarea = forwardRef<
   HTMLTextAreaElement,
   TextareaHTMLAttributes<HTMLTextAreaElement>
 >(function Textarea({ className, ...rest }, ref) {
-  return <textarea ref={ref} className={cn(inputClass, 'min-h-24', className)} {...rest} />;
+  return (
+    <textarea ref={ref} className={cn(inputClass, 'w-full', 'min-h-24', className)} {...rest} />
+  );
 });
 
 /** A native select (best on phones and touch screens), styled like the inputs. */
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
   function Select({ className, ...rest }, ref) {
-    return <select ref={ref} className={cn(inputClass, 'pr-8', className)} {...rest} />;
+    return <select ref={ref} className={cn(inputClass, 'w-full', 'pr-8', className)} {...rest} />;
   },
 );
 
@@ -41,7 +43,7 @@ export const MoneyInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLI
         <input
           ref={ref}
           inputMode="decimal"
-          className={cn(inputClass, 'pl-7 tabular-nums', className)}
+          className={cn(inputClass, 'w-full', 'pl-7 tabular-nums', className)}
           {...rest}
         />
       </div>
@@ -59,7 +61,7 @@ export const QuantityInput = forwardRef<
       <input
         ref={ref}
         inputMode="decimal"
-        className={cn(inputClass, unit && 'pr-12', 'tabular-nums', className)}
+        className={cn(inputClass, 'w-full', unit && 'pr-12', 'tabular-nums', className)}
         {...rest}
       />
       {unit && (

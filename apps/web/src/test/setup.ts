@@ -19,6 +19,9 @@ globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObse
 Element.prototype.hasPointerCapture ??= () => false;
 Element.prototype.releasePointerCapture ??= () => undefined;
 Element.prototype.scrollIntoView ??= () => undefined;
+// axe probes a canvas to spot icon fonts; jsdom has none, so answer "no canvas" quietly.
+HTMLCanvasElement.prototype.getContext = (() =>
+  null) as typeof HTMLCanvasElement.prototype.getContext;
 
 // No real sockets in tests. Tests that check realtime behaviour mock this module themselves.
 vi.mock('socket.io-client', () => ({

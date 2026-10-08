@@ -2,9 +2,7 @@ import { cn } from '@/shared/lib/cn';
 
 /** A grey placeholder shaped like the content that is loading. */
 export function Skeleton({ className }: { className?: string }) {
-  return (
-    <div aria-hidden="true" className={cn('animate-pulse rounded-md bg-slate-200', className)} />
-  );
+  return <div aria-hidden="true" className={cn('animate-pulse rounded-md bg-border', className)} />;
 }
 
 /** A few placeholder rows for a list or a card while it loads. Announced as "Loading…". */

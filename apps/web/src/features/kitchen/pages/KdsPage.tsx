@@ -43,8 +43,10 @@ function TicketCard({
   return (
     <article
       aria-label={label}
-      className={`flex flex-col gap-3 rounded-xl border-2 bg-surface p-4 shadow-card ${
-        cancelled ? 'border-red-500 bg-red-950/50' : late ? 'border-amber-400' : 'border-border'
+      className={`flex flex-col gap-3 rounded-xl border-2 p-4 shadow-card ${
+        cancelled
+          ? 'border-red-500 bg-red-950/50'
+          : `bg-surface ${late ? 'border-amber-400' : 'border-border'}`
       }`}
     >
       <header className="flex items-baseline justify-between gap-2">

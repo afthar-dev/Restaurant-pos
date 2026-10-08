@@ -85,6 +85,7 @@ export function Sidebar({
         type="button"
         onClick={onToggle}
         aria-label={collapsed ? 'Expand menu' : 'Collapse menu'}
+        aria-expanded={!collapsed}
         className="flex min-h-12 items-center gap-3 border-t border-border px-6 text-sm text-muted hover:bg-surface-2 hover:text-text"
       >
         {collapsed ? (

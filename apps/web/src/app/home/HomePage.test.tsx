@@ -105,4 +105,17 @@ describe('HomePage', () => {
     expect(screen.getByRole('link', { name: 'Open the day' })).toBeInTheDocument();
     expect(callsTo(mock, 'GET', '/api/business-day/close-check')).toHaveLength(0);
   });
+
+  it('sends a waiter without the POS to the captain app to review QR orders', async () => {
+    useSession
+      .getState()
+      .setSession(sessionBody('WAITER', ['order.take', 'order.approveQr'], 'Ravi'));
+    mockApi({
+      'GET /api/business-day/current': () => json(DAY_OPEN),
+      'GET /api/qr/pending': () => json([{ id: 'q1' }]),
+    });
+    renderRoute('/');
+    expect(await screen.findByText('1 QR order waiting for approval')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review' })).toHaveAttribute('href', '/captain');
+  });
 });

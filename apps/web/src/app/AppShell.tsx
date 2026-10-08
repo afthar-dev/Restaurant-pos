@@ -130,7 +130,7 @@ function KitchenLayout() {
       {signedIn && (
         <Link
           to="/"
-          className="fixed top-3 left-3 z-20 flex min-h-10 items-center gap-1 rounded-md bg-surface-2 px-3 text-sm font-medium text-text"
+          className="fixed top-3 left-3 z-20 flex min-h-11 items-center gap-1 rounded-md bg-surface-2 px-3 text-sm font-medium text-text"
         >
           <ArrowLeft aria-hidden="true" className="size-4" />
           Back
@@ -148,6 +148,20 @@ function KitchenLayout() {
   );
 }
 
+/**
+ * While the saved session is checked: no sign-in header, so a signed-in reload does not flash
+ * the sign-in page. The screen itself shows its own loading or offline state.
+ */
+function BootLayout() {
+  return (
+    <main className="mx-auto w-full max-w-md px-4 pt-24">
+      <Suspense fallback={<LoadingScreen />}>
+        <Outlet />
+      </Suspense>
+    </main>
+  );
+}
+
 export function AppShell() {
   useBootSession();
   const status = useSession((s) => s.status);
@@ -157,7 +171,9 @@ export function AppShell() {
     ? KitchenLayout
     : status === 'authenticated'
       ? AppLayout
-      : AuthLayout;
+      : status === 'loading'
+        ? BootLayout
+        : AuthLayout;
 
   return (
     <RealtimeProvider enabled={status === 'authenticated' || Boolean(device.data)}>

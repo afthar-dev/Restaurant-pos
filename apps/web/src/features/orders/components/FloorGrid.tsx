@@ -23,6 +23,9 @@ function tileLabel(table: FloorTableStatus): string {
   if (!table.order) return `${table.name}, free`;
   if (table.order.status === 'PENDING_APPROVAL') return `${table.name}, QR order waiting`;
   if (table.order.mergedInto) return `${table.name}, with ${table.order.mergedInto}`;
+  if (table.order.status === 'BILLED') {
+    return `${table.name}, bill printed, ${rupees(table.order.subtotal)}`;
+  }
   const items = table.order.itemCount === 1 ? '1 item' : `${table.order.itemCount} items`;
   return `${table.name}, ${items}, ${rupees(table.order.subtotal)}`;
 }

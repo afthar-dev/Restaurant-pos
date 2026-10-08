@@ -58,7 +58,7 @@ function ServedButton({ kot, orderId }: { kot: OrderKot; orderId: string }) {
       <button
         type="button"
         aria-label={`Served KOT ${kot.kotNo}`}
-        className="min-h-9 rounded-md bg-primary-700 px-3 text-xs font-semibold text-white disabled:opacity-60"
+        className="min-h-11 rounded-md bg-primary-700 px-4 text-sm font-semibold text-white disabled:opacity-60"
         disabled={served.isPending}
         onClick={() => served.mutate()}
       >

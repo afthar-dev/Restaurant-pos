@@ -94,6 +94,8 @@ function OpenWork() {
 
 function QrWaiting() {
   const pending = useQrPending(true);
+  // Waiters without the POS approve QR orders from the captain app.
+  const canPos = useCan('bill.print');
   const count = pending.data?.length ?? 0;
   if (count === 0) return null;
   return (
@@ -104,7 +106,7 @@ function QrWaiting() {
           {`${count} QR ${count === 1 ? 'order' : 'orders'} waiting for approval`}
         </span>
         <Button asChild size="sm">
-          <Link to="/pos">Review</Link>
+          <Link to={canPos ? '/pos' : '/captain'}>Review</Link>
         </Button>
       </CardBody>
     </Card>
