@@ -37,6 +37,7 @@ const SALES = {
   },
   items: [],
   categories: [],
+  hours: [],
 };
 
 const CLOSE_CHECK = {

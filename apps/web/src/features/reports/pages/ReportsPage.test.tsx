@@ -41,6 +41,7 @@ const REPORT: SalesReport = {
     { itemName: 'Tandoori Roti', variantName: 'Regular', quantity: 4, amount: 12800 },
   ],
   categories: [{ name: 'Starters', quantity: 2, amount: 36000 }],
+  hours: [{ hour: 13, bills: 2, total: 37800 }],
 };
 
 /** jsdom's Blob has no text(); FileReader works. */
