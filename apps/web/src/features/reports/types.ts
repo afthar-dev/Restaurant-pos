@@ -32,4 +32,6 @@ export interface SalesReport {
   };
   items: { itemName: string; variantName: string; quantity: number; amount: number }[];
   categories: { name: string; quantity: number; amount: number }[];
+  /** Bills by India hour (0–23), only hours with bills. */
+  hours: { hour: number; bills: number; total: number }[];
 }

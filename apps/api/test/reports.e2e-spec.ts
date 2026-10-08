@@ -195,4 +195,38 @@ describe('sales report', () => {
     expect(res.body.categories[0].amount).toBe(3_000_000_000);
     expect([a.id, b.id]).toHaveLength(2);
   });
+
+  it('groups bills by the India hour they were made, leaving out void bills', async () => {
+    await openDay();
+    const roti = [{ variantId: r.roti.regular.id, quantity: 1 }];
+    const a = await billFor(roti);
+    const b = await billFor([{ variantId: r.roti.regular.id, quantity: 2 }], r.t2.id);
+    const parcelBill = async () => {
+      const orderId = await parcelOrder(ctx, waiter, roti);
+      return (
+        await ctx.http().post(`/api/orders/${orderId}/bills`).set(cashier.auth).send({}).expect(201)
+      ).body as { id: string; total: number };
+    };
+    const c = await parcelBill();
+    const voided = await parcelBill();
+    const at = (hh: number, mm: number) =>
+      new Date(
+        `${istDate(0)}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00+05:30`,
+      );
+    await ctx.prisma.bill.update({ where: { id: a.id }, data: { createdAt: at(13, 10) } });
+    await ctx.prisma.bill.update({ where: { id: b.id }, data: { createdAt: at(13, 50) } });
+    await ctx.prisma.bill.update({ where: { id: c.id }, data: { createdAt: at(19, 5) } });
+    await ctx.prisma.bill.update({
+      where: { id: voided.id },
+      data: { createdAt: at(13, 30), status: 'VOID' },
+    });
+
+    const res = await report(istDate(0), istDate(0)).expect(200);
+    expect(res.body.hours).toEqual([
+      { hour: 13, bills: 2, total: a.total + b.total },
+      { hour: 19, bills: 1, total: c.total },
+    ]);
+    const empty = await report('2020-01-01', '2020-01-31').expect(200);
+    expect(empty.body.hours).toEqual([]);
+  });
 });

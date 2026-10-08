@@ -129,6 +129,7 @@ export class SalesReportService {
       },
       items: await this.items(dayIds),
       categories: await this.categories(dayIds),
+      hours: await this.hours(dayIds),
     };
   }
 
@@ -148,6 +149,18 @@ export class SalesReportService {
   }
 
   // Sums are float8: exact for whole paise up to 2^53, where int would overflow at ₹2.15 crore.
+
+  /** Bills by the India hour they were made, for the busiest-hours chart. */
+  private async hours(dayIds: string[]) {
+    if (dayIds.length === 0) return [];
+    return this.prisma.$queryRaw<{ hour: number; bills: number; total: number }[]>`
+      SELECT EXTRACT(HOUR FROM b.created_at AT TIME ZONE ${TIME_ZONE})::int AS hour,
+             COUNT(*)::int AS bills, COALESCE(SUM(b.total), 0)::float8 AS total
+        FROM bills b
+       WHERE b.business_day_id IN (${this.ids(dayIds)}) AND b.status <> 'VOID'
+       GROUP BY 1
+       ORDER BY 1`;
+  }
 
   /** Every dish sold, by amount (after item discounts, before the bill discount). */
   private async items(dayIds: string[]) {

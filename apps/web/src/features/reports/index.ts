@@ -5,3 +5,4 @@ export const ReportsPage = lazy(() =>
 );
 export { useSalesReport } from './queries';
 export { presetRange } from './ranges';
+export { WeekTrend } from './components/WeekTrend';
