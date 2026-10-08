@@ -58,8 +58,20 @@ export function Menu({ menu, onPick }: { menu: MenuData; onPick: (item: MenuItem
                   )}
                 </span>
               </span>
-              <span className="shrink-0 text-sm tabular-nums text-slate-700">
-                {fromPrice(item)}
+              <span className="flex shrink-0 items-center gap-3">
+                <span className="text-sm tabular-nums text-slate-700">{fromPrice(item)}</span>
+                {item.imageUrl && (
+                  // The row already names the dish, so the photo needs no text of its own.
+                  <img
+                    src={item.imageUrl}
+                    alt=""
+                    width={64}
+                    height={64}
+                    loading="lazy"
+                    decoding="async"
+                    className="size-16 rounded-lg object-cover"
+                  />
+                )}
               </span>
             </button>
           </li>
