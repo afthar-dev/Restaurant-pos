@@ -6,6 +6,8 @@ import {
   archiveCategory,
   archiveItem,
   bulkPrices,
+  reorderCategories,
+  reorderItems,
   saveAddonGroup,
   saveItem,
   setAddonAvailability,
@@ -143,3 +145,45 @@ export const useBulkPrices = (onDone: (result: { updated: number }) => void) =>
     onSuccess: onDone,
     afterRefresh: true,
   });
+
+export type Reorder =
+  { kind: 'categories'; ids: string[] } | { kind: 'items'; categoryId: string; ids: string[] };
+
+const pick = <T extends { id: string }>(rows: T[], ids: string[]) =>
+  ids.map((id) => rows.find((r) => r.id === id)).filter((r): r is T => r !== undefined);
+
+const inOrder =
+  (move: Reorder): MenuPatch =>
+  (menu) =>
+    move.kind === 'categories'
+      ? { categories: pick(menu.categories, move.ids) }
+      : {
+          categories: menu.categories.map((c) =>
+            c.id === move.categoryId ? { ...c, items: pick(c.items, move.ids) } : c,
+          ),
+        };
+
+/** Shows the new order at once; a refusal brings the server's order back. */
+export function useReorder(onFailed: (error: Error) => void) {
+  const client = useQueryClient();
+  const patch = usePatchMenu();
+  return useMutation({
+    mutationFn: (move: Reorder) =>
+      move.kind === 'categories'
+        ? reorderCategories(move.ids)
+        : reorderItems(move.categoryId, move.ids),
+    onMutate: async (move) => {
+      // A refetch landing now would undo the new order on screen.
+      await client.cancelQueries({ queryKey: menuKeys.all });
+      const before = client.getQueryData<Menu>(menuKeys.all);
+      patch(inOrder(move));
+      return { before };
+    },
+    onError: (error, _move, context) => {
+      // Back to the order the server still has, even if the refetch below cannot reach it.
+      if (context?.before) client.setQueryData(menuKeys.all, context.before);
+      onFailed(error);
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: menuKeys.all }),
+  });
+}

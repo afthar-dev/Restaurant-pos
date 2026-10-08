@@ -18,12 +18,14 @@ import {
 import { BulkPriceDialog } from '../components/BulkPriceDialog';
 import { ItemEditor } from '../components/ItemEditor';
 import { ItemRow } from '../components/ItemRow';
+import { SortableList } from '../components/SortableList';
 import { filterMenu } from '../menuOrder';
 import { type Station, useStations } from '@/features/kitchen-setup';
 import { useTaxRates } from '@/features/tax';
 import {
   useAddCategory,
   useArchiveMenuEntry,
+  useReorder,
   useUpdateCategory,
   type MenuEntry,
 } from '../mutations';
@@ -157,6 +159,9 @@ export function MenuPage() {
   const [query, setQuery] = useState('');
   const [copying, setCopying] = useState<MenuItem | null>(null);
   const [bulk, setBulk] = useState(false);
+  const [reordering, setReordering] = useState(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
+  const reorder = useReorder((error) => setReorderError(describeError(error)));
 
   const archive = useArchiveMenuEntry(() => setPending(null));
 
@@ -171,6 +176,8 @@ export function MenuPage() {
   const results = filterMenu(categories, query);
   const matchCount = results.reduce((n, c) => n + c.items.length, 0);
   const searching = query.trim() !== '';
+  // Moving rows only makes sense in the full list, not in search results.
+  const sorting = reordering && !searching;
 
   const startEditing = (next: MenuItem | 'new' | null, copyOf: MenuItem | null = null) => {
     setCopying(copyOf);
@@ -211,11 +218,30 @@ export function MenuPage() {
         title="Menu"
         description="Categories send their kitchen tickets to a station. Dishes have sizes with dine-in and parcel prices."
         actions={
-          <Button variant="secondary" disabled={!menu.data} onClick={() => setBulk(true)}>
-            Change prices
-          </Button>
+          <>
+            <Button variant="secondary" disabled={!menu.data} onClick={() => setBulk(true)}>
+              Change prices
+            </Button>
+            <Button
+              variant={reordering ? 'primary' : 'secondary'}
+              disabled={!menu.data}
+              onClick={() => {
+                setReorderError(null);
+                startEditing(null);
+                setReordering((r) => !r);
+              }}
+            >
+              {reordering ? 'Done' : 'Reorder'}
+            </Button>
+          </>
         }
       />
+      {reordering && (
+        <p className="text-sm text-muted">
+          Drag the handles, or use the arrows. The POS, captain app and QR menu show this order.
+        </p>
+      )}
+      <ErrorNote message={reorderError} />
       {bulk && menu.data && (
         <BulkPriceDialog categories={categories} onClose={() => setBulk(false)} />
       )}
@@ -258,29 +284,51 @@ export function MenuPage() {
 
       <div className="grid gap-6 md:grid-cols-[220px_1fr]">
         <aside className="flex flex-col gap-4">
-          <nav aria-label="Categories" className="flex flex-col gap-1">
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => {
-                  setQuery('');
-                  setSelectedId(c.id);
-                  startEditing(null);
-                  setEditingCategory(false);
-                }}
-                className={`flex items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
-                  !searching && selected?.id === c.id
-                    ? 'bg-primary-50 font-semibold text-primary-900'
-                    : 'hover:bg-surface-2'
-                }`}
-              >
-                <span>{c.name}</span>
-                <span className="text-xs text-subtle">{c.items.length}</span>
-              </button>
-            ))}
-          </nav>
-          {stations.data && <AddCategoryForm stations={stations.data} />}
+          {sorting ? (
+            <SortableList
+              label="Category order"
+              items={categories}
+              onMove={(ids) => {
+                setReorderError(null);
+                reorder.mutate({ kind: 'categories', ids });
+              }}
+              render={(c) => (
+                <button
+                  type="button"
+                  className={`min-h-11 w-full text-left text-sm ${
+                    selected?.id === c.id ? 'font-semibold text-primary-900' : 'font-medium'
+                  }`}
+                  onClick={() => setSelectedId(c.id)}
+                >
+                  {c.name}
+                </button>
+              )}
+            />
+          ) : (
+            <nav aria-label="Categories" className="flex flex-col gap-1">
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    setQuery('');
+                    setSelectedId(c.id);
+                    startEditing(null);
+                    setEditingCategory(false);
+                  }}
+                  className={`flex items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
+                    !searching && selected?.id === c.id
+                      ? 'bg-primary-50 font-semibold text-primary-900'
+                      : 'hover:bg-surface-2'
+                  }`}
+                >
+                  <span>{c.name}</span>
+                  <span className="text-xs text-subtle">{c.items.length}</span>
+                </button>
+              ))}
+            </nav>
+          )}
+          {!sorting && stations.data && <AddCategoryForm stations={stations.data} />}
         </aside>
 
         <div className="flex min-w-0 flex-col gap-4">
@@ -335,7 +383,7 @@ export function MenuPage() {
                   <h3 className="text-lg font-semibold">{selected.name}</h3>
                   <span className="text-xs text-subtle">KOTs go to {selected.station.name}</span>
                 </div>
-                <div className="flex gap-2">
+                <div className={sorting ? 'hidden' : 'flex gap-2'}>
                   <button
                     type="button"
                     className={secondaryButton}
@@ -370,16 +418,30 @@ export function MenuPage() {
                 />
               )}
 
-              <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
-                {selected.items.map((item) => (
-                  <li key={item.id} className="px-4 py-3">
-                    <ItemRow item={item} actions={itemActions(item)} />
-                  </li>
-                ))}
-                {selected.items.length === 0 && (
-                  <li className="px-4 py-3 text-sm text-subtle">No items in this category yet.</li>
-                )}
-              </ul>
+              {sorting ? (
+                <SortableList
+                  label={`Dishes in ${selected.name}`}
+                  items={selected.items}
+                  onMove={(ids) => {
+                    setReorderError(null);
+                    reorder.mutate({ kind: 'items', categoryId: selected.id, ids });
+                  }}
+                  render={(item) => <ItemRow item={item} actions={null} />}
+                />
+              ) : (
+                <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+                  {selected.items.map((item) => (
+                    <li key={item.id} className="px-4 py-3">
+                      <ItemRow item={item} actions={itemActions(item)} />
+                    </li>
+                  ))}
+                  {selected.items.length === 0 && (
+                    <li className="px-4 py-3 text-sm text-subtle">
+                      No items in this category yet.
+                    </li>
+                  )}
+                </ul>
+              )}
             </>
           ) : (
             menu.data && <p className="text-muted">Add your first category to start the menu.</p>

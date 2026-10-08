@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useSession } from '@/shared/session/store';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
@@ -28,6 +28,21 @@ const menu = {
           taxRate: { id: TAX, name: 'GST 5%', cgstBp: 250, sgstBp: 250 },
           variants: [
             { id: 'v1', name: 'Regular', dineInPrice: 9000, parcelPrice: 9000, packagingCharge: 0 },
+          ],
+          addonGroups: [],
+          components: [],
+        },
+        {
+          id: 'i3',
+          categoryId: CAT,
+          name: 'Tomato Soup',
+          description: null,
+          foodType: 'VEG',
+          isAvailable: true,
+          isCombo: false,
+          taxRate: { id: TAX, name: 'GST 5%', cgstBp: 250, sgstBp: 250 },
+          variants: [
+            { id: 'v3', name: 'Regular', dineInPrice: 8000, parcelPrice: 8000, packagingCharge: 0 },
           ],
           addonGroups: [],
           components: [],
@@ -67,6 +82,68 @@ function setVariant(row: number, name: string, price: string) {
 }
 
 describe('MenuPage item editor', () => {
+  it('reorders dishes with Move up and saves the new order', async () => {
+    asManager();
+    const mock = baseApi({
+      [`PUT /api/menu/categories/${CAT}/items/order`]: () => json({ updated: 2 }),
+    });
+    renderRoute('/admin/menu');
+    // Reorder is off until the menu has loaded.
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reorder' }));
+    const ids = menu.categories[0]!.items.map((i) => i.id);
+    const second = menu.categories[0]!.items[1]!;
+    fireEvent.click(screen.getByRole('button', { name: `Move ${second.name} up` }));
+    await expect
+      .poll(() => callsTo(mock, 'PUT', `/api/menu/categories/${CAT}/items/order`).length)
+      .toBe(1);
+    expect(
+      JSON.parse(
+        String(callsTo(mock, 'PUT', `/api/menu/categories/${CAT}/items/order`)[0]![1]!.body),
+      ),
+    ).toEqual({ ids: [ids[1], ids[0]] });
+    expect(screen.queryByRole('button', { name: /^Duplicate/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.getAllByRole('button', { name: /^Duplicate/ }).length).toBeGreaterThan(0);
+  });
+
+  it('puts the order back and says why when saving fails', async () => {
+    asManager();
+    baseApi({
+      [`PUT /api/menu/categories/${CAT}/items/order`]: () =>
+        json(
+          {
+            code: 'INVALID_REFERENCE',
+            message: 'Something you picked is no longer available. Refresh and try again.',
+          },
+          400,
+        ),
+    });
+    renderRoute('/admin/menu');
+    // Reorder is off until the menu has loaded.
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reorder' }));
+    const [first, second] = menu.categories[0]!.items;
+    fireEvent.click(screen.getByRole('button', { name: `Move ${second!.name} up` }));
+    expect(await screen.findByText(/no longer available/)).toBeInTheDocument();
+    const dishes = within(screen.getByRole('list', { name: 'Dishes in Starters' }));
+    const rows = dishes.getAllByRole('button', { name: /^Move .* down$/ });
+    expect(rows[0]).toHaveAccessibleName(`Move ${first!.name} down`);
+  });
+
+  it('hides reorder controls while searching', async () => {
+    asManager();
+    baseApi({});
+    renderRoute('/admin/menu');
+    // Reorder is off until the menu has loaded.
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reorder' }));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search dishes' }), {
+      target: { value: 'soup' },
+    });
+    expect(screen.queryByRole('button', { name: /^Move / })).toBeNull();
+  });
+
   it('narrows the menu as you search and clears again', async () => {
     asManager();
     baseApi({});
