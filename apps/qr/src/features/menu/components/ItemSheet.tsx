@@ -53,6 +53,13 @@ export function ItemSheet({
 
   return (
     <Sheet label={item.name} onClose={onClose}>
+      {item.imageUrl && (
+        <img
+          src={item.imageUrl}
+          alt={item.name}
+          className="aspect-video w-full rounded-xl object-cover"
+        />
+      )}
       <h2 className="text-xl font-semibold">{item.name}</h2>
       {item.description && <p className="text-slate-600">{item.description}</p>}
 

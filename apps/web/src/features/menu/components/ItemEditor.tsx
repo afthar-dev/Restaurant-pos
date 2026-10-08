@@ -5,7 +5,9 @@ import {
   parseRupees,
   type FoodType,
 } from '@rpos/shared';
-import { useState, type FormEvent } from 'react';
+import { Image as ImageIcon } from 'lucide-react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useNotify } from '@/features/notifications';
 import {
   describeError,
   ErrorNote,
@@ -15,7 +17,8 @@ import {
   secondaryButton,
 } from '@/shared/ui';
 import type { TaxRate } from '@/features/tax';
-import { useSaveItem } from '../mutations';
+import { useItemPhoto, useSaveItem } from '../mutations';
+import { shrinkPhoto } from '../photo';
 import { FOOD_LABEL, type MenuAddonGroup, type MenuCategory, type MenuItem } from '../types';
 
 interface VariantRow {
@@ -35,6 +38,9 @@ interface ComponentRow {
 
 const PRICE_ERROR = 'Enter a price like 120 or 120.50';
 let nextKey = 1;
+
+type PhotoChange =
+  { kind: 'keep' } | { kind: 'set'; blob: Blob; preview: string } | { kind: 'remove' };
 
 function variantRows(item: MenuItem | null, keepIds = true): VariantRow[] {
   if (!item) return [{ key: nextKey++, name: 'Regular', dineIn: '', parcel: '', packaging: '' }];
@@ -92,7 +98,44 @@ export function ItemEditor({
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const save = useSaveItem(existing, onDone);
+  const notify = useNotify();
+  const [photo, setPhoto] = useState<PhotoChange>({ kind: 'keep' });
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoMutation = useItemPhoto();
+  useEffect(
+    () => () => {
+      if (photo.kind === 'set') URL.revokeObjectURL(photo.preview);
+    },
+    [photo],
+  );
+
+  async function afterSave(saved: MenuItem) {
+    if (photo.kind === 'keep') return onDone();
+    setPhotoBusy(true);
+    try {
+      const blob = photo.kind === 'set' ? photo.blob : null;
+      await photoMutation.mutateAsync({ itemId: saved.id, photo: blob });
+    } catch (error) {
+      // The dish is saved; only the photo failed. Close and say so rather than risk a second save.
+      notify({
+        text: `${saved.name} is saved, but its photo was not: ${describeError(error)}`,
+        tone: 'warning',
+        ttlMs: 15_000,
+      });
+    } finally {
+      setPhotoBusy(false);
+    }
+    onDone();
+  }
+  const save = useSaveItem(existing, (saved) => void afterSave(saved));
+
+  const shown =
+    photo.kind === 'set'
+      ? photo.preview
+      : photo.kind === 'remove'
+        ? null
+        : (existing?.imageUrl ?? null);
 
   const comboOptions = categories.flatMap((c) =>
     c.items
@@ -221,6 +264,67 @@ export function ItemEditor({
           </Field>
         </div>
       </div>
+
+      <section aria-label="Photo" className="flex flex-wrap items-center gap-4">
+        <div className="flex size-24 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-2 text-subtle">
+          {shown ? (
+            <img
+              src={shown}
+              alt={`Photo of ${name.trim() || 'this dish'}`}
+              className="size-full object-cover"
+            />
+          ) : (
+            <ImageIcon aria-hidden="true" className="size-8" />
+          )}
+        </div>
+        <div className="flex flex-col gap-2">
+          <label
+            className={`${secondaryButton} min-h-11 cursor-pointer has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary-600`}
+          >
+            {shown ? 'Change photo' : 'Add photo'}
+            <input
+              type="file"
+              accept="image/*"
+              aria-label={shown ? 'Change photo' : 'Add photo'}
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (!file) return;
+                // Shrink now: an unreadable file is reported before anything is saved, and the
+                // preview is the small, right-way-up photo that will be uploaded.
+                setPhotoError(null);
+                setPhotoBusy(true);
+                shrinkPhoto(file)
+                  .then((blob) =>
+                    setPhoto({ kind: 'set', blob, preview: URL.createObjectURL(blob) }),
+                  )
+                  .catch((error: unknown) =>
+                    setPhotoError(error instanceof Error ? error.message : String(error)),
+                  )
+                  .finally(() => setPhotoBusy(false));
+              }}
+            />
+          </label>
+          {shown && (
+            <button
+              type="button"
+              className={secondaryButton}
+              onClick={() => setPhoto({ kind: 'remove' })}
+            >
+              Remove photo
+            </button>
+          )}
+          <p className="text-xs text-muted">
+            Shown to customers on the QR menu. Square photos look best.
+          </p>
+          {photoError && (
+            <p role="alert" className="text-sm text-red-700">
+              {photoError}
+            </p>
+          )}
+        </div>
+      </section>
 
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 text-sm font-semibold">Sizes and prices</legend>
@@ -407,7 +511,7 @@ export function ItemEditor({
 
       <ErrorNote message={save.isError ? describeError(save.error) : null} />
       <div className="flex gap-2">
-        <button type="submit" className={primaryButton} disabled={save.isPending}>
+        <button type="submit" className={primaryButton} disabled={save.isPending || photoBusy}>
           Save item
         </button>
         <button type="button" className={secondaryButton} onClick={onDone}>

@@ -108,6 +108,27 @@ async function addPaneerWithCheese() {
 }
 
 describe('ordering from the table', () => {
+  it('shows dish photos in the list and the dish sheet', async () => {
+    const PHOTO = 'https://photos.example.in/paneer.webp';
+    const withPhoto = {
+      categories: MENU.categories.map((c) => ({
+        ...c,
+        items: c.items.map((item) => ({ ...item, imageUrl: item.id === 'paneer' ? PHOTO : null })),
+      })),
+    };
+    api({ 'GET /api/qr/menu': () => json(withPhoto) });
+    render(<App search={`?t=${CODE}`} />);
+    const row = await screen.findByRole('button', { name: /^Paneer Tikka/ });
+    const thumb = row.querySelector('img');
+    expect(thumb).toHaveAttribute('src', PHOTO);
+    expect(thumb).toHaveAttribute('loading', 'lazy');
+    expect(thumb).toHaveAttribute('alt', '');
+    expect(screen.getByRole('button', { name: /^Masala Dosa/ }).querySelector('img')).toBeNull();
+    fireEvent.click(row);
+    const sheet = await screen.findByRole('dialog', { name: 'Paneer Tikka' });
+    expect(within(sheet).getByRole('img', { name: 'Paneer Tikka' })).toHaveAttribute('src', PHOTO);
+  });
+
   it('opens the menu for the table that was scanned', async () => {
     const mock = api();
     render(<App search={`?t=${CODE}`} />);

@@ -49,6 +49,7 @@ function customerItem(item: StaffItem) {
     name: item.name,
     description: item.description,
     foodType: item.foodType,
+    imageUrl: item.imageUrl,
     variants: item.variants.map((v) => ({ id: v.id, name: v.name, price: v.dineInPrice })),
     addonGroups,
   };

@@ -37,6 +37,28 @@ Set at least:
 | `OWNER_NAME`, `OWNER_PHONE`, `OWNER_PASSWORD` | The restaurant owner's first login |
 | `BACKUP_PASSPHRASE` | Long random string. **Write it down somewhere off the server**: without it, backups cannot be opened. |
 
+## 3a. Dish photos on Cloudflare R2 (recommended)
+
+Photos owners add to dishes are shown on the customer QR menu. With R2 they load from
+Cloudflare's network instead of the restaurant's connection.
+
+1. In the Cloudflare dashboard: **R2 → Create bucket** (e.g. `rpos-photos`).
+2. Give it a public address: **Settings → Custom Domains** (e.g. `photos.spicegarden.in`).
+   The **r2.dev** public URL is only for trying things out: Cloudflare rate-limits it and does
+   not support it for production.
+3. **R2 → Manage API tokens → Create API token** with *Object Read & Write* on that bucket. Copy
+   the Access Key ID and Secret Access Key (shown once).
+4. In `.env.prod` set `R2_ACCOUNT_ID` (on the R2 overview page), `R2_ACCESS_KEY_ID`,
+   `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` and `R2_PUBLIC_URL` (the address from step 2, with
+   `https://`). Set all five or none: a partial set stops the API with a message naming them.
+
+Without R2 the photos are kept in the `media` Docker volume on the server and served by the
+API. That volume is **not** in the nightly database backup; copy it yourself if you rely on it.
+With R2, Cloudflare keeps the files and the database backup keeps which dish uses which photo.
+
+Changing between R2 and the local folder later does not move existing photos: copy the files
+across (same file names) or add the photos again.
+
 ## 4. Get the HTTPS certificate (first time only)
 
 Stop anything on port 80, then ask Let's Encrypt for a certificate:

@@ -1,4 +1,17 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   addonGroupSchema,
   availabilitySchema,
@@ -93,6 +106,24 @@ export class MenuController {
     @Body(new ZodBody(itemSchema)) body: ItemRequest,
   ) {
     return this.menu.updateItem(user, id, body);
+  }
+
+  @Put('items/:id/image')
+  @RequirePermissions('menu.manage')
+  // 5 MB here (nginx's cap); the service turns anything over 1 MB into a friendly 413.
+  @UseInterceptors(FileInterceptor('image', { limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
+  setItemImage(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: { buffer: Buffer } | undefined,
+  ) {
+    return this.menu.setItemImage(user, id, file?.buffer);
+  }
+
+  @Delete('items/:id/image')
+  @RequirePermissions('menu.manage')
+  removeItemImage(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.menu.removeItemImage(user, id);
   }
 
   @Post('items/:id/archive')

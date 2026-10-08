@@ -98,12 +98,19 @@ export async function apiFetch<T>(path: string, request: ApiRequest = {}): Promi
     const headers: Record<string, string> = { ...request.headers };
     const token = useSession.getState().accessToken;
     if (token) headers.Authorization = `Bearer ${token}`;
-    if (request.body !== undefined) headers['Content-Type'] = 'application/json';
+    // FormData sets its own multipart content type (with the boundary).
+    const isForm = request.body instanceof FormData;
+    if (request.body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
     return fetch(path, {
       method: request.method ?? 'GET',
       credentials: 'include',
       headers,
-      body: request.body === undefined ? undefined : JSON.stringify(request.body),
+      body:
+        request.body === undefined
+          ? undefined
+          : isForm
+            ? (request.body as FormData)
+            : JSON.stringify(request.body),
     });
   };
 

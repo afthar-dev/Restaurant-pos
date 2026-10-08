@@ -31,6 +31,15 @@ services:
       OWNER_NAME: ${OWNER_NAME:-}
       OWNER_PHONE: ${OWNER_PHONE:-}
       OWNER_PASSWORD: ${OWNER_PASSWORD:-}
+      # Dish photos go to Cloudflare R2 when all five are set, otherwise to the media volume.
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
+      MEDIA_DIR: /app/media
+    volumes:
+      - media:/app/media
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,3 +76,4 @@ services:
 
 volumes:
   pgdata:
+  media:

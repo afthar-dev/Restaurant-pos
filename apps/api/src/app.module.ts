@@ -1,3 +1,4 @@
+import { MediaModule } from './media/media.module';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -29,6 +30,7 @@ import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
+    MediaModule,
     ConfigModule,
     PrismaModule,
     EventEmitterModule.forRoot(),

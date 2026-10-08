@@ -19,6 +19,9 @@ globalThis.ResizeObserver ??= ResizeObserverStub as unknown as typeof ResizeObse
 Element.prototype.hasPointerCapture ??= () => false;
 Element.prototype.releasePointerCapture ??= () => undefined;
 Element.prototype.scrollIntoView ??= () => undefined;
+// Photo previews use object URLs, which jsdom does not implement.
+URL.createObjectURL ??= () => 'blob:preview';
+URL.revokeObjectURL ??= () => undefined;
 // axe probes a canvas to spot icon fonts; jsdom has none, so answer "no canvas" quietly.
 HTMLCanvasElement.prototype.getContext = (() =>
   null) as typeof HTMLCanvasElement.prototype.getContext;

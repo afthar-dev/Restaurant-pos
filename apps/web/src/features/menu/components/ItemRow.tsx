@@ -8,6 +8,14 @@ export function ItemRow({ item, actions }: { item: MenuItem; actions: ReactNode 
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="flex items-center gap-2 font-medium">
+          {item.imageUrl && (
+            <img
+              src={item.imageUrl}
+              alt=""
+              loading="lazy"
+              className="size-10 shrink-0 rounded-md object-cover"
+            />
+          )}
           <span
             role="img"
             aria-label={FOOD_LABEL[item.foodType]}

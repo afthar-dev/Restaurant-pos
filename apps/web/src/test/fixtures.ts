@@ -11,6 +11,7 @@ function item(partial: Partial<MenuItem> & Pick<MenuItem, 'id' | 'name' | 'varia
     foodType: 'VEG',
     isAvailable: true,
     isCombo: false,
+    imageUrl: null,
     taxRate: tax,
     addonGroups: [],
     components: [],
