@@ -26,8 +26,8 @@ function isControl(target: EventTarget | null): boolean {
 
 /**
  * Counter keyboard keys for settling a bill: C, U, K, Enter and Escape. Ignored while typing
- * in a field, with a modifier held or while a dialog is open; Enter on a focused button stays
- * that button's.
+ * in a field, with a modifier held or while a dialog or menu is open; Enter on a focused
+ * button stays that button's.
  */
 export function useSettleKeys(handler: (key: SettleKey) => boolean) {
   const latest = useRef(handler);
@@ -40,7 +40,7 @@ export function useSettleKeys(handler: (key: SettleKey) => boolean) {
       if (owners[owners.length - 1] !== id) return;
       if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
       if (isTyping(event.target)) return;
-      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
       const key = KEYS[event.key.toLowerCase()];
       if (!key) return;
       if (key === 'enter' && isControl(event.target)) return;

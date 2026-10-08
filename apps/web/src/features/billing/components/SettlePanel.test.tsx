@@ -132,6 +132,42 @@ describe('SettlePanel', () => {
   });
 });
 
+describe('SettlePanel review fixes', () => {
+  it('lets a long confirm label wrap instead of overflowing', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+    fireEvent.click(screen.getByRole('button', { name: '₹500' }));
+    expect(screen.getByRole('button', { name: /^Confirm/ })).toHaveClass('whitespace-normal');
+  });
+
+  it('keeps Confirm on when the empty Other field only gets focus', () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Cash' }));
+    fireEvent.focus(screen.getByLabelText('Other amount (₹)'));
+    expect(screen.getByRole('button', { name: 'Confirm ₹473 cash' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Exact' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('does not pull focus out of another field when the amount due changes', () => {
+    const { view } = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'UPI' }));
+    const search = document.createElement('input');
+    document.body.append(search);
+    search.focus();
+    view.rerender(
+      <QueryClientProvider client={view.queryClient}>
+        <SettlePanel
+          bill={bill({ due: 40000, paid: 7300 })}
+          onPaid={() => undefined}
+          onMore={() => undefined}
+        />
+      </QueryClientProvider>,
+    );
+    expect(search).toHaveFocus();
+    search.remove();
+  });
+});
+
 describe('SettlePanel keys', () => {
   it('picks a mode with U and confirms with Enter', async () => {
     const { mock, onPaid } = setup({ 'POST /api/bills/b1/payments': PAID });
@@ -166,6 +202,16 @@ describe('SettlePanel keys', () => {
     back.focus();
     fireEvent.keyDown(back, { key: 'Enter' });
     expect(posts(mock)).toHaveLength(0);
+  });
+
+  it('ignores letters typed in an open menu', () => {
+    setup();
+    const menu = document.createElement('div');
+    menu.setAttribute('role', 'menu');
+    document.body.append(menu);
+    fireEvent.keyDown(document.body, { key: 'u' });
+    expect(screen.queryByRole('button', { name: /^Confirm/ })).toBeNull();
+    menu.remove();
   });
 
   it('ignores keys while a dialog is open', () => {

@@ -58,6 +58,11 @@ export function SettlePanel({
   }, [autoFocus]);
 
   useEffect(() => {
+    // Only move focus that is already on the panel (or nowhere): never pull a cashier out of
+    // another field, where a stray key could then pick a mode and Enter could pay.
+    const active = document.activeElement;
+    const ours = !active || active === document.body || panel.current?.contains(active);
+    if (!ours) return;
     if (mode) confirmButton.current?.focus();
     else if (lastMode.current) modeButtons.current.get(lastMode.current)?.focus();
   }, [mode]);
@@ -197,9 +202,9 @@ export function SettlePanel({
                   id={`${id}-other`}
                   className="max-w-40"
                   value={other}
-                  onFocus={() => setTender({ kind: 'other' })}
                   onChange={(e) => {
-                    setTender({ kind: 'other' });
+                    // An empty field means "no other amount": back to Exact, Confirm stays on.
+                    setTender(e.target.value.trim() === '' ? { kind: 'exact' } : { kind: 'other' });
                     setOther(e.target.value);
                   }}
                 />
@@ -218,7 +223,7 @@ export function SettlePanel({
             <Button
               ref={confirmButton}
               size="lg"
-              className="flex-1"
+              className="min-w-0 flex-1 whitespace-normal"
               loading={payment.isPending}
               disabled={!canConfirm}
               onClick={confirm}
