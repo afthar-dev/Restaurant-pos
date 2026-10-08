@@ -5,6 +5,7 @@ import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
 import { expectNoAxeViolations } from '@/test/a11y';
 import { renderRoute } from '@/test/render';
 import type * as photo from '../photo';
+import { shrinkPhoto } from '../photo';
 
 // jsdom has no canvas: the shrinker is replaced; the upload itself is what is tested here.
 vi.mock('../photo', async (importOriginal) => ({
@@ -114,6 +115,38 @@ describe('MenuPage item editor', () => {
     expect((sent as FormData).get('image')).toBeInstanceOf(Blob);
   });
 
+  it('says at once when a photo cannot be read, and saves no photo', async () => {
+    asManager();
+    vi.mocked(shrinkPhoto).mockRejectedValueOnce(new Error('Could not read this photo.'));
+    const mock = baseApi({
+      'POST /api/menu/items': ({ body }) =>
+        json({ id: 'i9', ...(body as object), imageUrl: null }, 201),
+    });
+    renderRoute('/admin/menu');
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
+    fireEvent.change(screen.getByLabelText('Item name'), { target: { value: 'Lassi' } });
+    setVariant(1, 'Regular', '60');
+    fireEvent.change(screen.getByLabelText('Add photo'), {
+      target: { files: [new File(['heic'], 'l.heic', { type: 'image/heic' })] },
+    });
+    expect(await screen.findByText('Could not read this photo.')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Photo of Lassi' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Save item' }));
+    await expect.poll(() => callsTo(mock, 'POST', '/api/menu/items').length).toBe(1);
+    expect(callsTo(mock, 'PUT', '/api/menu/items/i9/image')).toHaveLength(0);
+  });
+
+  it('shows keyboard focus on the photo button', async () => {
+    asManager();
+    baseApi({});
+    renderRoute('/admin/menu');
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
+    const label = screen.getByLabelText('Add photo').closest('label');
+    expect(label?.className).toContain('has-[:focus-visible]:outline-2');
+  });
+
   it('removes a dish photo', async () => {
     asManager();
     const withPhoto = {
@@ -165,6 +198,7 @@ describe('MenuPage item editor', () => {
     fireEvent.change(screen.getByLabelText('Add photo'), {
       target: { files: [new File(['x'], 'l.jpg', { type: 'image/jpeg' })] },
     });
+    expect(await screen.findByRole('img', { name: 'Photo of Lassi' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save item' }));
     expect(
       await screen.findByText(

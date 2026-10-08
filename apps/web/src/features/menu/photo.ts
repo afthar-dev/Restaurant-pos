@@ -17,7 +17,8 @@ function encode(canvas: HTMLCanvasElement, type: string, quality: number) {
 export async function shrinkPhoto(file: File): Promise<Blob> {
   let bitmap: ImageBitmap;
   try {
-    bitmap = await createImageBitmap(file);
+    // Phone photos carry their rotation in EXIF; older browsers ignore it unless asked.
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
   } catch {
     throw new Error('Could not read this photo.');
   }

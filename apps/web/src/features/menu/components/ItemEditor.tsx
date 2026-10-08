@@ -40,7 +40,7 @@ const PRICE_ERROR = 'Enter a price like 120 or 120.50';
 let nextKey = 1;
 
 type PhotoChange =
-  { kind: 'keep' } | { kind: 'set'; file: File; preview: string } | { kind: 'remove' };
+  { kind: 'keep' } | { kind: 'set'; blob: Blob; preview: string } | { kind: 'remove' };
 
 function variantRows(item: MenuItem | null, keepIds = true): VariantRow[] {
   if (!item) return [{ key: nextKey++, name: 'Regular', dineIn: '', parcel: '', packaging: '' }];
@@ -101,6 +101,7 @@ export function ItemEditor({
   const notify = useNotify();
   const [photo, setPhoto] = useState<PhotoChange>({ kind: 'keep' });
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const photoMutation = useItemPhoto();
   useEffect(
     () => () => {
@@ -113,7 +114,7 @@ export function ItemEditor({
     if (photo.kind === 'keep') return onDone();
     setPhotoBusy(true);
     try {
-      const blob = photo.kind === 'set' ? await shrinkPhoto(photo.file) : null;
+      const blob = photo.kind === 'set' ? photo.blob : null;
       await photoMutation.mutateAsync({ itemId: saved.id, photo: blob });
     } catch (error) {
       // The dish is saved; only the photo failed. Close and say so rather than risk a second save.
@@ -277,7 +278,9 @@ export function ItemEditor({
           )}
         </div>
         <div className="flex flex-col gap-2">
-          <label className={`${secondaryButton} min-h-11 cursor-pointer`}>
+          <label
+            className={`${secondaryButton} min-h-11 cursor-pointer has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary-600`}
+          >
             {shown ? 'Change photo' : 'Add photo'}
             <input
               type="file"
@@ -286,8 +289,20 @@ export function ItemEditor({
               className="sr-only"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) setPhoto({ kind: 'set', file, preview: URL.createObjectURL(file) });
                 e.target.value = '';
+                if (!file) return;
+                // Shrink now: an unreadable file is reported before anything is saved, and the
+                // preview is the small, right-way-up photo that will be uploaded.
+                setPhotoError(null);
+                setPhotoBusy(true);
+                shrinkPhoto(file)
+                  .then((blob) =>
+                    setPhoto({ kind: 'set', blob, preview: URL.createObjectURL(blob) }),
+                  )
+                  .catch((error: unknown) =>
+                    setPhotoError(error instanceof Error ? error.message : String(error)),
+                  )
+                  .finally(() => setPhotoBusy(false));
               }}
             />
           </label>
@@ -303,6 +318,11 @@ export function ItemEditor({
           <p className="text-xs text-muted">
             Shown to customers on the QR menu. Square photos look best.
           </p>
+          {photoError && (
+            <p role="alert" className="text-sm text-red-700">
+              {photoError}
+            </p>
+          )}
         </div>
       </section>
 

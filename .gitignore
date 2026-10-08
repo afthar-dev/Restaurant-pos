@@ -15,3 +15,5 @@ backups/
 
 # Dish photos when Cloudflare R2 is not configured (apps/api MEDIA_DIR)
 apps/api/uploads/
+# Same folder when the API is started from the repo root
+/uploads/
