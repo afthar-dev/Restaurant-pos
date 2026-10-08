@@ -1,27 +1,36 @@
-import { rupees } from '@/shared/lib/money';
 import { categorySchema } from '@rpos/shared';
+import { Search, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import {
+  Button,
   ConfirmBar,
   describeError,
+  EmptyState,
   ErrorNote,
   Field,
+  IconButton,
+  Input,
   inputClass,
   PageHeader,
   primaryButton,
   secondaryButton,
 } from '@/shared/ui';
+import { BulkPriceDialog } from '../components/BulkPriceDialog';
 import { ItemEditor } from '../components/ItemEditor';
+import { ItemRow } from '../components/ItemRow';
+import { SortableList } from '../components/SortableList';
+import { filterMenu } from '../menuOrder';
 import { type Station, useStations } from '@/features/kitchen-setup';
 import { useTaxRates } from '@/features/tax';
 import {
   useAddCategory,
   useArchiveMenuEntry,
+  useReorder,
   useUpdateCategory,
   type MenuEntry,
 } from '../mutations';
 import { useAddonGroups, useMenu } from '../queries';
-import { FOOD_DOT, FOOD_LABEL, type MenuCategory, type MenuItem } from '../types';
+import type { MenuCategory, MenuItem } from '../types';
 
 function AddCategoryForm({ stations }: { stations: Station[] }) {
   const [name, setName] = useState('');
@@ -88,7 +97,6 @@ function EditCategoryForm({
     const parsed = categorySchema.safeParse({
       name: name.trim(),
       stationId,
-      sortOrder: category.sortOrder,
     });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message);
@@ -147,6 +155,12 @@ export function MenuPage() {
   const [editing, setEditing] = useState<MenuItem | 'new' | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [editingCategory, setEditingCategory] = useState(false);
+  const [query, setQuery] = useState('');
+  const [copying, setCopying] = useState<MenuItem | null>(null);
+  const [bulk, setBulk] = useState(false);
+  const [reordering, setReordering] = useState(false);
+  const [reorderError, setReorderError] = useState<string | null>(null);
+  const reorder = useReorder((error) => setReorderError(describeError(error)));
 
   const archive = useArchiveMenuEntry(() => setPending(null));
 
@@ -158,6 +172,43 @@ export function MenuPage() {
       ? pending.item.name
       : pending.category.name
     : '';
+  const results = filterMenu(categories, query);
+  const matchCount = results.reduce((n, c) => n + c.items.length, 0);
+  const searching = query.trim() !== '';
+  // Moving rows only makes sense in the full list, not in search results.
+  const sorting = reordering && !searching;
+
+  const startEditing = (next: MenuItem | 'new' | null, copyOf: MenuItem | null = null) => {
+    setCopying(copyOf);
+    setEditing(next);
+  };
+  const duplicate = (item: MenuItem) => {
+    setSelectedId(item.categoryId);
+    setEditingCategory(false);
+    startEditing('new', item);
+  };
+  const itemActions = (item: MenuItem) => (
+    <>
+      <button type="button" className={secondaryButton} onClick={() => startEditing(item)}>
+        Edit
+      </button>
+      <button
+        type="button"
+        className={secondaryButton}
+        aria-label={`Duplicate ${item.name}`}
+        onClick={() => duplicate(item)}
+      >
+        Duplicate
+      </button>
+      <button
+        type="button"
+        className={secondaryButton}
+        onClick={() => setPending({ kind: 'item', item })}
+      >
+        Archive
+      </button>
+    </>
+  );
 
   return (
     <section className="flex flex-col gap-4">
@@ -165,7 +216,34 @@ export function MenuPage() {
         as="h2"
         title="Menu"
         description="Categories send their kitchen tickets to a station. Dishes have sizes with dine-in and parcel prices."
+        actions={
+          <>
+            <Button variant="secondary" disabled={!menu.data} onClick={() => setBulk(true)}>
+              Change prices
+            </Button>
+            <Button
+              variant={reordering ? 'primary' : 'secondary'}
+              disabled={!menu.data}
+              onClick={() => {
+                setReorderError(null);
+                startEditing(null);
+                setReordering((r) => !r);
+              }}
+            >
+              {reordering ? 'Done' : 'Reorder'}
+            </Button>
+          </>
+        }
       />
+      {reordering && (
+        <p className="text-sm text-muted">
+          Drag the handles, or use the arrows. The POS, captain app and QR menu show this order.
+        </p>
+      )}
+      <ErrorNote message={reorderError} />
+      {bulk && menu.data && (
+        <BulkPriceDialog categories={categories} onClose={() => setBulk(false)} />
+      )}
       <ErrorNote message={menu.isError ? describeError(menu.error) : null} />
       {pending && (
         <ConfirmBar
@@ -178,41 +256,133 @@ export function MenuPage() {
       )}
       <ErrorNote message={archive.isError ? describeError(archive.error) : null} />
 
+      <div className="relative max-w-md">
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-subtle"
+        />
+        <Input
+          type="search"
+          aria-label="Search dishes"
+          placeholder="Search dishes"
+          className="pr-12 pl-9"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {query && (
+          <IconButton
+            label="Clear"
+            size="sm"
+            variant="ghost"
+            icon={<X />}
+            className="absolute top-1/2 right-1 -translate-y-1/2"
+            onClick={() => setQuery('')}
+          />
+        )}
+      </div>
+
       <div className="grid gap-6 md:grid-cols-[220px_1fr]">
         <aside className="flex flex-col gap-4">
-          <nav aria-label="Categories" className="flex flex-col gap-1">
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => {
-                  setSelectedId(c.id);
-                  setEditing(null);
-                  setEditingCategory(false);
-                }}
-                className={`flex items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
-                  selected?.id === c.id
-                    ? 'bg-primary-50 font-semibold text-primary-900'
-                    : 'hover:bg-surface-2'
-                }`}
-              >
-                <span>{c.name}</span>
-                <span className="text-xs text-subtle">{c.items.length}</span>
-              </button>
-            ))}
-          </nav>
-          {stations.data && <AddCategoryForm stations={stations.data} />}
+          {sorting ? (
+            <SortableList
+              label="Category order"
+              items={categories}
+              onMove={(ids) => {
+                setReorderError(null);
+                reorder.mutate({ kind: 'categories', ids });
+              }}
+              render={(c) => (
+                <button
+                  type="button"
+                  className={`min-h-11 w-full text-left text-sm ${
+                    selected?.id === c.id ? 'font-semibold text-primary-900' : 'font-medium'
+                  }`}
+                  onClick={() => setSelectedId(c.id)}
+                >
+                  {c.name}
+                </button>
+              )}
+            />
+          ) : (
+            <nav aria-label="Categories" className="flex flex-col gap-1">
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    setQuery('');
+                    setSelectedId(c.id);
+                    startEditing(null);
+                    setEditingCategory(false);
+                  }}
+                  className={`flex items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
+                    !searching && selected?.id === c.id
+                      ? 'bg-primary-50 font-semibold text-primary-900'
+                      : 'hover:bg-surface-2'
+                  }`}
+                >
+                  <span>{c.name}</span>
+                  <span className="text-xs text-subtle">{c.items.length}</span>
+                </button>
+              ))}
+            </nav>
+          )}
+          {!sorting && stations.data && <AddCategoryForm stations={stations.data} />}
         </aside>
 
         <div className="flex min-w-0 flex-col gap-4">
-          {selected ? (
+          {editing && ready && selected && (
+            <ItemEditor
+              key={editing === 'new' ? `new-${copying?.id ?? ''}` : editing.id}
+              existing={editing === 'new' ? null : editing}
+              copyFrom={editing === 'new' ? copying : null}
+              categories={categories}
+              defaultCategoryId={selected.id}
+              taxRates={taxRates.data}
+              addonGroups={groups.data}
+              onDone={() => startEditing(null)}
+            />
+          )}
+
+          {searching ? (
+            results.length === 0 ? (
+              <EmptyState
+                icon={<Search />}
+                title={`No dishes match "${query.trim()}"`}
+                description="Check the spelling, or search for part of the name."
+                action={
+                  <button type="button" className={secondaryButton} onClick={() => setQuery('')}>
+                    Clear search
+                  </button>
+                }
+              />
+            ) : (
+              <div className="flex flex-col gap-4">
+                <p className="text-sm text-muted">
+                  {`${matchCount} ${matchCount === 1 ? 'dish matches' : 'dishes match'} "${query.trim()}"`}
+                </p>
+                {results.map((c) => (
+                  <section key={c.id} aria-label={c.name} className="flex flex-col gap-2">
+                    <h3 className="text-sm font-semibold text-muted">{c.name}</h3>
+                    <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+                      {c.items.map((item) => (
+                        <li key={item.id} className="px-4 py-3">
+                          <ItemRow item={item} actions={itemActions(item)} />
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            )
+          ) : selected ? (
             <>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-col">
                   <h3 className="text-lg font-semibold">{selected.name}</h3>
                   <span className="text-xs text-subtle">KOTs go to {selected.station.name}</span>
                 </div>
-                <div className="flex gap-2">
+                <div className={sorting ? 'hidden' : 'flex gap-2'}>
                   <button
                     type="button"
                     className={secondaryButton}
@@ -231,7 +401,7 @@ export function MenuPage() {
                     type="button"
                     className={primaryButton}
                     disabled={!ready}
-                    onClick={() => setEditing('new')}
+                    onClick={() => startEditing('new')}
                   >
                     Add item
                   </button>
@@ -247,65 +417,30 @@ export function MenuPage() {
                 />
               )}
 
-              {editing && ready && (
-                <ItemEditor
-                  key={editing === 'new' ? 'new' : editing.id}
-                  existing={editing === 'new' ? null : editing}
-                  categories={categories}
-                  defaultCategoryId={selected.id}
-                  taxRates={taxRates.data}
-                  addonGroups={groups.data}
-                  onDone={() => setEditing(null)}
+              {sorting ? (
+                <SortableList
+                  label={`Dishes in ${selected.name}`}
+                  items={selected.items}
+                  onMove={(ids) => {
+                    setReorderError(null);
+                    reorder.mutate({ kind: 'items', categoryId: selected.id, ids });
+                  }}
+                  render={(item) => <ItemRow item={item} actions={null} />}
                 />
+              ) : (
+                <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+                  {selected.items.map((item) => (
+                    <li key={item.id} className="px-4 py-3">
+                      <ItemRow item={item} actions={itemActions(item)} />
+                    </li>
+                  ))}
+                  {selected.items.length === 0 && (
+                    <li className="px-4 py-3 text-sm text-subtle">
+                      No items in this category yet.
+                    </li>
+                  )}
+                </ul>
               )}
-
-              <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
-                {selected.items.map((item) => (
-                  <li
-                    key={item.id}
-                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-                  >
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      <span className="flex items-center gap-2 font-medium">
-                        <span
-                          role="img"
-                          aria-label={FOOD_LABEL[item.foodType]}
-                          className={`inline-block h-2.5 w-2.5 rounded-full ${FOOD_DOT[item.foodType]}`}
-                        />
-                        {item.name}
-                        {item.isCombo && <span className="text-xs text-subtle">combo</span>}
-                        {!item.isAvailable && (
-                          <span className="rounded bg-amber-50 px-1.5 text-xs text-amber-800">
-                            out of stock
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-sm text-muted">
-                        {item.variants.map((v) => `${v.name} ${rupees(v.dineInPrice)}`).join(' · ')}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className={secondaryButton}
-                        onClick={() => setEditing(item)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        className={secondaryButton}
-                        onClick={() => setPending({ kind: 'item', item })}
-                      >
-                        Archive
-                      </button>
-                    </div>
-                  </li>
-                ))}
-                {selected.items.length === 0 && (
-                  <li className="px-4 py-3 text-sm text-subtle">No items in this category yet.</li>
-                )}
-              </ul>
             </>
           ) : (
             menu.data && <p className="text-muted">Add your first category to start the menu.</p>

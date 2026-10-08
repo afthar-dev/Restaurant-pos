@@ -427,4 +427,137 @@ describe('menu', () => {
       expect(res.body.code).toBe('IN_USE');
     });
   });
+
+  /** Creates a dish and returns its id. */
+  async function newItem(body: Record<string, unknown>) {
+    const res = await createItem(body);
+    expect(res.status).toBe(201);
+    return res.body.id as string;
+  }
+
+  async function order(): Promise<[string, string[]][]> {
+    const res = await ctx.http().get('/api/menu').set(as(waiter)).expect(200);
+    return (res.body.categories as { name: string; items: { name: string }[] }[]).map((c) => [
+      c.name,
+      c.items.map((i) => i.name),
+    ]);
+  }
+
+  const putOrder = (path: string, ids: string[], token = owner) =>
+    ctx.http().put(`/api/menu/${path}`).set(as(token)).send({ ids });
+
+  it('keeps the order owners set, and adds new dishes and categories last', async () => {
+    const starters = await category('Starters');
+    const mains = await category('Mains');
+    const paneer = await newItem(itemBody(starters, { name: 'Paneer Tikka' }));
+    const aloo = await newItem(itemBody(starters, { name: 'Aloo Tikki' }));
+    // New dishes go last, so Paneer (first added) comes before Aloo.
+    expect(await order()).toEqual([
+      ['Starters', ['Paneer Tikka', 'Aloo Tikki']],
+      ['Mains', []],
+    ]);
+
+    await putOrder('categories/order', [mains, starters], manager).expect(200);
+    await putOrder(`categories/${starters}/items/order`, [aloo, paneer], manager).expect(200);
+    await newItem(itemBody(starters, { name: 'Chilli Paneer' }));
+    await category('Drinks');
+
+    expect(await order()).toEqual([
+      ['Mains', []],
+      ['Starters', ['Aloo Tikki', 'Paneer Tikka', 'Chilli Paneer']],
+      ['Drinks', []],
+    ]);
+    const actions = (await ctx.prisma.auditEntry.findMany()).map((a) => a.action);
+    expect(actions).toEqual(expect.arrayContaining(['menu.category.reorder', 'menu.item.reorder']));
+  });
+
+  it('refuses an order that is not exactly the active categories or dishes', async () => {
+    const starters = await category('Starters');
+    const mains = await category('Mains');
+    const paneer = await newItem(itemBody(starters));
+    const curry = await newItem(itemBody(mains, { name: 'Dal' }));
+    const other = await createOutlet(ctx.prisma);
+    const foreign = await ctx.prisma.category.create({
+      data: { outletId: other.id, stationId: station.id, name: 'Elsewhere' },
+    });
+
+    await putOrder('categories/order', [starters]).expect(400);
+    await putOrder('categories/order', [starters, starters]).expect(400);
+    await putOrder('categories/order', [starters, mains, foreign.id]).expect(400);
+    await putOrder(`categories/${starters}/items/order`, [paneer, curry]).expect(400);
+    await putOrder(`categories/${foreign.id}/items/order`, [paneer]).expect(404);
+    await putOrder('categories/order', [mains, starters], waiter).expect(403);
+    expect((await order()).map(([name]) => name)).toEqual(['Starters', 'Mains']);
+  });
+
+  const bulk = (body: object, token = owner) =>
+    ctx.http().post('/api/menu/prices').set(as(token)).send(body);
+
+  it('changes prices in bulk with rounding and keeps a record', async () => {
+    const starters = await category();
+    const id = await newItem(itemBody(starters));
+
+    const res = await bulk(
+      { itemIds: [id], change: { kind: 'percent', basisPoints: 500 }, roundTo: 500 },
+      manager,
+    ).expect(201);
+    expect(res.body).toEqual({ updated: 2 });
+    let [item] = await menuItems();
+    expect(item!.variants.map((v) => [v.dineInPrice, v.parcelPrice, v.packagingCharge])).toEqual([
+      [19000, 19000, 0],
+      [33500, 34500, 1000],
+    ]);
+
+    await bulk({ itemIds: [id], change: { kind: 'amount', paise: -5000 }, roundTo: 100 }).expect(
+      201,
+    );
+    [item] = await menuItems();
+    expect(item!.variants[0]!.dineInPrice).toBe(14000);
+
+    const audit = await ctx.prisma.auditEntry.findFirst({ where: { action: 'menu.price.bulk' } });
+    expect(JSON.stringify(audit?.after)).toContain('"before":{"dineIn":18000,"parcel":18000}');
+  });
+
+  it('saves nothing when a price would go below ₹0, and refuses others', async () => {
+    const starters = await category();
+    const id = await newItem(itemBody(starters));
+    const res = await bulk({
+      itemIds: [id],
+      change: { kind: 'amount', paise: -20000 },
+      roundTo: 100,
+    }).expect(400);
+    expect(res.body.message).toBe('Paneer Tikka Half would go below ₹0.');
+    expect((await menuItems())[0]!.variants.map((v) => v.dineInPrice)).toEqual([18000, 32000]);
+
+    await ctx.http().post(`/api/menu/items/${id}/archive`).set(as(owner)).expect(201);
+    await bulk({
+      itemIds: [id],
+      change: { kind: 'percent', basisPoints: 500 },
+      roundTo: 100,
+    }).expect(400);
+    await bulk(
+      { itemIds: [id], change: { kind: 'percent', basisPoints: 500 }, roundTo: 100 },
+      waiter,
+    ).expect(403);
+  });
+
+  it('counts and records only the sizes whose price changes', async () => {
+    const starters = await category();
+    const id = await newItem(
+      itemBody(starters, {
+        variants: [
+          { name: 'Free', dineInPrice: 0 },
+          { name: 'Half', dineInPrice: 18000 },
+        ],
+      }),
+    );
+    const res = await bulk({
+      itemIds: [id],
+      change: { kind: 'percent', basisPoints: 500 },
+      roundTo: 100,
+    }).expect(201);
+    expect(res.body).toEqual({ updated: 1 });
+    const audit = await ctx.prisma.auditEntry.findFirst({ where: { action: 'menu.price.bulk' } });
+    expect((audit?.after as { prices: unknown[] }).prices).toHaveLength(1);
+  });
 });

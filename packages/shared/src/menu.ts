@@ -192,3 +192,62 @@ export const addonGroupSchema = z
 export type AddonGroupRequest = z.infer<typeof addonGroupSchema>;
 
 export const availabilitySchema = z.strictObject({ isAvailable: z.boolean() });
+
+// ---------- bulk menu editing ----------
+
+export const ROUND_TO_PAISE = [100, 500, 1000] as const;
+
+export type PriceChange =
+  { kind: 'percent'; basisPoints: number } | { kind: 'amount'; paise: number };
+
+/**
+ * The price after a bulk change, rounded to the nearest `roundTo` paise (halves up). A free item
+ * stays free under a percentage. The result can be negative: callers refuse that.
+ */
+export function applyPriceChange(price: number, change: PriceChange, roundTo: number): number {
+  if (change.kind === 'percent' && price === 0) return 0;
+  const raw =
+    change.kind === 'percent'
+      ? (price * (10_000 + change.basisPoints)) / 10_000
+      : price + change.paise;
+  return Math.floor(raw / roundTo + 0.5) * roundTo;
+}
+
+const idList = z
+  .array(z.uuid())
+  .min(1, 'Pick at least one dish.')
+  .max(500, 'Pick at most 500 dishes at a time.')
+  .refine((ids) => new Set(ids).size === ids.length, 'Each entry may appear only once');
+
+export const reorderSchema = z.strictObject({ ids: idList });
+export type ReorderRequest = z.infer<typeof reorderSchema>;
+
+const nonZero = (n: number) => n !== 0;
+
+export const priceChangeSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('percent'),
+    basisPoints: z
+      .number()
+      .int()
+      .min(-9000, 'A change can be from -90% to +200%.')
+      .max(20_000, 'A change can be from -90% to +200%.')
+      .refine(nonZero, 'Enter a change'),
+  }),
+  z.strictObject({
+    kind: z.literal('amount'),
+    paise: z
+      .number()
+      .int()
+      .min(-1_000_000, 'A change can be up to ₹10,000.')
+      .max(1_000_000, 'A change can be up to ₹10,000.')
+      .refine(nonZero, 'Enter a change'),
+  }),
+]);
+
+export const bulkPriceSchema = z.strictObject({
+  itemIds: idList,
+  change: priceChangeSchema,
+  roundTo: z.union([z.literal(100), z.literal(500), z.literal(1000)]),
+});
+export type BulkPriceRequest = z.infer<typeof bulkPriceSchema>;

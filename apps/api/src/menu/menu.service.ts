@@ -1,8 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Category, ItemVariant, Prisma } from '@prisma/client';
-import type { AddonGroupRequest, CategoryRequest, ItemRequest } from '@rpos/shared';
+import {
+  applyPriceChange,
+  MAX_PRICE_PAISE,
+  type AddonGroupRequest,
+  type BulkPriceRequest,
+  type CategoryRequest,
+  type ItemRequest,
+} from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
+import { ApiError } from '../common/api-error';
 import {
   inUse,
   invalidReference,
@@ -22,6 +30,12 @@ import {
 
 type Tx = Prisma.TransactionClient;
 type VariantPrices = Pick<ItemVariant, 'dineInPrice' | 'parcelPrice' | 'packagingCharge'>;
+
+/** True when `ids` is exactly the set `active`, each once. */
+const sameSet = (active: string[], ids: string[]) =>
+  active.length === ids.length &&
+  new Set(ids).size === ids.length &&
+  ids.every((id) => active.includes(id));
 
 const prices = (v: VariantPrices) => ({
   dineInPrice: v.dineInPrice,
@@ -83,7 +97,7 @@ export class MenuService {
         outletId: actor.outletId,
         stationId: request.stationId,
         name: request.name,
-        sortOrder: request.sortOrder ?? 0,
+        sortOrder: request.sortOrder ?? (await this.nextCategoryOrder(actor.outletId)),
       },
     });
     await this.record(
@@ -139,6 +153,127 @@ export class MenuService {
     return categoryView(category);
   }
 
+  private async nextCategoryOrder(outletId: string) {
+    const last = await this.prisma.category.aggregate({
+      where: { outletId, archivedAt: null },
+      _max: { sortOrder: true },
+    });
+    return (last._max.sortOrder ?? -1) + 1;
+  }
+
+  /** Saves the order of every active category: `ids` must be exactly those, each once. */
+  async reorderCategories(actor: AuthUser, ids: string[]) {
+    const active = await this.prisma.category.findMany({
+      where: { outletId: actor.outletId, archivedAt: null },
+      select: { id: true, name: true },
+    });
+    if (
+      !sameSet(
+        active.map((c) => c.id),
+        ids,
+      )
+    )
+      throw invalidReference('ids');
+    await this.prisma.$transaction(
+      ids.map((id, index) =>
+        this.prisma.category.update({ where: { id }, data: { sortOrder: index } }),
+      ),
+    );
+    const names = new Map(active.map((c) => [c.id, c.name]));
+    await this.record(actor, 'menu.category.reorder', 'category', ids[0]!, undefined, {
+      order: ids.map((id) => names.get(id)),
+    });
+    return { updated: ids.length };
+  }
+
+  /** Saves the order of every active dish in one category. */
+  async reorderItems(actor: AuthUser, categoryId: string, ids: string[]) {
+    const category = await this.prisma.category.findFirst({
+      where: { id: categoryId, outletId: actor.outletId, archivedAt: null },
+    });
+    if (!category) throw notFound('Category');
+    const active = await this.prisma.item.findMany({
+      where: { categoryId, archivedAt: null },
+      select: { id: true, name: true },
+    });
+    if (
+      !sameSet(
+        active.map((i) => i.id),
+        ids,
+      )
+    )
+      throw invalidReference('ids');
+    await this.prisma.$transaction(
+      ids.map((id, index) =>
+        this.prisma.item.update({ where: { id }, data: { sortOrder: index } }),
+      ),
+    );
+    const names = new Map(active.map((i) => [i.id, i.name]));
+    await this.record(actor, 'menu.item.reorder', 'category', categoryId, undefined, {
+      order: ids.map((id) => names.get(id)),
+    });
+    return { updated: ids.length };
+  }
+
+  /**
+   * Changes the dine-in and parcel price of every size of the given dishes in one go. If any
+   * price would fall below ₹0 or above the limit, nothing is saved.
+   */
+  async bulkPrices(actor: AuthUser, request: BulkPriceRequest) {
+    const items = await this.prisma.item.findMany({
+      where: { id: { in: request.itemIds }, outletId: actor.outletId, archivedAt: null },
+      include: { variants: { where: { archivedAt: null }, orderBy: { sortOrder: 'asc' } } },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+    if (items.length !== request.itemIds.length) throw invalidReference('itemIds');
+
+    // Only sizes whose price moves are saved, counted and recorded (a free size stays free,
+    // rounding can land back on the old price), so the count matches the preview.
+    const changes = items
+      .flatMap((item) =>
+        item.variants.map((variant) => ({
+          item,
+          variant,
+          dineIn: applyPriceChange(variant.dineInPrice, request.change, request.roundTo),
+          parcel: applyPriceChange(variant.parcelPrice, request.change, request.roundTo),
+        })),
+      )
+      .filter((c) => c.dineIn !== c.variant.dineInPrice || c.parcel !== c.variant.parcelPrice);
+    const bad = changes.find(
+      (c) =>
+        c.dineIn < 0 || c.parcel < 0 || c.dineIn > MAX_PRICE_PAISE || c.parcel > MAX_PRICE_PAISE,
+    );
+    if (bad) {
+      const where = bad.dineIn < 0 || bad.parcel < 0 ? 'below ₹0' : 'above the highest price';
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        'VALIDATION',
+        `${bad.item.name} ${bad.variant.name} would go ${where}.`,
+      );
+    }
+    if (changes.length === 0) return { updated: 0 };
+
+    await this.prisma.$transaction(
+      changes.map((c) =>
+        this.prisma.itemVariant.update({
+          where: { id: c.variant.id },
+          data: { dineInPrice: c.dineIn, parcelPrice: c.parcel },
+        }),
+      ),
+    );
+    await this.record(actor, 'menu.price.bulk', 'item', items[0]!.id, undefined, {
+      change: request.change,
+      roundTo: request.roundTo,
+      prices: changes.map((c) => ({
+        item: c.item.name,
+        variant: c.variant.name,
+        before: { dineIn: c.variant.dineInPrice, parcel: c.variant.parcelPrice },
+        after: { dineIn: c.dineIn, parcel: c.parcel },
+      })),
+    });
+    return { updated: changes.length };
+  }
+
   // ---------- items ----------
 
   async createItem(actor: AuthUser, request: ItemRequest): Promise<ItemView> {
@@ -146,6 +281,10 @@ export class MenuService {
     await this.assertItemNameFree(request.categoryId, request.name);
 
     const id = await this.prisma.$transaction(async (tx) => {
+      const last = await tx.item.aggregate({
+        where: { categoryId: request.categoryId, archivedAt: null },
+        _max: { sortOrder: true },
+      });
       const item = await tx.item.create({
         data: {
           outletId: actor.outletId,
@@ -155,6 +294,7 @@ export class MenuService {
           description: request.description ?? null,
           foodType: request.foodType,
           isCombo: request.isCombo,
+          sortOrder: (last._max.sortOrder ?? -1) + 1,
         },
       });
       await tx.itemVariant.createMany({

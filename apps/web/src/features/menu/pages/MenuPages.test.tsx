@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useSession } from '@/shared/session/store';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
@@ -28,6 +28,21 @@ const menu = {
           taxRate: { id: TAX, name: 'GST 5%', cgstBp: 250, sgstBp: 250 },
           variants: [
             { id: 'v1', name: 'Regular', dineInPrice: 9000, parcelPrice: 9000, packagingCharge: 0 },
+          ],
+          addonGroups: [],
+          components: [],
+        },
+        {
+          id: 'i3',
+          categoryId: CAT,
+          name: 'Tomato Soup',
+          description: null,
+          foodType: 'VEG',
+          isAvailable: true,
+          isCombo: false,
+          taxRate: { id: TAX, name: 'GST 5%', cgstBp: 250, sgstBp: 250 },
+          variants: [
+            { id: 'v3', name: 'Regular', dineInPrice: 8000, parcelPrice: 8000, packagingCharge: 0 },
           ],
           addonGroups: [],
           components: [],
@@ -67,6 +82,160 @@ function setVariant(row: number, name: string, price: string) {
 }
 
 describe('MenuPage item editor', () => {
+  it('reorders dishes with Move up and saves the new order', async () => {
+    asManager();
+    const mock = baseApi({
+      [`PUT /api/menu/categories/${CAT}/items/order`]: () => json({ updated: 2 }),
+    });
+    renderRoute('/admin/menu');
+    // Reorder is off until the menu has loaded.
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reorder' }));
+    const ids = menu.categories[0]!.items.map((i) => i.id);
+    const second = menu.categories[0]!.items[1]!;
+    fireEvent.click(screen.getByRole('button', { name: `Move ${second.name} up` }));
+    await expect
+      .poll(() => callsTo(mock, 'PUT', `/api/menu/categories/${CAT}/items/order`).length)
+      .toBe(1);
+    expect(
+      JSON.parse(
+        String(callsTo(mock, 'PUT', `/api/menu/categories/${CAT}/items/order`)[0]![1]!.body),
+      ),
+    ).toEqual({ ids: [ids[1], ids[0]] });
+    expect(screen.queryByRole('button', { name: /^Duplicate/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.getAllByRole('button', { name: /^Duplicate/ }).length).toBeGreaterThan(0);
+  });
+
+  it('puts the order back and says why when saving fails', async () => {
+    asManager();
+    baseApi({
+      [`PUT /api/menu/categories/${CAT}/items/order`]: () =>
+        json(
+          {
+            code: 'INVALID_REFERENCE',
+            message: 'Something you picked is no longer available. Refresh and try again.',
+          },
+          400,
+        ),
+    });
+    renderRoute('/admin/menu');
+    // Reorder is off until the menu has loaded.
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reorder' }));
+    const [first, second] = menu.categories[0]!.items;
+    fireEvent.click(screen.getByRole('button', { name: `Move ${second!.name} up` }));
+    expect(await screen.findByText(/no longer available/)).toBeInTheDocument();
+    const dishes = within(screen.getByRole('list', { name: 'Dishes in Starters' }));
+    const rows = dishes.getAllByRole('button', { name: /^Move .* down$/ });
+    expect(rows[0]).toHaveAccessibleName(`Move ${first!.name} down`);
+  });
+
+  it('saves one reorder at a time, in the order they were made', async () => {
+    asManager();
+    let release: (() => void) | undefined;
+    const mock = baseApi({
+      [`PUT /api/menu/categories/${CAT}/items/order`]: () =>
+        new Promise<Response>((resolve) => {
+          release = () => resolve(json({ updated: 2 }));
+        }),
+    });
+    renderRoute('/admin/menu');
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reorder' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move Tomato Soup up' }));
+    // A person taps again once the row has moved.
+    await expect
+      .poll(() =>
+        screen.getByRole('button', { name: 'Move Tomato Soup up' }).getAttribute('aria-disabled'),
+      )
+      .toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Move Tomato Soup down' }));
+    const puts = () => callsTo(mock, 'PUT', `/api/menu/categories/${CAT}/items/order`);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(puts()).toHaveLength(1);
+    release!();
+    await expect.poll(() => puts().length).toBe(2);
+    expect(JSON.parse(String(puts()[1]![1]!.body))).toEqual({ ids: ['i1', 'i3'] });
+  });
+
+  it('keeps focus on the arrow and says where the dish went', async () => {
+    asManager();
+    // The server keeps the new order, so the refetch after saving shows it too.
+    let saved = menu;
+    baseApi({
+      'GET /api/menu': () => json(saved),
+      [`PUT /api/menu/categories/${CAT}/items/order`]: ({ body }) => {
+        const ids = (body as { ids: string[] }).ids;
+        const items = ids.map((id) => menu.categories[0]!.items.find((i) => i.id === id)!);
+        saved = { categories: [{ ...menu.categories[0]!, items }] };
+        return json({ updated: 2 });
+      },
+    });
+    renderRoute('/admin/menu');
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reorder' }));
+    const up = screen.getByRole('button', { name: 'Move Tomato Soup up' });
+    up.focus();
+    fireEvent.click(up);
+    expect(await screen.findByText('Tomato Soup moved to position 1 of 2')).toBeInTheDocument();
+    await expect
+      .poll(() =>
+        screen.getByRole('button', { name: 'Move Tomato Soup up' }).getAttribute('aria-disabled'),
+      )
+      .toBe('true');
+    const after = screen.getByRole('button', { name: 'Move Tomato Soup up' });
+    expect(after).not.toBeDisabled();
+    await expect.poll(() => document.activeElement).toBe(after);
+  });
+
+  it('hides reorder controls while searching', async () => {
+    asManager();
+    baseApi({});
+    renderRoute('/admin/menu');
+    // Reorder is off until the menu has loaded.
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reorder' }));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search dishes' }), {
+      target: { value: 'soup' },
+    });
+    expect(screen.queryByRole('button', { name: /^Move / })).toBeNull();
+  });
+
+  it('narrows the menu as you search and clears again', async () => {
+    asManager();
+    baseApi({});
+    renderRoute('/admin/menu');
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search dishes' }), {
+      target: { value: 'zzz' },
+    });
+    expect(screen.getByText('No dishes match "zzz"')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(screen.getByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search dishes' }), {
+      target: { value: '  veg SOUP ' },
+    });
+    expect(screen.getByText('1 dish matches "veg SOUP"')).toBeInTheDocument();
+  });
+
+  it('duplicates a dish as a new one without the old size ids', async () => {
+    asManager();
+    const mock = baseApi({
+      'POST /api/menu/items': ({ body }) => json({ id: 'i2', ...(body as object) }, 201),
+    });
+    renderRoute('/admin/menu');
+    fireEvent.click(await screen.findByRole('button', { name: 'Duplicate Veg Soup' }));
+    expect(screen.getByRole('heading', { name: 'New item' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Item name')).toHaveValue('Veg Soup (copy)');
+    fireEvent.click(screen.getByRole('button', { name: 'Save item' }));
+    await expect.poll(() => callsTo(mock, 'POST', '/api/menu/items').length).toBe(1);
+    const sent = JSON.parse(String(callsTo(mock, 'POST', '/api/menu/items')[0]![1]!.body));
+    expect(sent.name).toBe('Veg Soup (copy)');
+    expect(sent.variants.every((v: { id?: string }) => v.id === undefined)).toBe(true);
+    expect(sent.variants[0].dineInPrice).toBe(9000);
+  });
+
   it('has no accessibility problems on the menu screen', async () => {
     asManager();
     baseApi({});
@@ -194,7 +363,6 @@ describe('MenuPage category editing (review #3)', () => {
     expect(JSON.parse(String(call?.[1]?.body))).toEqual({
       name: 'Snacks',
       stationId: OTHER,
-      sortOrder: 0,
     });
   });
 });

@@ -2,11 +2,15 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put } from '@
 import {
   addonGroupSchema,
   availabilitySchema,
+  bulkPriceSchema,
   categorySchema,
   itemSchema,
+  reorderSchema,
   type AddonGroupRequest,
+  type BulkPriceRequest,
   type CategoryRequest,
   type ItemRequest,
+  type ReorderRequest,
 } from '@rpos/shared';
 import { RequirePermissions } from '../auth/decorators';
 import { CurrentUser, type AuthUser } from '../common/request-context';
@@ -31,6 +35,25 @@ export class MenuController {
     return this.menu.createCategory(user, body);
   }
 
+  @Put('categories/order')
+  @RequirePermissions('menu.manage')
+  reorderCategories(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodBody(reorderSchema)) body: ReorderRequest,
+  ) {
+    return this.menu.reorderCategories(user, body.ids);
+  }
+
+  @Put('categories/:id/items/order')
+  @RequirePermissions('menu.manage')
+  reorderItems(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodBody(reorderSchema)) body: ReorderRequest,
+  ) {
+    return this.menu.reorderItems(user, id, body.ids);
+  }
+
   @Put('categories/:id')
   @RequirePermissions('menu.manage')
   updateCategory(
@@ -45,6 +68,15 @@ export class MenuController {
   @RequirePermissions('menu.manage')
   archiveCategory(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
     return this.menu.archiveCategory(user, id);
+  }
+
+  @Post('prices')
+  @RequirePermissions('menu.manage')
+  bulkPrices(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodBody(bulkPriceSchema)) body: BulkPriceRequest,
+  ) {
+    return this.menu.bulkPrices(user, body);
   }
 
   @Post('items')

@@ -1,3 +1,4 @@
+import type { BulkPriceRequest } from '@rpos/shared';
 import { apiFetch } from '@/shared/api/http';
 import type { Menu, MenuAddon, MenuAddonGroup, MenuCategory, MenuItem } from './types';
 
@@ -41,3 +42,12 @@ export const setAddonAvailability = (addon: MenuAddon, isAvailable: boolean) =>
     method: 'PATCH',
     body: { isAvailable },
   });
+
+export const bulkPrices = (body: BulkPriceRequest) =>
+  apiFetch<{ updated: number }>('/api/menu/prices', { method: 'POST', body });
+
+export const reorderCategories = (ids: string[]) =>
+  apiFetch('/api/menu/categories/order', { method: 'PUT', body: { ids } });
+
+export const reorderItems = (categoryId: string, ids: string[]) =>
+  apiFetch(`/api/menu/categories/${categoryId}/items/order`, { method: 'PUT', body: { ids } });
