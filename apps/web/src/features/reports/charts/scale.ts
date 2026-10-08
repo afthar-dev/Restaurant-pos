@@ -1,11 +1,3 @@
-/** Axis top: the value rounded up to 1, 2, 2.5 or 5 × 10ⁿ, so grid lines fall on round amounts. */
-export function niceMax(value: number): number {
-  if (value <= 0) return 0;
-  const base = 10 ** Math.floor(Math.log10(value));
-  for (const step of [1, 2, 2.5, 5]) if (step * base >= value) return step * base;
-  return 10 * base;
-}
-
 /**
  * Axis ticks from 0 in steps of 1, 2 or 5 × 10ⁿ, about `count` of them, the last one at or
  * above `max`. Thirds of a "nice" top (₹33.3k) read badly; whole steps (₹10k, ₹20k) do not.

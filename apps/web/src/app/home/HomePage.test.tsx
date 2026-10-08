@@ -229,10 +229,13 @@ describe('HomePage', () => {
     renderRoute('/');
     expect(await screen.findByRole('heading', { level: 2, name: 'Last 7 days' })).toBeVisible();
     expect(screen.getByText('Today ₹1,500 · 7-day total ₹3,500')).toBeInTheDocument();
-    const bars = within(screen.getByRole('group', { name: /^Last 7 days/ })).getAllByRole('img');
-    expect(bars).toHaveLength(7);
-    expect(bars[5]).toHaveAccessibleName(expect.stringContaining('₹2,000 · 4 bills'));
-    expect(bars[4]).toHaveAccessibleName(expect.stringContaining('₹0 · 0 bills'));
+    const data = within(await screen.findByRole('list', { name: 'Last 7 days data' }));
+    const days = data.getAllByRole('listitem');
+    expect(days).toHaveLength(7);
+    expect(days[5]).toHaveTextContent('₹2,000 · 4 bills');
+    expect(days[4]).toHaveTextContent('₹0 · 0 bills');
+    // Bars only for the two days with sales (yesterday and today).
+    expect(document.querySelectorAll('.recharts-bar-rectangle')).toHaveLength(2);
     expect(screen.getByRole('link', { name: 'See reports' })).toHaveAttribute('href', '/reports');
     const weekCall = callsTo(mock, 'GET', '/api/reports/sales').find(([url]) =>
       String(url).includes(`from=${shift(6)}`),

@@ -4,19 +4,12 @@ import {
   dayLabel,
   hourLabel,
   hourRange,
-  niceMax,
   niceTicks,
   shortDayLabel,
   shortRupees,
 } from './scale';
 
 describe('chart scale', () => {
-  it('rounds the axis top up to 1, 2, 2.5 or 5 times a power of ten', () => {
-    expect([0, 1, 7, 250, 12_340, 99_000, 12_345_600].map(niceMax)).toEqual([
-      0, 1, 10, 250, 20_000, 100_000, 20_000_000,
-    ]);
-  });
-
   it('puts axis ticks on 1, 2 or 5 times a power of ten', () => {
     expect(niceTicks(0)).toEqual([0]);
     // ₹26,546 → steps of ₹10k, not ₹33.3k thirds.

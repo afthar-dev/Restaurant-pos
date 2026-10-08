@@ -1,10 +1,15 @@
+import { lazy, Suspense } from 'react';
 import { Link } from 'react-router';
 import { rupees } from '@/shared/lib/money';
 import { Card, CardBody, Skeleton } from '@/shared/ui';
-import { BarChart } from '../charts/BarChart';
+import { ChartFrame } from '../charts/ChartFrame';
 import { billCount, dayLabel, shortDayLabel } from '../charts/scale';
+import type { ChartPoint } from '../charts/types';
 import { useSalesReport } from '../queries';
 import { datesInRange, presetRange } from '../ranges';
+
+// Recharts is big: the home screen loads it after the card's text is on screen.
+const ColumnChart = lazy(() => import('../charts/ColumnChart'));
 
 /** Owner home: the last seven India dates, today highlighted; closed days are empty slots. */
 export function WeekTrend() {
@@ -23,27 +28,30 @@ export function WeekTrend() {
     .filter(([date]) => date >= range.from && date <= range.to)
     .reduce((n, [, t]) => n + t.total, 0);
   const today = byDate.get(range.to)?.total ?? 0;
+  const points: ChartPoint[] = datesInRange(range).map((date) => {
+    const t = byDate.get(date) ?? { total: 0, bills: 0 };
+    return {
+      key: date,
+      label: shortDayLabel(date),
+      value: t.total,
+      detail: `${dayLabel(date)} · ${rupees(t.total)} · ${billCount(t.bills)}`,
+      highlight: date === range.to,
+    };
+  });
 
   return (
     <Card>
       <CardBody className="flex flex-col gap-3">
-        <BarChart
+        <ChartFrame
           as="h2"
           title="Last 7 days"
           takeaway={`Today ${rupees(today)} · 7-day total ${rupees(week)}`}
-          height={96}
-          compact
-          bars={datesInRange(range).map((date) => {
-            const t = byDate.get(date) ?? { total: 0, bills: 0 };
-            return {
-              key: date,
-              label: shortDayLabel(date),
-              value: t.total,
-              detail: `${dayLabel(date)} · ${rupees(t.total)} · ${billCount(t.bills)}`,
-              highlight: date === range.to,
-            };
-          })}
-        />
+        >
+          {/* Same 96 px height as the chart, so the card does not jump when it arrives. */}
+          <Suspense fallback={<Skeleton className="h-24 w-full" />}>
+            <ColumnChart title="Last 7 days" points={points} height={96} compact />
+          </Suspense>
+        </ChartFrame>
         <Link
           to="/reports"
           className="inline-flex min-h-11 items-center self-start text-sm font-medium text-primary-800 underline-offset-4 hover:underline"
