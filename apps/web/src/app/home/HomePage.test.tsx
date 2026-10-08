@@ -90,9 +90,17 @@ describe('HomePage', () => {
       '/api/reports/sales',
       '/api/stock/items',
       '/api/business-day/close-check',
+      '/api/users',
+      '/api/printers',
+      '/api/menu',
     ]) {
       expect(callsTo(mock, 'GET', path)).toHaveLength(0);
     }
+    // Exact path: the sign-in check asks for /api/devices/current, which is fine.
+    expect(
+      callsTo(mock, 'GET', '/api/devices').filter(([url]) => String(url) === '/api/devices'),
+    ).toHaveLength(0);
+    expect(screen.queryByText('Get your restaurant ready')).toBeNull();
   });
 
   it('says when the day is not open, with a way in for managers only', async () => {
@@ -117,5 +125,57 @@ describe('HomePage', () => {
     renderRoute('/');
     expect(await screen.findByText('1 QR order waiting for approval')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Review' })).toHaveAttribute('href', '/captain');
+  });
+  it('asks a new owner to finish setup and links to the guide', async () => {
+    localStorage.clear();
+    useSession
+      .getState()
+      .setSession(sessionBody('OWNER', ['settings.manage', 'menu.manage'], 'Asha'));
+    mockApi({
+      'GET /api/business-day/current': () => json(DAY_OPEN),
+      'GET /api/outlet': () =>
+        json({
+          name: 'Main Outlet',
+          gstin: null,
+          taxScheme: 'REGULAR',
+          address: null,
+          phone: null,
+        }),
+      'GET /api/menu': () => json({ categories: [] }),
+      'GET /api/floor': () => json([]),
+      'GET /api/printers': () => json([]),
+    });
+    renderRoute('/');
+    expect(await screen.findByText('Get your restaurant ready')).toBeInTheDocument();
+    expect(screen.getByText('0 of 4 done')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Continue setup' })).toHaveAttribute('href', '/setup');
+  });
+
+  it('hides the setup card once setup is complete', async () => {
+    localStorage.setItem('rpos.setup.skipped', JSON.stringify(['tables', 'printer']));
+    useSession
+      .getState()
+      .setSession(sessionBody('OWNER', ['settings.manage', 'menu.manage'], 'Asha'));
+    const mock = mockApi({
+      'GET /api/business-day/current': () => json(DAY_OPEN),
+      'GET /api/outlet': () =>
+        json({
+          name: 'Anna Mess',
+          gstin: null,
+          taxScheme: 'NONE',
+          address: 'MG Road',
+          phone: '9000000001',
+        }),
+      'GET /api/menu': () => json({ categories: [{ items: [{ id: 'i1' }] }] }),
+      'GET /api/floor': () => json([]),
+      'GET /api/printers': () => json([]),
+    });
+    renderRoute('/');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Welcome, Asha' })).toBeVisible();
+    await expect.poll(() => callsTo(mock, 'GET', '/api/printers').length).toBe(1);
+    // Let the last answers reach the screen before checking the card stayed away.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(screen.queryByText('Get your restaurant ready')).toBeNull();
+    localStorage.clear();
   });
 });

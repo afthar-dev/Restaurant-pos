@@ -20,6 +20,7 @@ import { TablesPage } from '@/features/tables';
 import { TaxPage } from '@/features/tax';
 import { SettingsPage } from '@/features/settings';
 import { StaffPage } from '@/features/staff';
+import { SETUP_PERMISSIONS, SetupPage } from '@/features/setup';
 
 export const routes: RouteObject[] = [
   {
@@ -101,6 +102,14 @@ export const routes: RouteObject[] = [
             element: (
               <RequireAuth anyOf={['reports.all']}>
                 <ReportsPage />
+              </RequireAuth>
+            ),
+          },
+          {
+            path: 'setup',
+            element: (
+              <RequireAuth anyOf={SETUP_PERMISSIONS}>
+                <SetupPage />
               </RequireAuth>
             ),
           },

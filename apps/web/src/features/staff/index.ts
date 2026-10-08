@@ -4,3 +4,4 @@ export const StaffPage = lazy(() =>
   import('./pages/StaffPage').then((m) => ({ default: m.StaffPage })),
 );
 export type { Staff } from './types';
+export { useStaff } from './queries';

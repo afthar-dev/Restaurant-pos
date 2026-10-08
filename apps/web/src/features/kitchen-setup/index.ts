@@ -3,5 +3,5 @@ import { lazy } from 'react';
 export const KitchenPage = lazy(() =>
   import('./pages/KitchenPage').then((m) => ({ default: m.KitchenPage })),
 );
-export { useStations } from './queries';
+export { usePrinters, useStations } from './queries';
 export type { Station } from './types';

@@ -2,8 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchAddonGroups, fetchMenu } from './api';
 import { menuKeys } from './keys';
 
-export function useMenu() {
-  return useQuery({ queryKey: menuKeys.all, queryFn: fetchMenu });
+export function useMenu(enabled = true) {
+  return useQuery({ queryKey: menuKeys.all, queryFn: fetchMenu, enabled });
 }
 
 export function useAddonGroups() {

@@ -6,6 +6,6 @@ export function useStations() {
   return useQuery({ queryKey: kitchenSetupKeys.stations, queryFn: fetchStations });
 }
 
-export function usePrinters() {
-  return useQuery({ queryKey: kitchenSetupKeys.printers, queryFn: fetchPrinters });
+export function usePrinters(enabled = true) {
+  return useQuery({ queryKey: kitchenSetupKeys.printers, queryFn: fetchPrinters, enabled });
 }

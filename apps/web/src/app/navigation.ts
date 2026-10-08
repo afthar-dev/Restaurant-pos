@@ -1,4 +1,5 @@
 import type { Permission } from '@rpos/shared';
+import { SETUP_PERMISSIONS } from '@/features/setup';
 import {
   CalendarCheck,
   ChartColumn,
@@ -11,6 +12,7 @@ import {
   Store,
   Wallet,
   type LucideIcon,
+  ListChecks,
 } from 'lucide-react';
 
 export const ADMIN_PERMISSIONS: Permission[] = [
@@ -118,6 +120,15 @@ export const NAV: NavEntry[] = [
     icon: ChartColumn,
     group: 'Back office',
     anyOf: ['reports.all'],
+  },
+  {
+    to: '/setup',
+    label: 'Setup guide',
+    title: 'Setup guide',
+    description: 'What is left before your first service.',
+    icon: ListChecks,
+    group: 'Setup',
+    anyOf: SETUP_PERMISSIONS,
   },
   {
     to: '/admin',
