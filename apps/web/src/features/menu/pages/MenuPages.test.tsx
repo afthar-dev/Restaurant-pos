@@ -67,6 +67,40 @@ function setVariant(row: number, name: string, price: string) {
 }
 
 describe('MenuPage item editor', () => {
+  it('narrows the menu as you search and clears again', async () => {
+    asManager();
+    baseApi({});
+    renderRoute('/admin/menu');
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search dishes' }), {
+      target: { value: 'zzz' },
+    });
+    expect(screen.getByText('No dishes match "zzz"')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(screen.getByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search dishes' }), {
+      target: { value: '  veg SOUP ' },
+    });
+    expect(screen.getByText('1 dish matches "veg SOUP"')).toBeInTheDocument();
+  });
+
+  it('duplicates a dish as a new one without the old size ids', async () => {
+    asManager();
+    const mock = baseApi({
+      'POST /api/menu/items': ({ body }) => json({ id: 'i2', ...(body as object) }, 201),
+    });
+    renderRoute('/admin/menu');
+    fireEvent.click(await screen.findByRole('button', { name: 'Duplicate Veg Soup' }));
+    expect(screen.getByRole('heading', { name: 'New item' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Item name')).toHaveValue('Veg Soup (copy)');
+    fireEvent.click(screen.getByRole('button', { name: 'Save item' }));
+    await expect.poll(() => callsTo(mock, 'POST', '/api/menu/items').length).toBe(1);
+    const sent = JSON.parse(String(callsTo(mock, 'POST', '/api/menu/items')[0]![1]!.body));
+    expect(sent.name).toBe('Veg Soup (copy)');
+    expect(sent.variants.every((v: { id?: string }) => v.id === undefined)).toBe(true);
+    expect(sent.variants[0].dineInPrice).toBe(9000);
+  });
+
   it('has no accessibility problems on the menu screen', async () => {
     asManager();
     baseApi({});

@@ -36,11 +36,11 @@ interface ComponentRow {
 const PRICE_ERROR = 'Enter a price like 120 or 120.50';
 let nextKey = 1;
 
-function variantRows(item: MenuItem | null): VariantRow[] {
+function variantRows(item: MenuItem | null, keepIds = true): VariantRow[] {
   if (!item) return [{ key: nextKey++, name: 'Regular', dineIn: '', parcel: '', packaging: '' }];
   return item.variants.map((v) => ({
     key: nextKey++,
-    id: v.id,
+    id: keepIds ? v.id : undefined,
     name: v.name,
     dineIn: paiseToRupeesInput(v.dineInPrice),
     parcel: v.parcelPrice === v.dineInPrice ? '' : paiseToRupeesInput(v.parcelPrice),
@@ -61,24 +61,30 @@ export function ItemEditor({
   taxRates,
   addonGroups,
   onDone,
+  copyFrom = null,
 }: {
   existing: MenuItem | null;
+  /** Pre-fills a new dish from this one (Duplicate). */
+  copyFrom?: MenuItem | null;
   categories: MenuCategory[];
   defaultCategoryId: string;
   taxRates: TaxRate[];
   addonGroups: MenuAddonGroup[];
   onDone: () => void;
 }) {
-  const [name, setName] = useState(existing?.name ?? '');
-  const [description, setDescription] = useState(existing?.description ?? '');
-  const [foodType, setFoodType] = useState<FoodType>(existing?.foodType ?? 'VEG');
-  const [categoryId, setCategoryId] = useState(existing?.categoryId ?? defaultCategoryId);
-  const [taxRateId, setTaxRateId] = useState(existing?.taxRate.id ?? taxRates[0]?.id ?? '');
-  const [variants, setVariants] = useState<VariantRow[]>(() => variantRows(existing));
-  const [groupIds, setGroupIds] = useState<string[]>(existing?.addonGroups.map((g) => g.id) ?? []);
-  const [isCombo, setIsCombo] = useState(existing?.isCombo ?? false);
+  const source = existing ?? copyFrom;
+  const [name, setName] = useState(existing?.name ?? (copyFrom ? `${copyFrom.name} (copy)` : ''));
+  const [description, setDescription] = useState(source?.description ?? '');
+  const [foodType, setFoodType] = useState<FoodType>(source?.foodType ?? 'VEG');
+  const [categoryId, setCategoryId] = useState(source?.categoryId ?? defaultCategoryId);
+  const [taxRateId, setTaxRateId] = useState(source?.taxRate.id ?? taxRates[0]?.id ?? '');
+  const [variants, setVariants] = useState<VariantRow[]>(() =>
+    variantRows(source, Boolean(existing)),
+  );
+  const [groupIds, setGroupIds] = useState<string[]>(source?.addonGroups.map((g) => g.id) ?? []);
+  const [isCombo, setIsCombo] = useState(source?.isCombo ?? false);
   const [components, setComponents] = useState<ComponentRow[]>(
-    existing?.components.map((c) => ({
+    source?.components.map((c) => ({
       key: nextKey++,
       variantId: c.variantId,
       quantity: String(c.quantity),
