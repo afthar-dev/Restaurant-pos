@@ -117,4 +117,15 @@ describe('apiFetch', () => {
     await apiFetch('/api/things').catch(() => undefined);
     expect(useSession.getState().status).toBe('authenticated');
   });
+
+  it('sends FormData as it is, without a JSON content type', async () => {
+    useSession.getState().setSession(sessionBody('MANAGER', []));
+    const mock = mockApi({ 'PUT /api/menu/items/i1/image': () => json({}) });
+    const form = new FormData();
+    form.append('image', new Blob(['x'], { type: 'image/webp' }), 'photo.webp');
+    await apiFetch('/api/menu/items/i1/image', { method: 'PUT', body: form });
+    const init = mock.mock.calls[0]![1]!;
+    expect(init.body).toBe(form);
+    expect(new Headers(init.headers).get('Content-Type')).toBeNull();
+  });
 });

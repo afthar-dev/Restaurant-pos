@@ -6,10 +6,12 @@ import {
   archiveCategory,
   archiveItem,
   bulkPrices,
+  removeItemPhoto,
   reorderCategories,
   reorderItems,
   saveAddonGroup,
   saveItem,
+  setItemPhoto,
   setAddonAvailability,
   setItemAvailability,
   updateCategory,
@@ -44,7 +46,7 @@ export const useArchiveMenuEntry = (onArchived: () => void) =>
     onSuccess: onArchived,
   });
 
-export const useSaveItem = (existing: MenuItem | null, onSaved: () => void) =>
+export const useSaveItem = (existing: MenuItem | null, onSaved: (saved: MenuItem) => void) =>
   useInvalidatingMutation({
     mutationFn: (body: object) => saveItem(existing, body),
     invalidates: [menuKeys.all],
@@ -189,3 +191,11 @@ export function useReorder(onFailed: (error: Error) => void) {
     onSettled: () => client.invalidateQueries({ queryKey: menuKeys.all }),
   });
 }
+
+/** Sets (a Blob) or removes (null) a dish's photo; the menu refreshes after. */
+export const useItemPhoto = () =>
+  useInvalidatingMutation({
+    mutationFn: ({ itemId, photo }: { itemId: string; photo: Blob | null }) =>
+      photo ? setItemPhoto(itemId, photo) : removeItemPhoto(itemId),
+    invalidates: [menuKeys.all],
+  });

@@ -1,9 +1,15 @@
 import { fireEvent, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { useSession } from '@/shared/session/store';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
 import { expectNoAxeViolations } from '@/test/a11y';
 import { renderRoute } from '@/test/render';
+
+// jsdom has no canvas: the shrinker is replaced; the upload itself is what is tested here.
+vi.mock('../photo', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../photo')>()),
+  shrinkPhoto: vi.fn(async () => new Blob(['small'], { type: 'image/webp' })),
+}));
 
 const CAT = '00000000-0000-4000-8000-0000000000c1';
 const STATION = '00000000-0000-4000-8000-0000000000a1';
@@ -25,6 +31,7 @@ const menu = {
           foodType: 'VEG',
           isAvailable: true,
           isCombo: false,
+          imageUrl: null,
           taxRate: { id: TAX, name: 'GST 5%', cgstBp: 250, sgstBp: 250 },
           variants: [
             { id: 'v1', name: 'Regular', dineInPrice: 9000, parcelPrice: 9000, packagingCharge: 0 },
@@ -40,6 +47,7 @@ const menu = {
           foodType: 'VEG',
           isAvailable: true,
           isCombo: false,
+          imageUrl: null,
           taxRate: { id: TAX, name: 'GST 5%', cgstBp: 250, sgstBp: 250 },
           variants: [
             { id: 'v3', name: 'Regular', dineInPrice: 8000, parcelPrice: 8000, packagingCharge: 0 },
@@ -82,6 +90,88 @@ function setVariant(row: number, name: string, price: string) {
 }
 
 describe('MenuPage item editor', () => {
+  it('adds a photo to a new dish after saving it', async () => {
+    asManager();
+    const mock = baseApi({
+      'POST /api/menu/items': ({ body }) =>
+        json({ id: 'i9', ...(body as object), imageUrl: null }, 201),
+      'PUT /api/menu/items/i9/image': () => json({ id: 'i9', imageUrl: '/api/media/m1.webp' }),
+    });
+    renderRoute('/admin/menu');
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
+    fireEvent.change(screen.getByLabelText('Item name'), { target: { value: 'Lassi' } });
+    setVariant(1, 'Regular', '60');
+    const file = new File(['big'], 'lassi.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('Add photo'), { target: { files: [file] } });
+    expect(await screen.findByRole('img', { name: 'Photo of Lassi' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save item' }));
+    await expect.poll(() => callsTo(mock, 'PUT', '/api/menu/items/i9/image').length).toBe(1);
+    expect(callsTo(mock, 'POST', '/api/menu/items')).toHaveLength(1);
+    const sent = callsTo(mock, 'PUT', '/api/menu/items/i9/image')[0]![1]!.body;
+    expect(sent).toBeInstanceOf(FormData);
+    expect((sent as FormData).get('image')).toBeInstanceOf(Blob);
+  });
+
+  it('removes a dish photo', async () => {
+    asManager();
+    const withPhoto = {
+      categories: [
+        {
+          ...menu.categories[0]!,
+          items: menu.categories[0]!.items.map((i, n) =>
+            n === 0
+              ? {
+                  ...i,
+                  imageUrl: '/api/media/m1.webp',
+                  // Real size ids are UUIDs; the editor's schema refuses anything else.
+                  variants: i.variants.map((v) => ({
+                    ...v,
+                    id: '00000000-0000-4000-8000-0000000000d1',
+                  })),
+                }
+              : i,
+          ),
+        },
+      ],
+    };
+    const mock = baseApi({
+      'GET /api/menu': () => json(withPhoto),
+      'PUT /api/menu/items/i1': ({ body }) => json({ id: 'i1', ...(body as object) }),
+      'DELETE /api/menu/items/i1/image': () => json({ id: 'i1', imageUrl: null }),
+    });
+    renderRoute('/admin/menu');
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit' })[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove photo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save item' }));
+    await expect.poll(() => callsTo(mock, 'DELETE', '/api/menu/items/i1/image').length).toBe(1);
+  });
+
+  it('keeps the dish saved and says so when the photo fails', async () => {
+    asManager();
+    baseApi({
+      'POST /api/menu/items': ({ body }) =>
+        json({ id: 'i9', ...(body as object), imageUrl: null }, 201),
+      'PUT /api/menu/items/i9/image': () =>
+        json({ code: 'FILE_TOO_LARGE', message: 'The photo is too big. Use one under 1 MB.' }, 413),
+    });
+    renderRoute('/admin/menu');
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add item' }));
+    fireEvent.change(screen.getByLabelText('Item name'), { target: { value: 'Lassi' } });
+    setVariant(1, 'Regular', '60');
+    fireEvent.change(screen.getByLabelText('Add photo'), {
+      target: { files: [new File(['x'], 'l.jpg', { type: 'image/jpeg' })] },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save item' }));
+    expect(
+      await screen.findByText(
+        'Lassi is saved, but its photo was not: The photo is too big. Use one under 1 MB.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('reorders dishes with Move up and saves the new order', async () => {
     asManager();
     const mock = baseApi({

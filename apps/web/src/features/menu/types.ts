@@ -31,6 +31,8 @@ export interface MenuItem {
   foodType: FoodType;
   isAvailable: boolean;
   isCombo: boolean;
+  /** The dish photo for the QR menu, or null. */
+  imageUrl: string | null;
   taxRate: { id: string; name: string; cgstBp: number; sgstBp: number };
   variants: MenuVariant[];
   addonGroups: MenuAddonGroup[];

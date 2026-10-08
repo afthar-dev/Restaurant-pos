@@ -15,8 +15,8 @@ export const archiveCategory = (category: MenuCategory) =>
 
 export const saveItem = (existing: MenuItem | null, body: object) =>
   existing
-    ? apiFetch(`/api/menu/items/${existing.id}`, { method: 'PUT', body })
-    : apiFetch('/api/menu/items', { method: 'POST', body });
+    ? apiFetch<MenuItem>(`/api/menu/items/${existing.id}`, { method: 'PUT', body })
+    : apiFetch<MenuItem>('/api/menu/items', { method: 'POST', body });
 
 export const archiveItem = (item: MenuItem) =>
   apiFetch(`/api/menu/items/${item.id}/archive`, { method: 'POST' });
@@ -51,3 +51,12 @@ export const reorderCategories = (ids: string[]) =>
 
 export const reorderItems = (categoryId: string, ids: string[]) =>
   apiFetch(`/api/menu/categories/${categoryId}/items/order`, { method: 'PUT', body: { ids } });
+
+export const setItemPhoto = (itemId: string, photo: Blob) => {
+  const form = new FormData();
+  form.append('image', photo, photo.type === 'image/jpeg' ? 'photo.jpg' : 'photo.webp');
+  return apiFetch<MenuItem>(`/api/menu/items/${itemId}/image`, { method: 'PUT', body: form });
+};
+
+export const removeItemPhoto = (itemId: string) =>
+  apiFetch<MenuItem>(`/api/menu/items/${itemId}/image`, { method: 'DELETE' });
