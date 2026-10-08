@@ -79,6 +79,7 @@ model Outlet {
   items             Item[]
   addonGroups       AddonGroup[]
   businessDays      BusinessDay[]
+  media             Media[]
   orders            Order[]
   bills             Bill[]
   qrSessions        QrSession[]
@@ -343,6 +344,9 @@ model Item {
   isCombo     Boolean   @default(false) @map("is_combo")
   isAvailable Boolean   @default(true) @map("is_available")
   sortOrder   Int       @default(0) @map("sort_order")
+  /// The dish photo shown on the QR menu.
+  imageId     String?   @map("image_id") @db.Uuid
+  image       Media?    @relation(fields: [imageId], references: [id], onDelete: SetNull)
   archivedAt  DateTime? @map("archived_at") @db.Timestamptz(3)
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -1038,4 +1042,19 @@ model PurchaseLine {
 
   @@index([purchaseId])
   @@map("purchase_lines")
+}
+
+/// Small images (dish photos, later the logo). The files live in Cloudflare R2 (or a local folder).
+model Media {
+  id        String   @id @default(uuid()) @db.Uuid
+  outletId  String   @map("outlet_id") @db.Uuid
+  mimeType  String   @map("mime_type")
+  byteSize  Int      @map("byte_size")
+  /// Object name in Cloudflare R2 or file name in the local folder: "<uuid>.webp".
+  key       String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  outlet    Outlet   @relation(fields: [outletId], references: [id])
+  items     Item[]
+
+  @@map("media")
 }

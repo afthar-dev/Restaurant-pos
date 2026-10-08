@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 /** Everything the POS, captain app and admin need to show and price one item. */
 export const ITEM_INCLUDE = {
   taxRate: true,
+  image: { select: { key: true } },
   variants: {
     where: { archivedAt: null },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -49,7 +50,8 @@ export function addonGroupView(group: AddonGroupWithAddons) {
   };
 }
 
-export function itemView(item: ItemWithDetails) {
+/** The photo URL comes from `photoUrl`: R2 public address or the local /api/media path. */
+export function itemView(item: ItemWithDetails, photoUrl: (key: string) => string) {
   return {
     id: item.id,
     categoryId: item.categoryId,
@@ -58,6 +60,7 @@ export function itemView(item: ItemWithDetails) {
     foodType: item.foodType,
     isAvailable: item.isAvailable,
     isCombo: item.isCombo,
+    imageUrl: item.image ? photoUrl(item.image.key) : null,
     taxRate: {
       id: item.taxRate.id,
       name: item.taxRate.name,

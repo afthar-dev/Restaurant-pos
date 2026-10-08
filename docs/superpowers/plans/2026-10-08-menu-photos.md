@@ -10,6 +10,10 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-08-menu-photos-design.md`
 
+## Revision: Cloudflare R2 (user, 2026-10-08)
+
+Task 1 was built as written, then reworked when the user chose Cloudflare R2: `media` keeps `key` ("<uuid>.<ext>") instead of bytes; `src/media/storage.ts` has `MediaStorage` with `R2Storage` (S3 client, `PutObject` with the immutable cache header, public URL from `R2_PUBLIC_URL`) and `LocalStorage` (`MEDIA_DIR`, served by `GET /api/media/:key`); `env.ts` reads the five `R2_*` settings all-or-none; uploads put the object first and delete it again if the database step fails. `itemView(item, photoUrl)` builds `imageUrl`. Production: R2 settings and a `media` volume in `docker-compose.prod.yml`, setup steps in `docs/deploy.md` §3a.
+
 ## Global Constraints
 
 - Allowed types by magic bytes only: JPEG `FF D8 FF`, PNG `89 50 4E 47 0D 0A 1A 0A`, WebP `52 49 46 46 ?? ?? ?? ?? 57 45 42 50`. Anything else → 400 `VALIDATION` "Use a JPEG, PNG or WebP photo.".

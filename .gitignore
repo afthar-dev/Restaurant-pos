@@ -12,3 +12,6 @@ backups/
 
 # Local Claude Code app settings (preview servers)
 .claude/
+
+# Dish photos when Cloudflare R2 is not configured (apps/api MEDIA_DIR)
+apps/api/uploads/

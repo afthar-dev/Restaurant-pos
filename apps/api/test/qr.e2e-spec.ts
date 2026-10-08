@@ -82,6 +82,8 @@ describe('QR ordering', () => {
         { id: r.paneer.full.id, name: 'Full', price: 32000 },
       ]);
       expect(paneer.addonGroups[0]!.addons.map((a) => a.name)).toEqual(['Cheese']);
+      // No photo yet: customers see the dish without one.
+      expect((paneer as { imageUrl?: string | null }).imageUrl).toBeNull();
     });
 
     it('needs a live session', async () => {
