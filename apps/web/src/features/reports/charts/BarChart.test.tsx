@@ -68,3 +68,42 @@ describe('BarChart', () => {
     await expectNoAxeViolations();
   });
 });
+
+describe('BarChart review fixes', () => {
+  const many: Bar[] = Array.from({ length: 9 }, (_, i) => ({
+    key: String(i),
+    label: i % 3 === 0 ? `Mon ${i + 1}` : '',
+    value: (i + 1) * 10_000,
+    detail: `Day ${i + 1}`,
+  }));
+
+  it('lets thinned axis labels overflow their slot instead of becoming dots', () => {
+    render(<BarChart title="Sales by day" takeaway="t" bars={many} />);
+    const label = screen.getByText('Mon 4');
+    expect(label).toHaveClass('whitespace-nowrap');
+    expect(label).not.toHaveClass('truncate');
+  });
+
+  it('keeps one bar reachable by Tab when the bars shrink', () => {
+    const { rerender } = render(<BarChart title="Sales by day" takeaway="t" bars={many} />);
+    screen.getAllByRole('img')[8]!.focus();
+    rerender(<BarChart title="Sales by day" takeaway="t" bars={many.slice(0, 3)} />);
+    const tabbable = screen.getAllByRole('img').filter((b) => b.getAttribute('tabindex') === '0');
+    expect(tabbable).toHaveLength(1);
+  });
+
+  it('keeps edge tooltips inside the chart', () => {
+    render(<BarChart title="Sales by day" takeaway="t" bars={many} />);
+    const bars = screen.getAllByRole('img');
+    fireEvent.mouseEnter(bars[0]!);
+    expect(screen.getByText('Day 1')).toHaveClass('left-0');
+    fireEvent.mouseLeave(bars[0]!);
+    fireEvent.mouseEnter(bars[8]!);
+    expect(screen.getByText('Day 9')).toHaveClass('right-0');
+  });
+
+  it('draws compact bars dark enough to see against white', () => {
+    render(<BarChart title="Last 7 days" takeaway="t" bars={many} compact />);
+    expect(document.querySelectorAll('[data-bar-fill]')[0]).toHaveClass('bg-primary-600');
+  });
+});

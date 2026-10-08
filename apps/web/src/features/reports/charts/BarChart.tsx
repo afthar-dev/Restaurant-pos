@@ -39,6 +39,8 @@ export function BarChart({
   const [shown, setShown] = useState<number | null>(null);
   const refs = useRef<(HTMLDivElement | null)[]>([]);
   const max = niceMax(Math.max(0, ...bars.map((b) => b.value)));
+  // The bars can shrink (another range picked): keep one of them the Tab stop.
+  const current = Math.min(active, Math.max(0, bars.length - 1));
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === 'Escape') {
@@ -48,7 +50,7 @@ export function BarChart({
     const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
     if (step === 0) return;
     event.preventDefault();
-    const next = Math.min(bars.length - 1, Math.max(0, active + step));
+    const next = Math.min(bars.length - 1, Math.max(0, current + step));
     setActive(next);
     refs.current[next]?.focus();
   }
@@ -102,7 +104,7 @@ export function BarChart({
                   }}
                   role="img"
                   aria-label={bar.detail}
-                  tabIndex={i === active ? 0 : -1}
+                  tabIndex={i === current ? 0 : -1}
                   onFocus={() => {
                     setActive(i);
                     setShown(i);
@@ -116,18 +118,23 @@ export function BarChart({
                     data-bar-fill
                     className={cn(
                       'w-full max-w-10 rounded-t transition-colors group-hover:bg-primary-800',
-                      bar.highlight
-                        ? 'bg-primary-700'
-                        : compact
-                          ? 'bg-primary-300'
-                          : 'bg-primary-600',
+                      // 600 keeps 3:1 against white; today on the home chart is darker still.
+                      bar.highlight ? 'bg-primary-800' : 'bg-primary-600',
                     )}
                     style={{ height: max === 0 ? '0%' : `${Math.round((bar.value / max) * 100)}%` }}
                   />
                   {shown === i && (
                     <div
                       aria-hidden="true"
-                      className="pointer-events-none absolute bottom-full z-10 mb-1 w-max max-w-56 rounded-md bg-text px-2 py-1 text-xs text-surface shadow-overlay"
+                      className={cn(
+                        'pointer-events-none absolute bottom-full z-10 mb-1 w-max max-w-56 rounded-md bg-text px-2 py-1 text-xs text-surface shadow-overlay',
+                        // Edge bars open their tooltip inwards so it stays on screen.
+                        i < bars.length / 3
+                          ? 'left-0'
+                          : i >= (bars.length * 2) / 3
+                            ? 'right-0'
+                            : '',
+                      )}
                     >
                       {bar.detail}
                     </div>
@@ -137,10 +144,24 @@ export function BarChart({
             </div>
           </div>
           {!compact && (
-            <div aria-hidden="true" className="flex gap-0.5 text-xs text-subtle">
-              {bars.map((bar) => (
-                <span key={bar.key} className="min-w-0 flex-1 truncate text-center">
-                  {bar.label}
+            <div aria-hidden="true" className="flex h-4 gap-0.5 text-xs text-subtle">
+              {bars.map((bar, i) => (
+                // Thinned labels may spill over the empty slots beside them.
+                <span key={bar.key} className="relative min-w-0 flex-1">
+                  {bar.label && (
+                    <span
+                      className={cn(
+                        'absolute top-0 whitespace-nowrap',
+                        i === 0
+                          ? 'left-0'
+                          : i === bars.length - 1
+                            ? 'right-0'
+                            : 'left-1/2 -translate-x-1/2',
+                      )}
+                    >
+                      {bar.label}
+                    </span>
+                  )}
                 </span>
               ))}
             </div>

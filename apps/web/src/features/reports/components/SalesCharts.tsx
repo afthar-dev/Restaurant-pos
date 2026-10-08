@@ -17,12 +17,32 @@ function dayBars(days: SalesReport['days']): Bar[] {
   }));
 }
 
+/**
+ * The hours in service order: the day starts after the longest quiet stretch, so a late night
+ * (11pm, 12am, 1am) sits next to the evening instead of at the far left.
+ */
+function serviceHours(busy: number[]): number[] {
+  const sorted = [...new Set(busy)].sort((a, b) => a - b);
+  if (sorted.length <= 1) return sorted;
+  let start = sorted[0]!;
+  let gap = -1;
+  sorted.forEach((hour, i) => {
+    const next = sorted[(i + 1) % sorted.length]!;
+    const quiet = (next - hour + 24) % 24;
+    if (quiet > gap) {
+      gap = quiet;
+      start = next;
+    }
+  });
+  return Array.from({ length: 24 - gap + 1 }, (_, k) => (start + k) % 24);
+}
+
 /** Every hour from the first to the last with sales, so quiet hours show as gaps. */
 function hourBars(hours: SalesReport['hours']): Bar[] {
-  const first = hours[0]!.hour;
-  const last = hours[hours.length - 1]!.hour;
+  const order = serviceHours(hours.map((h) => h.hour));
+  const first = order[0]!;
   const bars: Bar[] = [];
-  for (let h = first; h <= last; h++) {
+  for (const h of order) {
     const row = hours.find((x) => x.hour === h);
     const total = row?.total ?? 0;
     const bills = row?.bills ?? 0;

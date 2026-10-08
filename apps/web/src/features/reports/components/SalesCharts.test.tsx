@@ -105,4 +105,24 @@ describe('SalesCharts', () => {
     fireEvent.focus(screen.getAllByRole('img')[0]!);
     await expectNoAxeViolations();
   });
+
+  it('keeps a late night next to the evening, not at the far left', () => {
+    render(
+      <SalesCharts
+        report={{
+          ...REPORT,
+          hours: [
+            { hour: 0, bills: 2, total: 100_000 },
+            { hour: 1, bills: 1, total: 50_000 },
+            { hour: 22, bills: 5, total: 400_000 },
+            { hour: 23, bills: 3, total: 200_000 },
+          ],
+        }}
+      />,
+    );
+    const hours = within(screen.getByRole('group', { name: /^Busiest hours/ }));
+    expect(
+      hours.getAllByRole('img').map((b) => b.getAttribute('aria-label')?.split(' · ')[0]),
+    ).toEqual(['10pm–11pm', '11pm–12am', '12am–1am', '1am–2am']);
+  });
 });
