@@ -6,6 +6,19 @@ export function niceMax(value: number): number {
   return 10 * base;
 }
 
+/**
+ * Axis ticks from 0 in steps of 1, 2 or 5 × 10ⁿ, about `count` of them, the last one at or
+ * above `max`. Thirds of a "nice" top (₹33.3k) read badly; whole steps (₹10k, ₹20k) do not.
+ */
+export function niceTicks(max: number, count = 4): number[] {
+  if (max <= 0) return [0];
+  const raw = max / count;
+  const base = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 5, 10].map((m) => m * base).find((s) => s >= raw)!;
+  const top = Math.ceil(max / step) * step;
+  return Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
+}
+
 const oneDecimal = (n: number) =>
   n >= 100 ? String(Math.round(n)) : String(Math.round(n * 10) / 10);
 
