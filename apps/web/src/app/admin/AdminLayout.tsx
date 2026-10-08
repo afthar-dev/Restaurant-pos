@@ -1,10 +1,10 @@
 import { Suspense } from 'react';
 import type { Permission } from '@rpos/shared';
-import { Navigate, NavLink, Outlet } from 'react-router';
+import { Link, Navigate, NavLink, Outlet, useSearchParams } from 'react-router';
 import { cn } from '@/shared/lib/cn';
 import { useSession } from '@/shared/session/store';
 import { EmptyState, LoadingScreen, PageHeader } from '@/shared/ui';
-import { Settings2 } from 'lucide-react';
+import { ArrowLeft, Settings2 } from 'lucide-react';
 
 export const ADMIN_TABS: { to: string; label: string; permission: Permission }[] = [
   { to: 'menu', label: 'Menu', permission: 'menu.manage' },
@@ -39,12 +39,22 @@ export function AdminIndex() {
 
 export function AdminLayout() {
   const tabs = useAllowedTabs();
+  const [params] = useSearchParams();
   return (
     <section className="flex flex-col gap-6">
       <PageHeader
         title="Admin"
         description="Set up the menu, tables, kitchen, staff and devices. Changes apply to every screen straight away."
       />
+      {params.get('from') === 'setup' && (
+        <Link
+          to="/setup"
+          className="inline-flex min-h-11 items-center gap-2 self-start text-sm font-medium text-primary-800 underline-offset-4 hover:underline"
+        >
+          <ArrowLeft aria-hidden="true" className="size-4" />
+          Back to setup guide
+        </Link>
+      )}
       <nav
         aria-label="Admin sections"
         className="-mx-1 flex gap-1 overflow-x-auto px-1 shadow-[inset_0_-1px_0_var(--color-border)]"

@@ -5,3 +5,4 @@ export const SetupPage = lazy(() =>
 );
 export { SETUP_PERMISSIONS } from './steps';
 export { useSetupProgress } from './useSetupProgress';
+export { SetupCard } from './components/SetupCard';

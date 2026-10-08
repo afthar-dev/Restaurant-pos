@@ -11,6 +11,7 @@ import { Link } from 'react-router';
 import { useBusinessDay, useCloseCheck } from '@/features/day';
 import { useQrPending } from '@/features/orders';
 import { presetRange, useSalesReport } from '@/features/reports';
+import { SetupCard } from '@/features/setup';
 import { useStockItems } from '@/features/stock';
 import { rupees } from '@/shared/lib/money';
 import { useCan, useSession } from '@/shared/session/store';
@@ -223,6 +224,7 @@ export function HomePage() {
           })}
         </p>
       </header>
+      <SetupCard />
       {day.data && !dayOpen && <DayNotOpen />}
       {canQr && dayOpen && <QrWaiting />}
       {canSales && <SalesToday />}
