@@ -10,7 +10,9 @@
     "test:e2e": "jest --config jest.e2e.config.js --runInBand",
     "typecheck": "tsc --noEmit",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "db:demo": "tsx prisma/demo.ts",
+    "db:qr-links": "tsx prisma/qr-links.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
