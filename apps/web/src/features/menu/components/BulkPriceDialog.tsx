@@ -1,5 +1,5 @@
 import { applyPriceChange, MAX_PRICE_PAISE, parseRupees, type PriceChange } from '@rpos/shared';
-import { useId, useMemo, useState } from 'react';
+import { useId, useState } from 'react';
 import { useNotify } from '@/features/notifications';
 import { rupees } from '@/shared/lib/money';
 import { Button, describeError, Dialog, ErrorNote, Field, Input, Select } from '@/shared/ui';
@@ -60,19 +60,18 @@ export function BulkPriceDialog({
         : allItems.filter((i) => picked.includes(i.id));
   const change = toChange(mode, amount);
 
-  const rows = useMemo(
-    () =>
-      change
-        ? items.flatMap((item) =>
-            item.variants.map((v) => ({
-              key: v.id,
-              label: `${item.name} ${v.name}`,
-              dineIn: [v.dineInPrice, applyPriceChange(v.dineInPrice, change, roundTo)] as const,
-              parcel: [v.parcelPrice, applyPriceChange(v.parcelPrice, change, roundTo)] as const,
-            })),
-          )
-        : [],
-    [items, change, roundTo],
+  // A menu is a few hundred sizes at most: worked out on each render.
+  const rows = (
+    change
+      ? items.flatMap((item) =>
+          item.variants.map((v) => ({
+            key: v.id,
+            label: `${item.name} ${v.name}`,
+            dineIn: [v.dineInPrice, applyPriceChange(v.dineInPrice, change, roundTo)] as const,
+            parcel: [v.parcelPrice, applyPriceChange(v.parcelPrice, change, roundTo)] as const,
+          })),
+        )
+      : []
   ).filter((r) => r.dineIn[0] !== r.dineIn[1] || r.parcel[0] !== r.parcel[1]);
   const below = rows.some((r) => r.dineIn[1] < 0 || r.parcel[1] < 0);
   const above = rows.some((r) => r.dineIn[1] > MAX_PRICE_PAISE || r.parcel[1] > MAX_PRICE_PAISE);
