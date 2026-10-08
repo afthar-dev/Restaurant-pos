@@ -134,6 +134,10 @@ Screens are built from the kit, not from raw Tailwind colours.
 - **Touch targets** are at least 44 px (`min-h-11`); money and quantities use `tabular-nums`.
 - **Icons** come from `lucide-react`, always `aria-hidden` next to visible text. A dot or icon
   that carries meaning on its own gets `role="img"` and an `aria-label`.
+- **Charts** use Recharts and live in `features/reports/charts/` (the only folder allowed to
+  import it, so it stays out of the first bundle). Charts take `ChartPoint[]`, draw colours
+  from tokens, put the data in a screen-reader list (`ChartData`) and switch animation off
+  under reduced motion. Screens in the first bundle load a chart with `lazy()`.
 - **Accessibility tests:** call `expectNoAxeViolations()` from `src/test/a11y.ts` at the end of
   a test that has rendered a full screen.
 - **Bundle budget:** the first bundle stays within 45 kB gzip of the pre-kit baseline

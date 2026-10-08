@@ -20,7 +20,12 @@ describe('AreaTrend', () => {
     expect(document.querySelector('.recharts-area-curve')).not.toBeNull();
     expect(document.querySelectorAll('.recharts-reference-dot')).toHaveLength(1);
     expect(screen.getByText('₹10k')).toBeInTheDocument();
+    // Only labelled hours get a tick.
     expect(screen.getByText('1pm')).toBeInTheDocument();
+    expect(screen.getByText('3pm')).toBeInTheDocument();
+    expect(document.querySelectorAll('.recharts-xAxis .recharts-cartesian-axis-tick')).toHaveLength(
+      2,
+    );
     expect(screen.getByRole('list', { name: 'Busiest hours data' })).toHaveTextContent(
       '2pm–3pm · ₹0 · 0 bills',
     );

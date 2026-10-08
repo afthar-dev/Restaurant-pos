@@ -31,6 +31,8 @@ export function AreaTrend({
   const ticks = niceTicks(Math.max(0, ...points.map((p) => p.value)));
   const peak = points.reduce((a, b) => (b.value > a.value ? b : a), points[0]!);
   const still = prefersReducedMotion();
+  // Only points with a label get a tick, so Recharts' overlap check sees real text.
+  const labelled = points.filter((p) => p.label).map((p) => p.key);
   const labelOf = (key: string) => points.find((p) => p.key === key)?.label ?? '';
   return (
     <div className="min-w-0">
@@ -46,7 +48,10 @@ export function AreaTrend({
           {/* Keyed by hour so the peak dot finds its place even when its label is thinned. */}
           <XAxis
             dataKey="key"
-            interval={0}
+            ticks={labelled}
+            // Skips labels that would touch on a narrow screen (needs real text widths).
+            interval="preserveStartEnd"
+            minTickGap={8}
             tickFormatter={labelOf}
             tickLine={false}
             axisLine={{ stroke: 'var(--color-border-strong)' }}

@@ -30,14 +30,21 @@ export function ColumnChart({
 }) {
   const ticks = niceTicks(Math.max(0, ...points.map((p) => p.value)));
   const still = prefersReducedMotion();
+  // Only points with a label get a tick, so Recharts' overlap check sees real text.
+  const labelled = points.filter((p) => p.label).map((p) => p.key);
+  const labelOf = (key: string) => points.find((p) => p.key === key)?.label ?? '';
   return (
     <div className="min-w-0">
       <ResponsiveContainer width="100%" height={height}>
         <BarChart data={points} title={title} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
           {!compact && <CartesianGrid vertical={false} stroke="var(--color-border)" />}
           <XAxis
-            dataKey="label"
-            interval={0}
+            dataKey="key"
+            ticks={labelled}
+            tickFormatter={labelOf}
+            // Skips labels that would touch on a narrow screen (needs real text widths).
+            interval="preserveStartEnd"
+            minTickGap={8}
             hide={compact}
             tickLine={false}
             axisLine={{ stroke: 'var(--color-border-strong)' }}
