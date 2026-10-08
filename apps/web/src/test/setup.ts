@@ -1,5 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, configure } from '@testing-library/react';
+import { cloneElement, type ReactElement } from 'react';
+import type * as Recharts from 'recharts';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { resetRefreshState } from '@/shared/api/http';
 import { resetSessionStore } from '@/shared/session/store';
@@ -25,6 +27,21 @@ URL.revokeObjectURL ??= () => undefined;
 // axe probes a canvas to spot icon fonts; jsdom has none, so answer "no canvas" quietly.
 HTMLCanvasElement.prototype.getContext = (() =>
   null) as typeof HTMLCanvasElement.prototype.getContext;
+
+// jsdom has no layout, so ResponsiveContainer would measure 0 × 0 and draw nothing.
+vi.mock('recharts', async (importOriginal) => {
+  const actual = await importOriginal<typeof Recharts>();
+  return {
+    ...actual,
+    ResponsiveContainer: ({
+      children,
+      height,
+    }: {
+      children: ReactElement<{ width?: number; height?: number }>;
+      height?: number | string;
+    }) => cloneElement(children, { width: 600, height: typeof height === 'number' ? height : 240 }),
+  };
+});
 
 // No real sockets in tests. Tests that check realtime behaviour mock this module themselves.
 vi.mock('socket.io-client', () => ({

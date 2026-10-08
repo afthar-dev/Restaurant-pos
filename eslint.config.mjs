@@ -39,25 +39,40 @@ function boundaries(src, fetcher) {
   const restrict = (/** @type {object[]} */ patterns, /** @type {object[]} */ paths = []) => ({
     'no-restricted-imports': ['error', { patterns, paths }],
   });
+  const recharts = {
+    name: 'recharts',
+    message: 'Charts live in features/reports/charts/ so Recharts stays out of the first bundle.',
+  };
   return [
-    { files: [`${src}/app/**/*.{ts,tsx}`], rules: restrict([featureInternals]) },
+    { files: [`${src}/app/**/*.{ts,tsx}`], rules: restrict([featureInternals], [recharts]) },
     {
       files: [`${src}/features/**/*.{ts,tsx}`],
-      rules: restrict([appWiring, featureInternals], [http]),
+      rules: restrict([appWiring, featureInternals], [http, recharts]),
     },
-    { files: [`${src}/features/**/api.ts`], rules: restrict([appWiring, featureInternals]) },
+    {
+      files: [`${src}/features/**/api.ts`],
+      rules: restrict([appWiring, featureInternals], [recharts]),
+    },
     {
       files: [`${src}/features/*/components/**/*.tsx`, `${src}/features/*/pages/**/*.tsx`],
-      rules: restrict([appWiring, featureInternals], [http, queryHooks]),
+      rules: restrict([appWiring, featureInternals], [http, queryHooks, recharts]),
     },
     {
       files: [`${src}/shared/**/*.{ts,tsx}`],
-      rules: restrict([
-        {
-          group: ['@/features', '@/features/*', '@/app', '@/app/*'],
-          message: 'Shared code never imports features or app wiring.',
-        },
-      ]),
+      rules: restrict(
+        [
+          {
+            group: ['@/features', '@/features/*', '@/app', '@/app/*'],
+            message: 'Shared code never imports features or app wiring.',
+          },
+        ],
+        [recharts],
+      ),
+    },
+    // The one folder allowed to import Recharts (reached only through lazy screens).
+    {
+      files: [`${src}/features/reports/charts/**/*.{ts,tsx}`],
+      rules: restrict([appWiring, featureInternals], [http]),
     },
   ];
 }
