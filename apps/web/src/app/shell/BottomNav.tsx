@@ -17,7 +17,7 @@ export function BottomNav({ entries }: { entries: NavEntry[] }) {
   const moreActive = more.some((e) => isActive(e, pathname));
   return (
     <nav
-      aria-label="Main"
+      aria-label="Quick menu"
       className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       {primary.map((entry) => {

@@ -3,6 +3,7 @@ import type { Permission } from '@rpos/shared';
 import { describe, expect, it } from 'vitest';
 import { useSession } from '@/shared/session/store';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
+import { expectNoAxeViolations } from '@/test/a11y';
 import { renderRoute } from '@/test/render';
 
 const DAY_OPEN = {
@@ -75,6 +76,7 @@ describe('HomePage', () => {
     expect(await screen.findByText('Before closing the day')).toBeInTheDocument();
     expect(screen.getByText('₹1,022')).toBeInTheDocument();
     expect(await screen.findByText('Onion')).toBeInTheDocument();
+    await expectNoAxeViolations();
   });
 
   it('never asks the server for owner-only numbers on a cashier’s home', async () => {

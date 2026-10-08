@@ -2,6 +2,7 @@ import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useSession } from '@/shared/session/store';
 import { json, mockApi, sessionBody } from '@/test/mock-api';
+import { expectNoAxeViolations } from '@/test/a11y';
 import { renderRoute } from '@/test/render';
 
 function fillAndSubmit(phone: string, password: string) {
@@ -30,6 +31,14 @@ describe('LoginPage', () => {
       phone: '9876543210',
       password: 'owner-pass-1',
     });
+  });
+
+  it('has no accessibility problems', async () => {
+    useSession.getState().clear();
+    mockApi({ 'GET /api/devices/current': () => json({ code: 'DEVICE_NOT_REGISTERED' }, 401) });
+    renderRoute('/login');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
+    await expectNoAxeViolations();
   });
 
   it('shows a clear message for a wrong password', async () => {

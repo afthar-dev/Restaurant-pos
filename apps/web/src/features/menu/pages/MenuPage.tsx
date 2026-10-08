@@ -268,6 +268,7 @@ export function MenuPage() {
                     <div className="flex min-w-0 flex-col gap-0.5">
                       <span className="flex items-center gap-2 font-medium">
                         <span
+                          role="img"
                           aria-label={FOOD_LABEL[item.foodType]}
                           className={`inline-block h-2.5 w-2.5 rounded-full ${FOOD_DOT[item.foodType]}`}
                         />

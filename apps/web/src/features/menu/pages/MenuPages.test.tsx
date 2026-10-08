@@ -2,6 +2,7 @@ import { fireEvent, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useSession } from '@/shared/session/store';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
+import { expectNoAxeViolations } from '@/test/a11y';
 import { renderRoute } from '@/test/render';
 
 const CAT = '00000000-0000-4000-8000-0000000000c1';
@@ -66,6 +67,14 @@ function setVariant(row: number, name: string, price: string) {
 }
 
 describe('MenuPage item editor', () => {
+  it('has no accessibility problems on the menu screen', async () => {
+    asManager();
+    baseApi({});
+    renderRoute('/admin/menu');
+    expect(await screen.findByText('Veg Soup')).toBeInTheDocument();
+    await expectNoAxeViolations();
+  });
+
   it('saves sizes in paise and leaves parcel price to default', async () => {
     asManager();
     const mock = baseApi({
