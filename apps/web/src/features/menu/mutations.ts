@@ -5,6 +5,7 @@ import {
   archiveAddonGroup,
   archiveCategory,
   archiveItem,
+  bulkPrices,
   saveAddonGroup,
   saveItem,
   setAddonAvailability,
@@ -133,3 +134,12 @@ export function useToggleAddon({ onStart, onFailed }: ToggleHandlers) {
     },
   });
 }
+
+/** Bulk price change; the menu refreshes before `onDone` so the new prices show at once. */
+export const useBulkPrices = (onDone: (result: { updated: number }) => void) =>
+  useInvalidatingMutation({
+    mutationFn: bulkPrices,
+    invalidates: [menuKeys.all],
+    onSuccess: onDone,
+    afterRefresh: true,
+  });

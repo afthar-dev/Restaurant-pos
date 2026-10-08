@@ -2,6 +2,7 @@ import { categorySchema } from '@rpos/shared';
 import { Search, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import {
+  Button,
   ConfirmBar,
   describeError,
   EmptyState,
@@ -14,6 +15,7 @@ import {
   primaryButton,
   secondaryButton,
 } from '@/shared/ui';
+import { BulkPriceDialog } from '../components/BulkPriceDialog';
 import { ItemEditor } from '../components/ItemEditor';
 import { ItemRow } from '../components/ItemRow';
 import { filterMenu } from '../menuOrder';
@@ -154,6 +156,7 @@ export function MenuPage() {
   const [editingCategory, setEditingCategory] = useState(false);
   const [query, setQuery] = useState('');
   const [copying, setCopying] = useState<MenuItem | null>(null);
+  const [bulk, setBulk] = useState(false);
 
   const archive = useArchiveMenuEntry(() => setPending(null));
 
@@ -207,7 +210,15 @@ export function MenuPage() {
         as="h2"
         title="Menu"
         description="Categories send their kitchen tickets to a station. Dishes have sizes with dine-in and parcel prices."
+        actions={
+          <Button variant="secondary" disabled={!menu.data} onClick={() => setBulk(true)}>
+            Change prices
+          </Button>
+        }
       />
+      {bulk && menu.data && (
+        <BulkPriceDialog categories={categories} onClose={() => setBulk(false)} />
+      )}
       <ErrorNote message={menu.isError ? describeError(menu.error) : null} />
       {pending && (
         <ConfirmBar
