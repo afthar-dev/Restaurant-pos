@@ -71,7 +71,10 @@ pnpm --filter @rpos/qr dev
 - Customer QR app: open a table's link from **Admin → Tables → QR stickers**
   (`http://localhost:5174/qr/?t=<table token>`)
 
-Then, in order: add the menu and tables in Admin, add staff with PINs, register the browser
+To try the app with a ready-made restaurant (menu, tables, staff, a week of sales), run
+`pnpm --filter @rpos/api db:demo` and follow [docs/testing-guide.md](docs/testing-guide.md).
+
+Otherwise, in order: add the menu and tables in Admin, add staff with PINs, register the browser
 in Admin → Devices, and open the business day on the POS. Ordering, expenses and purchases
 need an open day.
 
