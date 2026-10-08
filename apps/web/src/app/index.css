@@ -53,6 +53,10 @@
   --color-primary-700: #c2410c;
   --color-primary-800: #9a3412;
   --color-primary-900: #7c2d12;
+  /* Payment-mix chart: validated categorical palette (U3b spec). */
+  --color-pay-cash: #1baf7a;
+  --color-pay-upi: #2a78d6;
+  --color-pay-card: #eb6834;
 
   --radius-sm: 6px;
   --radius-md: 10px;

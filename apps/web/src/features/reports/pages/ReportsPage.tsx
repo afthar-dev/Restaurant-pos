@@ -10,6 +10,7 @@ import {
 import { CategoriesTable, DaysTable, ItemsTable } from '../components/ReportTables';
 import { RangePicker } from '../components/RangePicker';
 import { SummaryCards } from '../components/SummaryCards';
+import { SalesCharts } from '../components/SalesCharts';
 import { csvRupees, downloadCsv, toCsv } from '../csv';
 import { useSalesReport } from '../queries';
 import { dateLabel, presetRange, type DateRange } from '../ranges';
@@ -100,6 +101,7 @@ export function ReportsPage() {
             />
           ) : (
             <>
+              <SalesCharts report={data} />
               <h2 className="text-lg font-semibold">Days</h2>
               <DaysTable days={data.days} />
               <h2 className="text-lg font-semibold">Dishes</h2>
