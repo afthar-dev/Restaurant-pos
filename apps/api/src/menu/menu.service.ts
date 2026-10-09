@@ -635,10 +635,13 @@ export class MenuService {
     });
     if (!category) throw invalidReference('categoryId');
 
-    const tax = await this.prisma.taxRate.findFirst({
-      where: { id: request.taxRateId, outletId, archivedAt: null },
-    });
-    if (!tax) throw invalidReference('taxRateId');
+    // A no-GST dish has no tax rate; any rate it names must be live and ours.
+    if (request.taxRateId !== null) {
+      const tax = await this.prisma.taxRate.findFirst({
+        where: { id: request.taxRateId, outletId, archivedAt: null },
+      });
+      if (!tax) throw invalidReference('taxRateId');
+    }
 
     const groupIds = [...new Set(request.addonGroupIds)];
     if (groupIds.length > 0) {

@@ -50,7 +50,7 @@ const menu = {
           isAvailable: true,
           isCombo: false,
           imageUrl: null,
-          taxRate: { id: TAX, name: 'GST 5%', cgstBp: 250, sgstBp: 250 },
+          taxRate: null,
           variants: [
             { id: 'v3', name: 'Regular', dineInPrice: 8000, parcelPrice: 8000, packagingCharge: 0 },
           ],
@@ -397,6 +397,34 @@ describe('MenuPage item editor', () => {
       addonGroupIds: [],
       isCombo: false,
       components: [],
+    });
+  });
+
+  it('marks no-GST dishes in the menu list', async () => {
+    asManager();
+    baseApi();
+    renderRoute('/admin/menu');
+    const row = (await screen.findByText('Tomato Soup')).closest('li')!;
+    expect(row).toHaveTextContent('No GST');
+    expect(screen.getByText('Veg Soup').closest('li')).not.toHaveTextContent('No GST');
+  });
+
+  it('saves a no-GST dish, such as chai at a fixed price', async () => {
+    asManager();
+    const mock = baseApi({
+      'POST /api/menu/items': ({ body }) => json({ id: 'i3', ...(body as object) }, 201),
+    });
+    await openNewItem();
+    fireEvent.change(screen.getByLabelText('Item name'), { target: { value: 'Masala Chai' } });
+    setVariant(1, 'Regular', '30');
+    fireEvent.change(screen.getByLabelText('GST'), { target: { value: '' } });
+    expect(screen.getByText(/charged at exactly this price/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save item' }));
+    await expect.poll(() => callsTo(mock, 'POST', '/api/menu/items').length).toBe(1);
+    const [call] = callsTo(mock, 'POST', '/api/menu/items');
+    expect(JSON.parse(String(call?.[1]?.body))).toMatchObject({
+      name: 'Masala Chai',
+      taxRateId: null,
     });
   });
 

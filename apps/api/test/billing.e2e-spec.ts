@@ -56,6 +56,37 @@ describe('bills', () => {
     (await ctx.http().get(`/api/orders/${orderId}`).set(cashier.auth).expect(200)).body;
 
   describe('creating', () => {
+    it('charges a no-GST dish at its price and keeps it out of the tax footer', async () => {
+      const chai = await ctx
+        .http()
+        .post('/api/menu/items')
+        .set(owner.auth)
+        .send({
+          categoryId: r.starters.id,
+          name: 'Masala Chai',
+          foodType: 'VEG',
+          taxRateId: null,
+          variants: [{ name: 'Regular', dineInPrice: 3000 }],
+          addonGroupIds: [],
+          isCombo: false,
+          components: [],
+        })
+        .expect(201);
+      expect(chai.body.taxRate).toBeNull();
+      const chaiId = chai.body.variants[0].id as string;
+      const orderId = await servedOrder(ctx, r, waiter, [
+        { variantId: chaiId, quantity: 2 },
+        { variantId: r.roti.regular.id, quantity: 1 },
+      ]);
+      expect((await getOrder(orderId)).items[0]).toMatchObject({ cgstBp: 0, sgstBp: 0 });
+      const res = await createBill(orderId).expect(201);
+      // Chai ₹60 with no GST; roti ₹30 + 5% → ₹31.50; ₹91.50 rounds to ₹92.
+      expect(res.body.total).toBe(9200);
+      expect(res.body.taxBreakup).toEqual([
+        expect.objectContaining({ cgstBp: 250, sgstBp: 250, taxable: 3000 }),
+      ]);
+    });
+
     it('bills the whole order with 5% GST, numbers it and marks the order billed', async () => {
       const orderId = await servedOrder(ctx, r, waiter, [
         { variantId: r.paneer.half.id, quantity: 2, addonIds: [r.extras.cheese.id] },

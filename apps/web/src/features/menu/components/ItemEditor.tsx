@@ -83,7 +83,10 @@ export function ItemEditor({
   const [description, setDescription] = useState(source?.description ?? '');
   const [foodType, setFoodType] = useState<FoodType>(source?.foodType ?? 'VEG');
   const [categoryId, setCategoryId] = useState(source?.categoryId ?? defaultCategoryId);
-  const [taxRateId, setTaxRateId] = useState(source?.taxRate.id ?? taxRates[0]?.id ?? '');
+  // '' means no GST (saved as null).
+  const [taxRateId, setTaxRateId] = useState(
+    source ? (source.taxRate?.id ?? '') : (taxRates[0]?.id ?? ''),
+  );
   const [variants, setVariants] = useState<VariantRow[]>(() =>
     variantRows(source, Boolean(existing)),
   );
@@ -170,7 +173,7 @@ export function ItemEditor({
       name: name.trim(),
       description: description.trim() || null,
       foodType,
-      taxRateId,
+      taxRateId: taxRateId || null,
       variants: variantBodies,
       addonGroupIds: groupIds,
       isCombo,
@@ -239,7 +242,16 @@ export function ItemEditor({
             ))}
           </select>
         </Field>
-        <Field id="item-tax" label="Tax rate" error={errors.taxRateId}>
+        <Field
+          id="item-tax"
+          label="GST"
+          error={errors.taxRateId}
+          hint={
+            taxRateId === ''
+              ? 'No GST: charged at exactly this price. Use it only for GST-exempt items, or if the restaurant is not GST-registered.'
+              : undefined
+          }
+        >
           <select
             id="item-tax"
             className={inputClass}
@@ -248,9 +260,10 @@ export function ItemEditor({
           >
             {taxRates.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.name}
+                {`${t.name}, added on top`}
               </option>
             ))}
+            <option value="">No GST (fixed price)</option>
           </select>
         </Field>
         <div className="sm:col-span-2">
@@ -337,7 +350,7 @@ export function ItemEditor({
           return (
             <div
               key={row.key}
-              className="grid gap-2 sm:grid-cols-[1.2fr_1fr_1fr_1fr_auto] sm:items-end"
+              className="grid gap-2 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end"
             >
               <Field
                 id={`variant-${row.key}-name`}

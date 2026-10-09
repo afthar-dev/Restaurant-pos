@@ -61,7 +61,7 @@ export function itemView(item: ItemWithDetails, photoUrl: (key: string) => strin
     isAvailable: item.isAvailable,
     isCombo: item.isCombo,
     imageUrl: item.image ? photoUrl(item.image.key) : null,
-    taxRate: {
+    taxRate: item.taxRate && {
       id: item.taxRate.id,
       name: item.taxRate.name,
       cgstBp: item.taxRate.cgstBp,

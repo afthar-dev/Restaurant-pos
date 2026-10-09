@@ -76,5 +76,6 @@ describe('demo data', () => {
     }
 
     await expect(loadDemo(ctx.prisma)).rejects.toThrow('Demo data is already loaded');
-  });
+    // Loads a week of bills: well past the 5 s default on a busy machine.
+  }, 60_000);
 });

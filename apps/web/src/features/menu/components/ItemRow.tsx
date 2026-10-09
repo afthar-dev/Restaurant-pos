@@ -20,6 +20,7 @@ export function ItemRow({ item, actions }: { item: MenuItem; actions: ReactNode 
           <FoodMark type={item.foodType} />
           {item.name}
           {item.isCombo && <span className="text-xs text-subtle">combo</span>}
+          {!item.taxRate && <span className="text-xs text-subtle">No GST</span>}
           {!item.isAvailable && (
             <span className="rounded bg-amber-50 px-1.5 text-xs text-amber-800">out of stock</span>
           )}

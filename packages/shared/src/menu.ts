@@ -121,7 +121,8 @@ export const itemSchema = z
     name: nameSchema,
     description: z.string().trim().max(300).nullable().optional(),
     foodType: z.enum(FOOD_TYPES),
-    taxRateId: z.uuid(),
+    /** null: no GST on this dish, its price is charged as it is. */
+    taxRateId: z.uuid().nullable(),
     variants: z.array(variantInputSchema).min(1, 'Add at least one size or price').max(10),
     addonGroupIds: z.array(z.uuid()).max(10),
     isCombo: z.boolean(),
