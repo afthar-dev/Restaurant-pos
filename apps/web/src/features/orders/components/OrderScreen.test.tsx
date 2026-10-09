@@ -149,6 +149,15 @@ describe('OrderPanel', () => {
     expect(screen.getByRole('button', { name: 'Send to kitchen (1)' })).toBeEnabled();
   });
 
+  it('drops the send button once everything is with the kitchen', async () => {
+    asWaiter();
+    const allSent = order({ items: [line({ id: 'l2', status: 'SENT', kotId: 'k2' })] });
+    mockApi({ 'GET /api/orders/o1': () => json(allSent) });
+    renderWithProviders(<OrderPanel orderId="o1" />);
+    expect(await screen.findByRole('heading', { level: 2 })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Send to kitchen/ })).toBeNull();
+  });
+
   it('sends to the kitchen once, with a request id, and blocks double taps', async () => {
     asWaiter();
     const mock = mockApi({
