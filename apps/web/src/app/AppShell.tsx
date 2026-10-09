@@ -12,6 +12,7 @@ import { useSession } from '@/shared/session/store';
 import { visibleNav } from './navigation';
 import { BottomNav } from './shell/BottomNav';
 import { DayStatusPill } from './shell/DayStatusPill';
+import { StatusButton } from './shell/StatusButton';
 import { Sidebar } from './shell/Sidebar';
 import { UserMenu } from './shell/UserMenu';
 import { LoadingScreen } from '@/shared/ui';
@@ -59,26 +60,29 @@ function AppLayout() {
         }}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center justify-between gap-2 border-b border-border bg-surface/95 px-4 backdrop-blur">
+        <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between gap-2 border-b border-border bg-surface/95 px-4 backdrop-blur">
           <Link
             to="/"
-            className="flex items-center gap-2 lg:hidden"
+            className="flex min-w-0 items-center gap-2 lg:hidden"
             aria-label={`${outletName}, home`}
           >
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary-700 text-white">
               <UtensilsCrossed aria-hidden="true" className="size-4" />
             </span>
-            <span className="max-w-40 truncate font-semibold">{outletName}</span>
+            <span className="min-w-0 max-w-40 truncate font-semibold">{outletName}</span>
           </Link>
           <div className="hidden lg:block">
             <DayStatusPill />
           </div>
           <div className="flex items-center gap-2">
-            <ServerStatus />
+            {/* Phones get one status button (one header row); desktops show both pills. */}
+            <div className="lg:hidden">
+              <StatusButton />
+            </div>
+            <div className="hidden lg:block">
+              <ServerStatus />
+            </div>
             <UserMenu />
-          </div>
-          <div className="w-full pb-2 lg:hidden">
-            <DayStatusPill />
           </div>
         </header>
         <main
