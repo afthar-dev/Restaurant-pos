@@ -1,7 +1,8 @@
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEVICE_RETRY_MS } from '@/features/auth';
-import { callsTo, json, mockApi } from '@/test/mock-api';
+import { useSession } from '@/shared/session/store';
+import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
 import { renderRoute } from '@/test/render';
 
 const now = new Date().toISOString();
@@ -67,6 +68,60 @@ describe('Kitchen display', () => {
     ).toBeInTheDocument();
   });
 
+  it('lets a manager set up this screen as the kitchen screen in one tap', async () => {
+    useSession.getState().setSession(sessionBody('MANAGER', ['devices.manage'], 'Meena'));
+    let registered = false;
+    const mock = mockApi({
+      'GET /api/devices/current': () =>
+        registered ? kdsDevice() : json({ code: 'DEVICE_NOT_REGISTERED' }, 401),
+      'POST /api/devices': () => {
+        registered = true;
+        return json({ id: 'd9', name: 'Kitchen', type: 'KDS' }, 201);
+      },
+      'GET /api/kds/stations': () => json(stations),
+      'GET /api/kds/kots': () => json([]),
+    });
+    renderRoute('/kds');
+    fireEvent.click(await screen.findByRole('button', { name: 'Set up this screen' }));
+    await expect.poll(() => callsTo(mock, 'POST', '/api/devices').length).toBe(1);
+    expect(JSON.parse(String(callsTo(mock, 'POST', '/api/devices')[0]?.[1]?.body))).toEqual({
+      name: 'Kitchen',
+      type: 'KDS',
+    });
+    expect(await screen.findByRole('heading', { name: /New/ })).toBeInTheDocument();
+  });
+
+  it('offers sign-in when nobody is signed in on an unregistered screen', async () => {
+    mockApi({ 'GET /api/devices/current': () => json({ code: 'DEVICE_NOT_REGISTERED' }, 401) });
+    renderRoute('/kds');
+    expect(await screen.findByRole('link', { name: 'Sign in to set it up' })).toHaveAttribute(
+      'href',
+      '/login',
+    );
+  });
+
+  it('warns before turning a counter into the kitchen screen', async () => {
+    useSession.getState().setSession(sessionBody('MANAGER', ['devices.manage'], 'Meena'));
+    mockApi({ 'GET /api/devices/current': () => json({ id: 'd1', name: 'Counter', type: 'POS' }) });
+    renderRoute('/kds');
+    expect(
+      await screen.findByRole('button', { name: 'Use this screen for the kitchen instead' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Counter will stop working as a counter.')).toBeInTheDocument();
+  });
+
+  it('tells a waiter phone apart from a counter', async () => {
+    mockApi({
+      'GET /api/devices/current': () => json({ id: 'd2', name: "Ravi's phone", type: 'CAPTAIN' }),
+    });
+    renderRoute('/kds');
+    expect(
+      await screen.findByText(
+        "Ravi's phone is registered as a waiter phone, not a kitchen screen.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('refuses a counter device', async () => {
     mockApi({ 'GET /api/devices/current': () => json({ id: 'd1', name: 'Counter', type: 'POS' }) });
     renderRoute('/kds');
@@ -90,6 +145,17 @@ describe('Kitchen display', () => {
     const ready = screen.getByRole('region', { name: 'Ready' });
     expect(within(ready).getByRole('article', { name: 'KOT 2, Parcel #5' })).toBeInTheDocument();
     expect(screen.getByRole('article', { name: 'KOT 3, T1, cancelled' })).toBeInTheDocument();
+  });
+
+  it('flags a ticket that has waited too long', async () => {
+    const old = new Date(Date.now() - 32 * 60_000).toISOString();
+    mockApi({
+      'GET /api/devices/current': kdsDevice,
+      'GET /api/kds/stations': () => json(stations),
+      'GET /api/kds/kots': () => json([ticket({ id: 'k9', kotNo: 9, createdAt: old })]),
+    });
+    renderRoute('/kds');
+    expect(await screen.findByText('Late · 32 min')).toBeInTheDocument();
   });
 
   it('starts, finishes and dismisses tickets', async () => {

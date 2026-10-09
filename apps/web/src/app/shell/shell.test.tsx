@@ -52,6 +52,23 @@ describe('app shell header', () => {
     expect(screen.getAllByRole('link', { name: 'Spice Garden, home' }).length).toBeGreaterThan(0);
   });
 
+  it('warns when the open business day was opened long ago, and links to close it', async () => {
+    useSession
+      .getState()
+      .setSession(sessionBody('MANAGER', ['day.openClose', 'bill.print', 'expense.manage']));
+    const twoDaysAgo = new Date(Date.now() - 46 * 3600_000).toISOString();
+    mockApi({
+      'GET /api/business-day/current': () =>
+        json({ day: { ...DAY_OPEN.day, openedAt: twoDaysAgo } }),
+    });
+    renderRoute('/expenses');
+    const pill = (
+      await screen.findAllByText(/^Day open since [A-Z][a-z]{2}, \d{1,2} [A-Z][a-z]{2}/)
+    )[0]!;
+    expect(pill.closest('[data-tone]')).toHaveAttribute('data-tone', 'warning');
+    expect(screen.getAllByRole('link', { name: 'Close it' })[0]).toHaveAttribute('href', '/day');
+  });
+
   it('tells a manager the day is not open and links to open it', async () => {
     useSession
       .getState()

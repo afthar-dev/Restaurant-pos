@@ -65,7 +65,7 @@ describe('closing the business day', () => {
       ]),
     );
     expect(check.body.blockers.bills).toEqual([
-      { id: unpaid.id, billNo: unpaid.billNo, due: unpaid.total },
+      { id: unpaid.id, orderId: unpaid.orderId, billNo: unpaid.billNo, due: unpaid.total },
     ]);
     expect(check.body.cash).toEqual({
       opening: 100000,

@@ -325,6 +325,7 @@ export class DayCloseService {
       })),
       bills: bills.map((b) => ({
         id: b.id,
+        orderId: b.orderId,
         billNo: b.billNo,
         due: b.total - sum(b.payments.map((p) => p.amount)),
       })),

@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSession } from '@/shared/session/store';
 import { line, MENU, order } from '@/test/fixtures';
@@ -84,6 +84,28 @@ describe('POS counter', () => {
     expect(await screen.findByLabelText('Search dishes')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'New parcel' })).toBeInTheDocument();
     await expectNoAxeViolations();
+  });
+});
+
+describe('POS counter on a tablet', () => {
+  beforeEach(() => handlers.clear());
+
+  it('shows the open order in place of the floor below desktop width, with a way back', async () => {
+    useSession.getState().setSession(sessionBody('CASHIER', ['order.take', 'bill.print']));
+    serviceApi();
+    renderRoute('/pos');
+    const floor = (await screen.findByRole('button', { name: 'T2, 1 item, ₹30' })).closest(
+      '[data-pos-floor]',
+    );
+    expect(floor).not.toHaveClass('max-lg:hidden');
+    fireEvent.click(screen.getByRole('button', { name: 'T2, 1 item, ₹30' }));
+    expect(await screen.findByRole('heading', { level: 2, name: 'T2' })).toBeInTheDocument();
+    // CSS hides the floor under 1024 px while an order is open; the back button is for that width.
+    expect(floor).toHaveClass('max-lg:hidden');
+    const back = screen.getByRole('button', { name: 'Back to tables' });
+    expect(back).toHaveClass('lg:hidden');
+    fireEvent.click(back);
+    await waitFor(() => expect(floor).not.toHaveClass('max-lg:hidden'));
   });
 });
 

@@ -101,6 +101,28 @@ describe('orders', () => {
   });
 
   describe('adding items', () => {
+    it('adds a repeated plain dish to its unsent line instead of a second line', async () => {
+      await openDay();
+      const order = (await dineIn()).body;
+      const roti = { variantId: r.roti.regular.id, quantity: 1, addonIds: [] };
+      await addItems(order.id, [roti]).expect(201);
+      const twice = await addItems(order.id, [roti, roti]).expect(201);
+      expect(twice.body.items).toHaveLength(1);
+      expect(twice.body.items[0]).toMatchObject({ itemName: 'Tandoori Roti', quantity: 3 });
+
+      // A note or an add-on makes it a different dish for the kitchen.
+      const noted = await addItems(order.id, [{ ...roti, note: 'well done' }]).expect(201);
+      expect(noted.body.items).toHaveLength(2);
+
+      // Once the kitchen has it, more of the same is a new line on a new ticket.
+      await ctx.http().post(`/api/orders/${order.id}/kot`).set(waiter.auth).expect(201);
+      const after = await addItems(order.id, [roti]).expect(201);
+      expect(after.body.items).toHaveLength(3);
+      expect(after.body.items.filter((i: { status: string }) => i.status === 'NEW')).toHaveLength(
+        1,
+      );
+    });
+
     it('snapshots dine-in prices, add-ons and the kitchen station', async () => {
       await openDay();
       const order = (await dineIn()).body;

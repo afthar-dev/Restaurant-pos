@@ -42,6 +42,9 @@ const itemAlreadySent = () =>
     'This item is already in the kitchen. Cancel it instead.',
   );
 
+/** The most of one dish a single line holds (same limit as the request schema). */
+const MAX_LINE_QUANTITY = 99;
+
 const VARIANT_INCLUDE = {
   item: {
     include: {
@@ -184,13 +187,48 @@ export class OrdersService {
    */
   async addLines(tx: Tx, order: Order, lines: OrderLineRequest[], actorId: string) {
     const variants = await this.loadVariants(tx, order.outletId, lines);
+    // A plain dish (no add-ons, no note) tapped again joins its line that the kitchen has not
+    // had yet, so the order, ticket and bill say "2 × Roti" instead of two "1 × Roti" lines.
+    const unsent = await tx.orderItem.findMany({
+      where: { orderId: order.id, status: 'NEW', note: null },
+      select: { id: true, variantId: true, unitPrice: true, quantity: true, addons: true },
+    });
+    const plain = (addons: Prisma.JsonValue) => Array.isArray(addons) && addons.length === 0;
+    const bumps = new Map<string, number>();
+    const fresh: Prisma.OrderItemCreateManyInput[] = [];
+    for (const line of lines) {
+      const data = this.snapshot(order, line, variants.get(line.variantId)!, actorId);
+      const joinable = line.addonIds.length === 0 && !line.note;
+      const existing = joinable
+        ? unsent.find(
+            (i) =>
+              i.variantId === data.variantId &&
+              i.unitPrice === data.unitPrice &&
+              plain(i.addons) &&
+              i.quantity + (bumps.get(i.id) ?? 0) + data.quantity <= MAX_LINE_QUANTITY,
+          )
+        : undefined;
+      const twin = joinable
+        ? fresh.find(
+            (f) =>
+              f.variantId === data.variantId &&
+              f.unitPrice === data.unitPrice &&
+              f.note === null &&
+              plain(f.addons as Prisma.JsonValue) &&
+              f.quantity + data.quantity <= MAX_LINE_QUANTITY,
+          )
+        : undefined;
+      if (existing) bumps.set(existing.id, (bumps.get(existing.id) ?? 0) + data.quantity);
+      else if (twin) twin.quantity += data.quantity;
+      else fresh.push(data);
+    }
+    for (const [id, more] of bumps) {
+      await tx.orderItem.update({ where: { id }, data: { quantity: { increment: more } } });
+    }
     // One millisecond apart so lines keep the order they were added in.
     const base = Date.now();
     await tx.orderItem.createMany({
-      data: lines.map((line, index) => ({
-        ...this.snapshot(order, line, variants.get(line.variantId)!, actorId),
-        createdAt: new Date(base + index),
-      })),
+      data: fresh.map((data, index) => ({ ...data, createdAt: new Date(base + index) })),
     });
   }
 

@@ -95,15 +95,18 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
       {o.status === 'OPEN' ? (
         <>
           <ErrorNote message={send.isError ? describeError(send.error) : null} />
-          <button
-            type="button"
-            className={`${primaryButton} min-h-12 text-base`}
-            disabled={newLines.length === 0 || send.isPending}
-            onClick={send.send}
-          >
-            <ChefHat aria-hidden="true" />
-            {send.isPending ? 'Sending…' : `Send to kitchen (${newLines.length})`}
-          </button>
+          {/* Nothing new to send: no button, so Bill is the obvious next step. */}
+          {(newLines.length > 0 || send.isPending) && (
+            <button
+              type="button"
+              className={`${primaryButton} min-h-12 text-base`}
+              disabled={newLines.length === 0 || send.isPending}
+              onClick={send.send}
+            >
+              <ChefHat aria-hidden="true" />
+              {send.isPending ? 'Sending…' : `Send to kitchen (${newLines.length})`}
+            </button>
+          )}
         </>
       ) : o.status === 'BILLED' || o.status === 'CLOSED' ? (
         <p role="status" className="rounded-md bg-surface-2 px-3 py-2 text-sm text-text">

@@ -231,10 +231,10 @@ describe('ordering from the table', () => {
   it('shows when the staff accepted the order', async () => {
     api({
       'GET /api/qr/orders': () =>
-        json([{ ...waiting(), status: 'APPROVED', message: 'Accepted — sent to the kitchen' }]),
+        json([{ ...waiting(), status: 'APPROVED', message: 'Accepted and sent to the kitchen' }]),
     });
     render(<App search={`?t=${CODE}`} />);
-    const message = await screen.findByText('Accepted — sent to the kitchen');
+    const message = await screen.findByText('Accepted and sent to the kitchen');
     expect(message.closest('article')?.querySelector('svg.lucide-circle-check')).not.toBeNull();
   });
 
