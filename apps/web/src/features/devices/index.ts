@@ -4,3 +4,4 @@ export const DevicesPage = lazy(() =>
   import('./pages/DevicesPage').then((m) => ({ default: m.DevicesPage })),
 );
 export { useDevices } from './queries';
+export { useRegisterDevice } from './mutations';
