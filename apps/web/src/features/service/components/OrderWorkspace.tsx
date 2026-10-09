@@ -42,7 +42,8 @@ export function OrderWorkspace({
   return (
     <div
       className={
-        layout === 'columns'
+        // Columns only when the menu sits beside the order; a billed order uses the full width.
+        layout === 'columns' && editable
           ? // Tablet: order and menu side by side (the floor is hidden). Small desktop: the floor
             // takes the left, so stack. Wide desktop: side by side again.
             'grid gap-4 sm:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)] lg:grid-cols-1 xl:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]'

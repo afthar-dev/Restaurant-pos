@@ -226,6 +226,23 @@ describe('paying from the order screen', () => {
     await expect.poll(() => onClosed.mock.calls.length, { timeout: 4000 }).toBe(1);
   });
 
+  it('uses the full width for a billed order, which has no menu beside it', async () => {
+    asCashier();
+    const billed = order({
+      status: 'BILLED',
+      items: [line({ id: 'l2', status: 'SENT', kotId: 'k2', billedQuantity: 1 })],
+    });
+    mockApi({
+      'GET /api/orders/o1': () => json(billed),
+      'GET /api/orders/o1/bills': () => json([bill()]),
+    });
+    const { container } = renderWithProviders(
+      <OrderWorkspace orderId="o1" layout="columns" onClosed={() => undefined} />,
+    );
+    await screen.findByRole('button', { name: 'UPI' });
+    expect(container.firstElementChild?.className).not.toMatch(/grid-cols/);
+  });
+
   it('does not offer payment to staff who cannot take it', async () => {
     useSession.getState().setSession(sessionBody('WAITER', ['order.take', 'bill.print']));
     const billed = order({
