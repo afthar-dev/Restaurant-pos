@@ -1,23 +1,12 @@
 import { rupees } from '@/shared/lib/money';
+import { StatStrip } from '@/shared/ui';
 import type { SalesReport } from '../types';
 
-function Card({ label, value, tone }: { label: string; value: string; tone?: 'bad' }) {
-  return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4">
-      <span className="text-xs font-semibold uppercase tracking-wide text-subtle">{label}</span>
-      <span
-        className={`text-2xl font-semibold tabular-nums ${tone === 'bad' ? 'text-red-700' : ''}`}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
+/** One breakdown inside the shared surface, divided from its neighbours by hairlines. */
 function Split({ title, rows }: { title: string; rows: [string, string][] }) {
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4 text-sm">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-subtle">{title}</h3>
+    <div className="flex flex-col gap-1 bg-surface p-4 text-sm">
+      <h3 className="text-xs font-medium text-muted">{title}</h3>
       {rows.map(([label, value]) => (
         <div key={label} className="flex justify-between gap-2">
           <span>{label}</span>
@@ -32,18 +21,21 @@ function Split({ title, rows }: { title: string; rows: [string, string][] }) {
 export function SummaryCards({ summary }: { summary: SalesReport['summary'] }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Card label="Sales" value={rupees(summary.total)} />
-        <Card label="Bills" value={String(summary.bills)} />
-        <Card label="Average bill" value={rupees(summary.averageBill)} />
-        <Card label="Expenses" value={rupees(summary.expenses.total)} />
-        <Card
-          label="Net"
-          value={`${summary.net < 0 ? '−' : ''}${rupees(Math.abs(summary.net))}`}
-          tone={summary.net < 0 ? 'bad' : undefined}
-        />
-      </div>
-      <div className="grid gap-3 md:grid-cols-3">
+      <StatStrip
+        label="Totals"
+        items={[
+          { label: 'Sales', value: rupees(summary.total) },
+          { label: 'Bills', value: String(summary.bills) },
+          { label: 'Average bill', value: rupees(summary.averageBill) },
+          { label: 'Expenses', value: rupees(summary.expenses.total) },
+          {
+            label: 'Net',
+            value: `${summary.net < 0 ? '−' : ''}${rupees(Math.abs(summary.net))}`,
+            tone: summary.net < 0 ? 'danger' : undefined,
+          },
+        ]}
+      />
+      <div className="grid gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-3">
         <Split
           title="Payments"
           rows={[
@@ -69,10 +61,12 @@ export function SummaryCards({ summary }: { summary: SalesReport['summary'] }) {
         />
       </div>
       {summary.expenses.byCategory.length > 0 && (
-        <Split
-          title="Expenses by category"
-          rows={summary.expenses.byCategory.map((e) => [e.name, rupees(e.amount)])}
-        />
+        <div className="overflow-hidden rounded-lg border border-border">
+          <Split
+            title="Expenses by category"
+            rows={summary.expenses.byCategory.map((e) => [e.name, rupees(e.amount)])}
+          />
+        </div>
       )}
     </div>
   );

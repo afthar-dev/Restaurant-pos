@@ -1,12 +1,4 @@
-import {
-  ArrowRight,
-  BellRing,
-  CalendarX,
-  IndianRupee,
-  Package,
-  ReceiptText,
-  UtensilsCrossed,
-} from 'lucide-react';
+import { ArrowRight, BellRing, CalendarX, Package, UtensilsCrossed } from 'lucide-react';
 import { Link } from 'react-router';
 import { useBusinessDay, useCloseCheck } from '@/features/day';
 import { useQrPending } from '@/features/orders';
@@ -24,7 +16,7 @@ import {
   describeError,
   ErrorNote,
   Skeleton,
-  StatCard,
+  StatStrip,
 } from '@/shared/ui';
 import { visibleNav } from '../navigation';
 
@@ -38,18 +30,17 @@ function SalesToday() {
     );
   }
   const s = report.data?.summary;
-  return (
-    <div className="grid gap-3 sm:grid-cols-3">
-      {s ? (
-        <>
-          <StatCard label="Sales today" icon={<IndianRupee />} value={rupees(s.total)} />
-          <StatCard label="Bills" icon={<ReceiptText />} value={String(s.bills)} />
-          <StatCard label="Average bill" value={rupees(s.averageBill)} />
-        </>
-      ) : (
-        [0, 1, 2].map((i) => <Skeleton key={i} className="h-24" />)
-      )}
-    </div>
+  return s ? (
+    <StatStrip
+      label="Today"
+      items={[
+        { label: 'Sales today', value: rupees(s.total) },
+        { label: 'Bills', value: String(s.bills) },
+        { label: 'Average bill', value: rupees(s.averageBill) },
+      ]}
+    />
+  ) : (
+    <Skeleton className="h-24" />
   );
 }
 
@@ -76,19 +67,20 @@ function OpenWork() {
           </Button>
         }
       />
-      <CardBody className="grid gap-3 sm:grid-cols-3">
-        <StatCard label="Open orders" value={String(open)} />
-        <StatCard
-          label="Unpaid bills"
-          value={String(unpaid)}
-          tone={unpaid > 0 ? 'danger' : undefined}
-        />
-        <StatCard
-          label="Cash expected"
-          value={rupees(cash.expected)}
-          hint="Opening + cash sales − cash expenses"
-        />
-      </CardBody>
+      <StatStrip
+        bare
+        label="Open work"
+        className="border-t border-border"
+        items={[
+          { label: 'Open orders', value: String(open) },
+          { label: 'Unpaid bills', value: String(unpaid), tone: unpaid > 0 ? 'danger' : undefined },
+          {
+            label: 'Cash expected',
+            value: rupees(cash.expected),
+            hint: 'Opening + cash sales − cash expenses',
+          },
+        ]}
+      />
     </Card>
   );
 }
