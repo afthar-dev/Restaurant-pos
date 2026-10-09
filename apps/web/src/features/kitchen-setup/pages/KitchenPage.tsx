@@ -1,18 +1,20 @@
+import { Printer as PrinterIcon } from 'lucide-react';
 import { printerSchema, stationSchema, type PrinterMode, type PrinterPurpose } from '@rpos/shared';
 import { useState, type FormEvent } from 'react';
 import { useDevices } from '@/features/devices';
 import {
   ConfirmBar,
   describeError,
+  EmptyState,
   ErrorNote,
   Field,
   fieldErrors,
-  type FieldErrors,
   inputClass,
   PageHeader,
   primaryButton,
   RenameForm,
   secondaryButton,
+  type FieldErrors,
 } from '@/shared/ui';
 
 import {
@@ -326,43 +328,48 @@ function PrintersSection() {
           onDone={() => setEditing(null)}
         />
       )}
-      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
-        {printers.data?.map((p) => (
-          <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2">
-            <div className="flex flex-col">
-              <span className="font-medium">{p.name}</span>
-              <span className="text-sm text-muted">
-                {p.purpose === 'KOT' ? `KOTs for ${p.station?.name ?? '—'}` : 'Bills'} ·{' '}
-                {p.paperWidthMm} mm ·{' '}
-                {p.mode === 'BROWSER'
-                  ? `browser printing on ${p.device?.name ?? 'no device yet'}`
-                  : `agent at ${p.address}`}
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                aria-label={`Edit ${p.name}`}
-                className={secondaryButton}
-                onClick={() => setEditing(p)}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                aria-label={`Remove ${p.name}`}
-                className={secondaryButton}
-                onClick={() => setConfirming(p)}
-              >
-                Remove
-              </button>
-            </div>
-          </li>
-        ))}
-        {printers.data?.length === 0 && (
-          <li className="px-4 py-2 text-sm text-subtle">No printers yet.</li>
-        )}
-      </ul>
+      {printers.data?.length === 0 ? (
+        <EmptyState
+          icon={<PrinterIcon />}
+          title="No printers yet"
+          description="Add the printer at the counter or in the kitchen so bills and tickets print."
+        />
+      ) : (
+        <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+          {printers.data?.map((p) => (
+            <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2">
+              <div className="flex flex-col">
+                <span className="font-medium">{p.name}</span>
+                <span className="text-sm text-muted">
+                  {p.purpose === 'KOT' ? `KOTs for ${p.station?.name ?? '—'}` : 'Bills'} ·{' '}
+                  {p.paperWidthMm} mm ·{' '}
+                  {p.mode === 'BROWSER'
+                    ? `browser printing on ${p.device?.name ?? 'no device yet'}`
+                    : `agent at ${p.address}`}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  aria-label={`Edit ${p.name}`}
+                  className={secondaryButton}
+                  onClick={() => setEditing(p)}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Remove ${p.name}`}
+                  className={secondaryButton}
+                  onClick={() => setConfirming(p)}
+                >
+                  Remove
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

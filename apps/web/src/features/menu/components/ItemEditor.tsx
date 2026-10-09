@@ -274,7 +274,7 @@ export function ItemEditor({
               className="size-full object-cover"
             />
           ) : (
-            <ImageIcon aria-hidden="true" className="size-8" />
+            <ImageIcon aria-hidden="true" className="size-6" />
           )}
         </div>
         <div className="flex flex-col gap-2">

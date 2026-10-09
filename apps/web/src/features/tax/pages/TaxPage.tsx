@@ -1,16 +1,18 @@
+import { Percent } from 'lucide-react';
 import { parseRupees, taxRateSchema } from '@rpos/shared';
 import { useState, type FormEvent } from 'react';
 import {
   ConfirmBar,
   describeError,
+  EmptyState,
   ErrorNote,
   Field,
   fieldErrors,
-  type FieldErrors,
   inputClass,
   PageHeader,
   primaryButton,
   secondaryButton,
+  type FieldErrors,
 } from '@/shared/ui';
 
 import { useArchiveTaxRate, useSaveTaxRate } from '../mutations';
@@ -123,29 +125,34 @@ export function TaxPage() {
       )}
       <ErrorNote message={archive.isError ? describeError(archive.error) : null} />
       <ErrorNote message={rates.isError ? describeError(rates.error) : null} />
-      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
-        {rates.data?.map((r) => (
-          <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-            <div className="flex flex-col">
-              <span className="font-medium">{r.name}</span>
-              <span className="text-sm text-muted">
-                {percent(r.cgstBp)} + {percent(r.sgstBp)}
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <button type="button" className={secondaryButton} onClick={() => setEditing(r)}>
-                Edit
-              </button>
-              <button type="button" className={secondaryButton} onClick={() => setConfirming(r)}>
-                Archive
-              </button>
-            </div>
-          </li>
-        ))}
-        {rates.data?.length === 0 && (
-          <li className="px-4 py-3 text-sm text-subtle">No tax rates yet.</li>
-        )}
-      </ul>
+      {rates.data?.length === 0 ? (
+        <EmptyState
+          icon={<Percent />}
+          title="No tax rates yet"
+          description="Add the GST rate your dishes use, for example GST 5%."
+        />
+      ) : (
+        <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+          {rates.data?.map((r) => (
+            <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div className="flex flex-col">
+                <span className="font-medium">{r.name}</span>
+                <span className="text-sm text-muted">
+                  {percent(r.cgstBp)} + {percent(r.sgstBp)}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" className={secondaryButton} onClick={() => setEditing(r)}>
+                  Edit
+                </button>
+                <button type="button" className={secondaryButton} onClick={() => setConfirming(r)}>
+                  Archive
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

@@ -165,7 +165,7 @@ export function FloorGrid({
                           selected ? 'text-white/85' : 'text-muted',
                         )}
                       >
-                        <Users aria-hidden="true" className="size-3.5" />
+                        <Users aria-hidden="true" className="size-4" />
                         {table.order.guests}
                       </span>
                     ) : null}
@@ -176,7 +176,7 @@ export function FloorGrid({
                       selected ? 'text-white' : STATE_TEXT[state],
                     )}
                   >
-                    <Icon aria-hidden="true" className="size-3.5 shrink-0" />
+                    <Icon aria-hidden="true" className="size-4 shrink-0" />
                     {word}
                   </span>
                   <span
