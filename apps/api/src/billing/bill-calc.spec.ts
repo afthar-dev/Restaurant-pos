@@ -106,6 +106,16 @@ describe('calculateBill', () => {
     ]);
   });
 
+  it('charges no GST on a no-GST dish and leaves it out of the tax footer', () => {
+    const chai = line(3000, 1, { cgstBp: 0, sgstBp: 0 });
+    const r = bill([line(10000), chai]);
+    expect(r.lines[1]).toMatchObject({ taxable: 3000, cgst: 0, sgst: 0 });
+    expect(r.taxBreakup).toEqual([
+      { cgstBp: 250, sgstBp: 250, taxable: 10000, cgst: 250, sgst: 250 },
+    ]);
+    expect(r.total).toBe(13500);
+  });
+
   it('refuses an empty bill', () => {
     expect(() => bill([])).toThrow('A bill needs at least one line');
   });

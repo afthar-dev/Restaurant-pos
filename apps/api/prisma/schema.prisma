@@ -337,7 +337,8 @@ model Item {
   id          String    @id @default(uuid()) @db.Uuid
   outletId    String    @map("outlet_id") @db.Uuid
   categoryId  String    @map("category_id") @db.Uuid
-  taxRateId   String    @map("tax_rate_id") @db.Uuid
+  /// Null for a no-GST dish: its price is charged as it is.
+  taxRateId   String?   @map("tax_rate_id") @db.Uuid
   name        String
   description String?
   foodType    FoodType  @map("food_type")
@@ -353,7 +354,7 @@ model Item {
 
   outlet      Outlet           @relation(fields: [outletId], references: [id])
   category    Category         @relation(fields: [categoryId], references: [id])
-  taxRate     TaxRate          @relation(fields: [taxRateId], references: [id])
+  taxRate     TaxRate?         @relation(fields: [taxRateId], references: [id], onDelete: Restrict)
   variants    ItemVariant[]
   addonGroups ItemAddonGroup[]
   components  ComboComponent[] @relation("ComboItem")
@@ -596,7 +597,8 @@ model OrderItem {
   unitPrice       Int             @map("unit_price")
   /// Per unit; parcel orders only.
   packagingCharge Int             @default(0) @map("packaging_charge")
-  taxRateId       String          @map("tax_rate_id") @db.Uuid
+  /// Null when the dish had no GST (cgstBp and sgstBp are then 0).
+  taxRateId       String?         @map("tax_rate_id") @db.Uuid
   cgstBp          Int             @map("cgst_bp")
   sgstBp          Int             @map("sgst_bp")
   quantity        Int

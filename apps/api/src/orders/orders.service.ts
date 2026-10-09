@@ -430,9 +430,10 @@ export class OrdersService {
       variantName: variant.name,
       unitPrice: parcel ? variant.parcelPrice : variant.dineInPrice,
       packagingCharge: parcel ? variant.packagingCharge : 0,
-      taxRateId: item.taxRate.id,
-      cgstBp: item.taxRate.cgstBp,
-      sgstBp: item.taxRate.sgstBp,
+      // A no-GST dish carries 0%, so the bill adds no tax for it.
+      taxRateId: item.taxRate?.id ?? null,
+      cgstBp: item.taxRate?.cgstBp ?? 0,
+      sgstBp: item.taxRate?.sgstBp ?? 0,
       quantity: line.quantity,
       addons: line.addonIds.map((id) => {
         const addon = allAddons.find((a) => a.id === id)!;

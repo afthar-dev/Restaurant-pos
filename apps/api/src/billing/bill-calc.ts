@@ -137,6 +137,8 @@ export function calculateBill(input: CalcInput): CalcResult {
   if (taxed) {
     lines.forEach((l, i) => {
       const { cgstBp, sgstBp } = input.lines[i]!;
+      // No-GST dishes carry no tax, so they get no "GST 0%" row in the footer.
+      if (cgstBp + sgstBp === 0) return;
       const key = `${cgstBp}/${sgstBp}`;
       const row = groups.get(key) ?? { cgstBp, sgstBp, taxable: 0, cgst: 0, sgst: 0 };
       row.taxable += l.taxable;

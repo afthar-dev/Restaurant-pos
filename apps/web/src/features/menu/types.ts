@@ -33,7 +33,8 @@ export interface MenuItem {
   isCombo: boolean;
   /** The dish photo for the QR menu, or null. */
   imageUrl: string | null;
-  taxRate: { id: string; name: string; cgstBp: number; sgstBp: number };
+  /** null: no GST, the price is charged as it is. */
+  taxRate: { id: string; name: string; cgstBp: number; sgstBp: number } | null;
   variants: MenuVariant[];
   addonGroups: MenuAddonGroup[];
   components: { variantId: string; itemName: string; variantName: string; quantity: number }[];

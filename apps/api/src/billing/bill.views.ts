@@ -28,6 +28,8 @@ export function taxBreakupOf(bill: {
   if (bill.taxScheme !== 'REGULAR') return [];
   const rows = new Map<string, TaxBreakupRow>();
   for (const i of bill.items) {
+    // No-GST dishes get no "GST 0%" row.
+    if (i.cgstBp + i.sgstBp === 0) continue;
     const key = `${i.cgstBp}/${i.sgstBp}`;
     const row = rows.get(key) ?? {
       cgstBp: i.cgstBp,
