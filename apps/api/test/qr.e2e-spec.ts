@@ -294,7 +294,7 @@ describe('QR ordering', () => {
       expect(tickets.body).toHaveLength(1);
       expect(await status(token)).toMatchObject({
         status: 'APPROVED',
-        message: 'Accepted — sent to the kitchen',
+        message: 'Accepted and sent to the kitchen',
       });
       // A second tap is a safe retry: same order back, still one kitchen ticket.
       await approve(submission.id).expect(201);
@@ -333,7 +333,7 @@ describe('QR ordering', () => {
       await reject(submission.id, { reason: 'Kitchen closing' }).expect(201);
       expect(await status(token)).toMatchObject({
         status: 'REJECTED',
-        message: 'Not accepted — please call the waiter',
+        message: 'Not accepted. Please ask your waiter.',
       });
       const order = await ctx.prisma.order.findFirstOrThrow({ where: { tableId: r.t1.id } });
       expect(order).toMatchObject({ status: 'CANCELLED', cancelReason: 'QR order not accepted' });

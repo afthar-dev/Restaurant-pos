@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { type Bill, BillActions, BillArea, BillSettle } from '@/features/billing';
+import { useNotify } from '@/features/notifications';
 import { MenuBrowser, orderLabel, OrderPanel, useOrder } from '@/features/orders';
 
 /** How long "Bill paid" stays before the counter goes back to the floor. */
@@ -25,6 +26,13 @@ export function OrderWorkspace({
   const close = useRef(onClosed);
   close.current = onClosed;
 
+  const notify = useNotify();
+  const paidText =
+    settled && order.data ? `Bill ${paid.billNo} paid. ${orderLabel(order.data)} is free.` : null;
+  useEffect(() => {
+    if (paidText) notify({ text: paidText, tone: 'success' });
+  }, [paidText, notify]);
+
   useEffect(() => {
     if (!settled) return;
     const timer = setTimeout(() => close.current(), PAID_NOTE_MS);
@@ -35,7 +43,9 @@ export function OrderWorkspace({
     <div
       className={
         layout === 'columns'
-          ? 'grid gap-4 xl:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]'
+          ? // Tablet: order and menu side by side (the floor is hidden). Small desktop: the floor
+            // takes the left, so stack. Wide desktop: side by side again.
+            'grid gap-4 sm:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)] lg:grid-cols-1 xl:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]'
           : 'flex flex-col gap-4'
       }
     >
@@ -45,7 +55,7 @@ export function OrderWorkspace({
             role="status"
             className="rounded-lg bg-green-700 px-4 py-3 text-base font-semibold text-white"
           >
-            {`Bill ${paid.billNo} paid. ${orderLabel(order.data)} is free.`}
+            {paidText}
           </p>
         )}
         <OrderPanel orderId={orderId} onClosed={onClosed} />

@@ -210,10 +210,10 @@ describe('ordering from the table', () => {
   it('shows when the staff accepted the order', async () => {
     api({
       'GET /api/qr/orders': () =>
-        json([{ ...waiting(), status: 'APPROVED', message: 'Accepted — sent to the kitchen' }]),
+        json([{ ...waiting(), status: 'APPROVED', message: 'Accepted and sent to the kitchen' }]),
     });
     render(<App search={`?t=${CODE}`} />);
-    expect(await screen.findByText('Accepted — sent to the kitchen')).toBeInTheDocument();
+    expect(await screen.findByText('Accepted and sent to the kitchen')).toBeInTheDocument();
   });
 
   it('asks to scan again when the table was closed, and starts again', async () => {

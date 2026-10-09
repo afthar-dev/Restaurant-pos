@@ -15,8 +15,8 @@ export interface QrLine {
 
 const MESSAGE = {
   PENDING: 'Waiting for the staff to confirm',
-  APPROVED: 'Accepted — sent to the kitchen',
-  REJECTED: 'Not accepted — please call the waiter',
+  APPROVED: 'Accepted and sent to the kitchen',
+  REJECTED: 'Not accepted. Please ask your waiter.',
 } as const;
 
 /** What the customer's phone shows for one submission. */
