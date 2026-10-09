@@ -30,7 +30,7 @@ export function Badge({
       data-tone={tone}
       className={cn(
         'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset',
-        '[&_svg]:size-3.5 [&_svg]:shrink-0',
+        '[&_svg]:size-4 [&_svg]:shrink-0',
         TONE_SOFT[tone],
         className,
       )}

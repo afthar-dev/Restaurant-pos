@@ -1,4 +1,4 @@
-import { Printer as PrinterIcon } from 'lucide-react';
+import { Archive, Printer as PrinterIcon, Trash2 } from 'lucide-react';
 import { printerSchema, stationSchema, type PrinterMode, type PrinterPurpose } from '@rpos/shared';
 import { useState, type FormEvent } from 'react';
 import { useDevices } from '@/features/devices';
@@ -111,6 +111,7 @@ function StationsSection() {
                     className={secondaryButton}
                     onClick={() => setConfirming(s)}
                   >
+                    <Archive aria-hidden="true" />
                     Archive
                   </button>
                 </div>
@@ -363,6 +364,7 @@ function PrintersSection() {
                   className={secondaryButton}
                   onClick={() => setConfirming(p)}
                 >
+                  <Trash2 aria-hidden="true" />
                   Remove
                 </button>
               </div>

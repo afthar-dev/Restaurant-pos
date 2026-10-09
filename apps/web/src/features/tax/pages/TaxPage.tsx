@@ -1,4 +1,4 @@
-import { Percent } from 'lucide-react';
+import { Archive, Percent } from 'lucide-react';
 import { parseRupees, taxRateSchema } from '@rpos/shared';
 import { useState, type FormEvent } from 'react';
 import {
@@ -146,6 +146,7 @@ export function TaxPage() {
                   Edit
                 </button>
                 <button type="button" className={secondaryButton} onClick={() => setConfirming(r)}>
+                  <Archive aria-hidden="true" />
                   Archive
                 </button>
               </div>

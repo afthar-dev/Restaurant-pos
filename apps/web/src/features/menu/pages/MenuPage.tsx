@@ -1,5 +1,5 @@
 import { categorySchema } from '@rpos/shared';
-import { ArrowUpDown, Check, Percent, Plus, Search, X } from 'lucide-react';
+import { Archive, ArrowUpDown, Check, Percent, Plus, Search, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import {
   Button,
@@ -206,6 +206,7 @@ export function MenuPage() {
         className={secondaryButton}
         onClick={() => setPending({ kind: 'item', item })}
       >
+        <Archive aria-hidden="true" />
         Archive
       </button>
     </>
@@ -402,6 +403,7 @@ export function MenuPage() {
                     className={secondaryButton}
                     onClick={() => setPending({ kind: 'category', category: selected })}
                   >
+                    <Archive aria-hidden="true" />
                     Archive category
                   </button>
                   <button
