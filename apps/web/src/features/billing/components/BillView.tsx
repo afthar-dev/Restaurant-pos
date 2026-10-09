@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useCan } from '@/shared/session/store';
-import { describeError, secondaryButton } from '@/shared/ui';
+import { describeError, PaymentIcon, secondaryButton } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
 import type { Bill } from '../types';
 import { DiscountSheet } from './DiscountSheet';
@@ -131,7 +131,12 @@ export function BillView({
         {bill.payments.map((p) => (
           <Row
             key={p.id}
-            label={`${MODE_LABEL[p.mode]}${p.reference ? ` · ${p.reference}` : ''}`}
+            label={
+              <span className="inline-flex items-center gap-1.5">
+                <PaymentIcon mode={p.mode} className="text-muted" />
+                {`${MODE_LABEL[p.mode]}${p.reference ? ` · ${p.reference}` : ''}`}
+              </span>
+            }
             value={rupees(p.amount)}
           />
         ))}

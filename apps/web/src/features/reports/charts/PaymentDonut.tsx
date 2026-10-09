@@ -3,6 +3,7 @@ import { cn } from '@/shared/lib/cn';
 import { rupees } from '@/shared/lib/money';
 import { ChartFrame } from './ChartFrame';
 import { CHART_ANIMATION_MS, prefersReducedMotion } from './motion';
+import { PaymentIcon } from '@/shared/ui';
 
 const MODES = [
   { key: 'CASH', label: 'Cash', color: 'var(--color-pay-cash)', swatch: 'bg-pay-cash' },
@@ -61,6 +62,7 @@ export function PaymentDonut({ payments }: { payments: Payments }) {
           {rows.map((r) => (
             <li key={r.key} className="flex items-center gap-2">
               <span aria-hidden="true" className={cn('size-3 shrink-0 rounded-sm', r.swatch)} />
+              <PaymentIcon mode={r.key} className="text-muted" />
               <span className="flex-1 text-text">{r.label}</span>
               <span className="font-medium tabular-nums">{rupees(r.amount)}</span>
               <span className="w-10 text-right text-muted tabular-nums">{`${r.percent}%`}</span>
