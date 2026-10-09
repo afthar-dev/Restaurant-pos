@@ -350,7 +350,7 @@ export function ItemEditor({
           return (
             <div
               key={row.key}
-              className="grid gap-2 sm:grid-cols-[1.2fr_1fr_1fr_1fr_auto] sm:items-end"
+              className="grid gap-2 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end"
             >
               <Field
                 id={`variant-${row.key}-name`}
