@@ -158,6 +158,14 @@ describe('OrderPanel', () => {
     expect(screen.getByRole('button', { name: 'Send to kitchen (1)' })).toBeEnabled();
   });
 
+  it('shows a kitchen icon on Send to kitchen', async () => {
+    asWaiter();
+    mockApi({ 'GET /api/orders/o1': () => json(withItems) });
+    renderWithProviders(<OrderPanel orderId="o1" />);
+    const send = await screen.findByRole('button', { name: 'Send to kitchen (1)' });
+    expect(send.querySelector('svg.lucide-chef-hat')).not.toBeNull();
+  });
+
   it('sends to the kitchen once, with a request id, and blocks double taps', async () => {
     asWaiter();
     const mock = mockApi({

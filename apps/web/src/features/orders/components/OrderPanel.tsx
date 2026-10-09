@@ -1,4 +1,4 @@
-import { BellRing } from 'lucide-react';
+import { BellRing, ChefHat } from 'lucide-react';
 import { useState } from 'react';
 import { rupees } from '@/shared/lib/money';
 import { describeError, ErrorNote, primaryButton } from '@/shared/ui';
@@ -101,6 +101,7 @@ export function OrderPanel({ orderId, onClosed }: { orderId: string; onClosed?: 
             disabled={newLines.length === 0 || send.isPending}
             onClick={send.send}
           >
+            <ChefHat aria-hidden="true" />
             {send.isPending ? 'Sending…' : `Send to kitchen (${newLines.length})`}
           </button>
         </>

@@ -1,5 +1,5 @@
 import { categorySchema } from '@rpos/shared';
-import { Search, X } from 'lucide-react';
+import { ArrowUpDown, Check, Percent, Plus, Search, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import {
   Button,
@@ -72,6 +72,7 @@ function AddCategoryForm({ stations }: { stations: Station[] }) {
         </select>
       </Field>
       <button type="submit" className={secondaryButton} disabled={add.isPending}>
+        <Plus aria-hidden="true" />
         Add category
       </button>
       <ErrorNote message={add.isError ? describeError(add.error) : null} />
@@ -218,11 +219,17 @@ export function MenuPage() {
         description="Categories send their kitchen tickets to a station. Dishes have sizes with dine-in and parcel prices."
         actions={
           <>
-            <Button variant="secondary" disabled={!menu.data} onClick={() => setBulk(true)}>
+            <Button
+              variant="secondary"
+              icon={<Percent aria-hidden="true" />}
+              disabled={!menu.data}
+              onClick={() => setBulk(true)}
+            >
               Change prices
             </Button>
             <Button
               variant={reordering ? 'primary' : 'secondary'}
+              icon={reordering ? <Check aria-hidden="true" /> : <ArrowUpDown aria-hidden="true" />}
               disabled={!menu.data}
               onClick={() => {
                 setReorderError(null);
@@ -403,6 +410,7 @@ export function MenuPage() {
                     disabled={!ready}
                     onClick={() => startEditing('new')}
                   >
+                    <Plus aria-hidden="true" />
                     Add item
                   </button>
                 </div>

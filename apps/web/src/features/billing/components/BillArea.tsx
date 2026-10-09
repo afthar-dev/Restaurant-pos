@@ -9,6 +9,7 @@ import type { Bill } from '../types';
 import { BillView, STATUS_LABEL } from './BillView';
 import { printBillHere } from '../printBill';
 import { SplitSheet } from './SplitSheet';
+import { ReceiptText } from 'lucide-react';
 
 /**
  * Billing for one order: the Bill / Split bill buttons while dishes are unbilled, then its
@@ -67,6 +68,7 @@ export function BillArea({
               disabled={blocked || create.isPending}
               onClick={() => create.mutate(undefined)}
             >
+              <ReceiptText aria-hidden="true" />
               {newLines.length > 0 && parcel ? 'Send & bill' : 'Bill'}
             </button>
             {!blocked && newLines.length === 0 && (
