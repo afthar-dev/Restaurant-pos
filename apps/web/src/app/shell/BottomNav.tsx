@@ -1,11 +1,24 @@
-import { Ellipsis } from 'lucide-react';
+import { Ellipsis, type LucideIcon } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router';
 import { cn } from '@/shared/lib/cn';
 import { DropdownMenu, MenuItem } from '@/shared/ui';
 import { isActive, type NavEntry } from '../navigation';
 
-const tab =
-  'flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium';
+const tab = 'flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-xs font-medium';
+
+/** The icon of a tab; the current tab gets a saffron pill behind it. */
+function TabIcon({ icon: Icon, active }: { icon: LucideIcon; active: boolean }) {
+  return (
+    <span
+      className={cn(
+        'flex h-7 w-12 items-center justify-center rounded-full transition-colors',
+        active && 'bg-primary-100',
+      )}
+    >
+      <Icon aria-hidden="true" className="size-5" />
+    </span>
+  );
+}
 
 /** Phone and tablet navigation: the first four areas as thumb-sized tabs, the rest under More. */
 export function BottomNav({ entries }: { entries: NavEntry[] }) {
@@ -28,9 +41,9 @@ export function BottomNav({ entries }: { entries: NavEntry[] }) {
             key={entry.to}
             to={entry.to}
             aria-current={active ? 'page' : undefined}
-            className={cn(tab, active ? 'text-primary-800' : 'text-muted')}
+            className={cn(tab, active ? 'font-semibold text-primary-800' : 'text-muted')}
           >
-            <Icon aria-hidden="true" className="size-5" />
+            <TabIcon icon={Icon} active={active} />
             {entry.label}
           </NavLink>
         );
@@ -42,9 +55,9 @@ export function BottomNav({ entries }: { entries: NavEntry[] }) {
           trigger={
             <button
               type="button"
-              className={cn(tab, moreActive ? 'text-primary-800' : 'text-muted')}
+              className={cn(tab, moreActive ? 'font-semibold text-primary-800' : 'text-muted')}
             >
-              <Ellipsis aria-hidden="true" className="size-5" />
+              <TabIcon icon={Ellipsis} active={moreActive} />
               More
             </button>
           }

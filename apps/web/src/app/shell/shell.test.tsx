@@ -87,6 +87,22 @@ describe('app shell header', () => {
     expect(screen.queryByRole('link', { name: 'Open day' })).toBeNull();
   });
 
+  it('marks where you are in the tab bar and the sidebar', async () => {
+    useSession.getState().setSession(sessionBody('CASHIER', ['bill.print', 'order.take']));
+    mockApi({ 'GET /api/business-day/current': () => json(DAY_OPEN) });
+    renderRoute('/pos');
+    const tab = (await screen.findByRole('navigation', { name: 'Quick menu' })).querySelector(
+      'a[aria-current="page"]',
+    );
+    expect(tab).not.toBeNull();
+    expect(tab?.querySelector('.bg-primary-100')).not.toBeNull();
+    const side = screen
+      .getByRole('navigation', { name: 'Main' })
+      .querySelector('a[aria-current="page"]');
+    expect(side).toHaveClass('font-semibold');
+    expect(side?.className).toMatch(/before:bg-primary-600/);
+  });
+
   it('signs out from the account menu', async () => {
     useSession.getState().setSession(sessionBody('CASHIER', ['bill.print'], 'Ravi'));
     const mock = mockApi({ 'POST /api/auth/logout': () => json(undefined, 204) });
