@@ -63,6 +63,18 @@ describe('demo data', () => {
     const closed = await ctx.prisma.businessDay.findMany({ where: { status: 'CLOSED' } });
     expect(closed.filter((d) => d.variance !== 0).map((d) => d.variance)).toEqual([-5000]);
 
+    // The app numbers new bills from the BILL counter, so it must start after the demo's bills.
+    const bills = await ctx.prisma.bill.groupBy({
+      by: ['financialYear'],
+      _max: { billNo: true },
+    });
+    for (const b of bills) {
+      const counter = await ctx.prisma.counter.findFirst({
+        where: { outletId: outlet.id, key: 'BILL', period: b.financialYear },
+      });
+      expect(counter?.value).toBe(b._max.billNo);
+    }
+
     await expect(loadDemo(ctx.prisma)).rejects.toThrow('Demo data is already loaded');
   });
 });
