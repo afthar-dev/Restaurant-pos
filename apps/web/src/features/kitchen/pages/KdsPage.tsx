@@ -9,6 +9,7 @@ import { useCan, useSession } from '@/shared/session/store';
 import { Button, describeError, ErrorNote, LoadingScreen } from '@/shared/ui';
 import { useAdvanceKot } from '../mutations';
 import { useKdsStations, useKdsTickets } from '../queries';
+import { ageLabel, LATE_MINUTES } from '../age';
 import { useStationFilter } from '../store';
 import type { KdsTicket } from '../types';
 
@@ -42,7 +43,7 @@ function TicketCard({
   const label = `KOT ${ticket.kotNo}, ${orderLabel(ticket)}${cancelled ? ', cancelled' : ''}`;
   const minutes = Math.max(0, Math.floor((now - new Date(ticket.createdAt).getTime()) / 60_000));
   const next = cancelled ? { status: 'SERVED' as KotStatus, verb: 'Dismiss' } : NEXT[ticket.status];
-  const late = !cancelled && ticket.status !== 'READY' && minutes >= 20;
+  const late = !cancelled && ticket.status !== 'READY' && minutes >= LATE_MINUTES;
 
   return (
     <article
@@ -60,8 +61,15 @@ function TicketCard({
         </span>
         <span className="text-xl font-semibold">{orderLabel(ticket)}</span>
       </header>
-      <p className="text-sm text-muted">
-        {ticket.stationName} · {ticket.waiterName} · {minutes} min
+      <p className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted">
+        <span>{`${ticket.stationName} · ${ticket.waiterName} ·`}</span>
+        {late ? (
+          <span className="rounded bg-amber-400 px-1.5 font-semibold text-amber-950">
+            {`Late · ${ageLabel(minutes)}`}
+          </span>
+        ) : (
+          <span>{ageLabel(minutes)}</span>
+        )}
       </p>
       <ul className="flex flex-col gap-2 text-lg">
         {ticket.lines.map((l) => (

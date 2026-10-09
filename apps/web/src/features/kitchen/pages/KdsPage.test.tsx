@@ -147,6 +147,17 @@ describe('Kitchen display', () => {
     expect(screen.getByRole('article', { name: 'KOT 3, T1, cancelled' })).toBeInTheDocument();
   });
 
+  it('flags a ticket that has waited too long', async () => {
+    const old = new Date(Date.now() - 32 * 60_000).toISOString();
+    mockApi({
+      'GET /api/devices/current': kdsDevice,
+      'GET /api/kds/stations': () => json(stations),
+      'GET /api/kds/kots': () => json([ticket({ id: 'k9', kotNo: 9, createdAt: old })]),
+    });
+    renderRoute('/kds');
+    expect(await screen.findByText('Late · 32 min')).toBeInTheDocument();
+  });
+
   it('starts, finishes and dismisses tickets', async () => {
     const mock = mockApi({
       'GET /api/devices/current': kdsDevice,
