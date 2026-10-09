@@ -17,9 +17,9 @@ describe('ChartTooltip', () => {
     expect(screen.getByText('₹26,546 · 35 bills')).toHaveClass('tabular-nums');
   });
 
-  it('renders nothing when inactive', () => {
-    const { container } = render(<ChartTooltip active={false} payload={[{ payload: point }]} />);
-    expect(container).toBeEmptyDOMElement();
+  it('stays an empty live region when inactive', () => {
+    render(<ChartTooltip active={false} payload={[{ payload: point }]} />);
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
   });
 });
 

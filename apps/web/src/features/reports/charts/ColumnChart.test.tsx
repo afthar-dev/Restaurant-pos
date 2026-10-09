@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { expectNoAxeViolations } from '@/test/a11y';
 import { ColumnChart } from './ColumnChart';
@@ -46,6 +46,16 @@ describe('ColumnChart', () => {
     expect(screen.queryByText('₹10k')).toBeNull();
     // The ₹0 day draws no bar; it is still in the screen-reader list.
     expect(document.querySelectorAll('.recharts-bar-rectangle')).toHaveLength(2);
+  });
+
+  it('announces the bar the arrow keys move to', async () => {
+    render(<ColumnChart title="Sales by day" points={POINTS} />);
+    const chart = document.querySelector('svg.recharts-surface') as SVGElement;
+    chart.focus();
+    fireEvent.focus(chart);
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Fri 2 Oct'));
+    fireEvent.keyDown(chart, { key: 'ArrowRight' });
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Sat 3 Oct'));
   });
 
   it('has no accessibility problems', async () => {

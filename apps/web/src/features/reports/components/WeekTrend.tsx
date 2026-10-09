@@ -1,15 +1,20 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ComponentProps, type ComponentType } from 'react';
 import { Link } from 'react-router';
 import { rupees } from '@/shared/lib/money';
 import { Card, CardBody, Skeleton } from '@/shared/ui';
 import { ChartFrame } from '../charts/ChartFrame';
+import type { ColumnChart as Chart } from '../charts/ColumnChart';
 import { billCount, dayLabel, shortDayLabel } from '../charts/scale';
 import type { ChartPoint } from '../charts/types';
 import { useSalesReport } from '../queries';
 import { datesInRange, presetRange } from '../ranges';
 
-// Recharts is big: the home screen loads it after the card's text is on screen.
-const ColumnChart = lazy(() => import('../charts/ColumnChart'));
+// Recharts is big: the home screen loads it after the card's text is on screen. If its code
+// cannot load (app updated, Wi-Fi dropped), the card keeps its text and goes without the
+// chart, rather than the error taking down the whole home screen.
+const ColumnChart = lazy<ComponentType<ComponentProps<typeof Chart>>>(() =>
+  import('../charts/ColumnChart').catch(() => ({ default: () => null })),
+);
 
 /** Owner home: the last seven India dates, today highlighted; closed days are empty slots. */
 export function WeekTrend() {
