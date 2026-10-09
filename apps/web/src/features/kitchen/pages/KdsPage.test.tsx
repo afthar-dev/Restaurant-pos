@@ -147,6 +147,16 @@ describe('Kitchen display', () => {
     expect(screen.getByRole('article', { name: 'KOT 3, T1, cancelled' })).toBeInTheDocument();
   });
 
+  it('shows ticket-shaped placeholders while tickets load', async () => {
+    mockApi({
+      'GET /api/devices/current': kdsDevice,
+      'GET /api/kds/stations': () => json(stations),
+    });
+    renderRoute('/kds');
+    const loading = await screen.findByRole('status', { name: 'Loading tickets' });
+    expect(loading.querySelectorAll('[data-skeleton="ticket"]').length).toBeGreaterThanOrEqual(3);
+  });
+
   it('flags a ticket that has waited too long', async () => {
     const old = new Date(Date.now() - 32 * 60_000).toISOString();
     mockApi({

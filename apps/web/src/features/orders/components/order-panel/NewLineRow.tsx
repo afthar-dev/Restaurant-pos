@@ -1,3 +1,4 @@
+import { Minus, Plus } from 'lucide-react';
 import { rupees } from '@/shared/lib/money';
 import { describeError, ErrorNote, secondaryButton } from '@/shared/ui';
 import { useSetLineQuantity } from '../../mutations';
@@ -20,21 +21,21 @@ export function NewLineRow({ order, line }: { order: Order; line: OrderLine }) {
           <button
             type="button"
             aria-label={`One less ${line.itemName}`}
-            className={`${secondaryButton} h-9 w-9`}
+            className={`${secondaryButton} size-11 px-0`}
             disabled={change.isPending}
             onClick={() => change.mutate(line.quantity - 1)}
           >
-            −
+            <Minus aria-hidden="true" />
           </button>
           <span className="w-6 text-center tabular-nums">{line.quantity}</span>
           <button
             type="button"
             aria-label={`One more ${line.itemName}`}
-            className={`${secondaryButton} h-9 w-9`}
+            className={`${secondaryButton} size-11 px-0`}
             disabled={change.isPending || line.quantity >= 99}
             onClick={() => change.mutate(line.quantity + 1)}
           >
-            +
+            <Plus aria-hidden="true" />
           </button>
           <span className="w-16 text-right text-sm tabular-nums">{rupees(line.lineTotal)}</span>
         </div>

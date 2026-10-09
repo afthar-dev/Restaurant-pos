@@ -6,7 +6,7 @@ import { useCurrentDevice } from '@/features/auth';
 import { useRegisterDevice } from '@/features/devices';
 import { orderLabel } from '@/features/orders';
 import { useCan, useSession } from '@/shared/session/store';
-import { Button, describeError, ErrorNote, LoadingScreen } from '@/shared/ui';
+import { Button, describeError, ErrorNote, LoadingScreen, Skeleton } from '@/shared/ui';
 import { useAdvanceKot } from '../mutations';
 import { useKdsStations, useKdsTickets } from '../queries';
 import { ageLabel, LATE_MINUTES } from '../age';
@@ -142,7 +142,14 @@ function KitchenBoard() {
     return tickets.isError ? (
       <ErrorNote message={describeError(tickets.error)} />
     ) : (
-      <LoadingScreen />
+      <div role="status" aria-label="Loading tickets" className="grid gap-4 md:grid-cols-3">
+        {Array.from({ length: 3 }, (_, i) => (
+          <div key={i} className="flex flex-col gap-3">
+            <Skeleton className="h-6 w-24" />
+            <Skeleton data-skeleton="ticket" className="h-40 rounded-xl" />
+          </div>
+        ))}
+      </div>
     );
   }
 
