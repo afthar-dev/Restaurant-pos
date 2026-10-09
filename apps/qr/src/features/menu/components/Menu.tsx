@@ -1,12 +1,7 @@
 import { useState } from 'react';
 import { rupees } from '@/shared/lib/money';
+import { FOOD_LABEL, FoodMark } from '@/shared/ui';
 import type { Menu as MenuData, MenuItem } from '../types';
-
-const DOT: Record<MenuItem['foodType'], string> = {
-  VEG: 'bg-emerald-600',
-  NON_VEG: 'bg-red-600',
-  EGG: 'bg-amber-500',
-};
 
 const fromPrice = (item: MenuItem) => {
   const prices = item.variants.map((v) => v.price);
@@ -45,12 +40,12 @@ export function Menu({ menu, onPick }: { menu: MenuData; onPick: (item: MenuItem
           <li key={item.id}>
             <button
               type="button"
-              aria-label={`${item.name}, ${fromPrice(item)}`}
+              aria-label={`${item.name}, ${FOOD_LABEL[item.foodType]}, ${fromPrice(item)}`}
               className="flex min-h-16 w-full items-center justify-between gap-3 py-2 text-left"
               onClick={() => onPick(item)}
             >
               <span className="flex items-start gap-2">
-                <span className={`mt-2 h-2.5 w-2.5 shrink-0 rounded-full ${DOT[item.foodType]}`} />
+                <FoodMark type={item.foodType} className="mt-1" />
                 <span>
                   <span className="block text-base font-medium">{item.name}</span>
                   {item.description && (

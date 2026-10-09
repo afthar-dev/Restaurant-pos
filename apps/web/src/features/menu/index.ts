@@ -11,4 +11,4 @@ export const MenuPage = lazy(() =>
   import('./pages/MenuPage').then((m) => ({ default: m.MenuPage })),
 );
 export { useMenu } from './queries';
-export { FOOD_DOT, type Menu, type MenuAddonGroup, type MenuItem, type MenuVariant } from './types';
+export { type Menu, type MenuAddonGroup, type MenuItem, type MenuVariant } from './types';

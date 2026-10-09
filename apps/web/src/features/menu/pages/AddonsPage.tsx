@@ -1,8 +1,10 @@
+import { Archive, ListPlus } from 'lucide-react';
 import { addonGroupSchema, paiseToRupeesInput, parseRupees } from '@rpos/shared';
 import { useState, type FormEvent } from 'react';
 import {
   ConfirmBar,
   describeError,
+  EmptyState,
   ErrorNote,
   Field,
   inputClass,
@@ -217,31 +219,37 @@ export function AddonsPage() {
           busy={archive.isPending}
         />
       )}
-      <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
-        {groups.data?.map((g) => (
-          <li key={g.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-            <div className="flex min-w-0 flex-col">
-              <span className="font-medium">{g.name}</span>
-              <span className="text-sm text-muted">
-                {g.addons
-                  .map((a) => `${a.name} ${a.price === 0 ? 'free' : rupees(a.price)}`)
-                  .join(' · ')}
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <button type="button" className={secondaryButton} onClick={() => setEditing(g)}>
-                Edit
-              </button>
-              <button type="button" className={secondaryButton} onClick={() => setConfirming(g)}>
-                Archive
-              </button>
-            </div>
-          </li>
-        ))}
-        {groups.data?.length === 0 && (
-          <li className="px-4 py-3 text-sm text-subtle">No add-on groups yet.</li>
-        )}
-      </ul>
+      {groups.data?.length === 0 ? (
+        <EmptyState
+          icon={<ListPlus />}
+          title="No add-on groups yet"
+          description="Add a group such as Extras, then attach it to dishes in the menu."
+        />
+      ) : (
+        <ul className="divide-y divide-border rounded-lg border border-border bg-surface">
+          {groups.data?.map((g) => (
+            <li key={g.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div className="flex min-w-0 flex-col">
+                <span className="font-medium">{g.name}</span>
+                <span className="text-sm text-muted">
+                  {g.addons
+                    .map((a) => `${a.name} ${a.price === 0 ? 'free' : rupees(a.price)}`)
+                    .join(' · ')}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" className={secondaryButton} onClick={() => setEditing(g)}>
+                  Edit
+                </button>
+                <button type="button" className={secondaryButton} onClick={() => setConfirming(g)}>
+                  <Archive aria-hidden="true" />
+                  Archive
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

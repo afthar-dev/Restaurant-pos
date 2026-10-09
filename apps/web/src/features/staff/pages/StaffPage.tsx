@@ -17,7 +17,7 @@ import {
 import { useSaveStaff, useToggleStaffArchive } from '../mutations';
 import { useStaff } from '../queries';
 import type { Staff } from '../types';
-import { Plus } from 'lucide-react';
+import { Archive, Plus } from 'lucide-react';
 
 const ROLE_LABEL: Record<Role, string> = {
   OWNER: 'Owner',
@@ -263,6 +263,7 @@ export function StaffPage() {
                       className={secondaryButton}
                       onClick={() => setConfirming(s)}
                     >
+                      <Archive aria-hidden="true" />
                       Archive
                     </button>
                   )}

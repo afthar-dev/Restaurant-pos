@@ -7,6 +7,7 @@ import {
   ErrorNote,
   Field,
   inputClass,
+  PaymentIcon,
   secondaryButton,
 } from '@/shared/ui';
 import { useVoidExpense } from '../mutations';
@@ -87,7 +88,8 @@ export function ExpenseList({
                     {e.category.name}
                     {e.note ? ` · ${e.note}` : ''}
                   </span>
-                  <span className="text-xs text-subtle">
+                  <span className="inline-flex items-center gap-1 text-xs text-subtle">
+                    <PaymentIcon mode={e.mode} />
                     {`${time(e.createdAt)} · ${MODE_LABEL[e.mode]} · ${e.createdBy.name}`}
                   </span>
                 </div>

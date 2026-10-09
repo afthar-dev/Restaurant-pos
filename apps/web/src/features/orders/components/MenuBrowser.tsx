@@ -1,7 +1,7 @@
 import type { OrderType } from '@rpos/shared';
 import { useState } from 'react';
-import { describeError, ErrorNote, inputClass } from '@/shared/ui';
-import { FOOD_DOT, type MenuItem, useMenu } from '@/features/menu';
+import { describeError, ErrorNote, FoodMark, inputClass } from '@/shared/ui';
+import { type MenuItem, useMenu } from '@/features/menu';
 import { rupees } from '@/shared/lib/money';
 import { ItemPicker, unitPrice } from './ItemPicker';
 import { useAddItem } from '../mutations';
@@ -106,9 +106,7 @@ export function MenuBrowser({ orderId, orderType }: { orderId: string; orderType
               className="flex min-h-22 flex-col items-start justify-between gap-2 rounded-lg border border-border bg-surface p-3 text-left shadow-card transition-colors hover:border-primary-300 active:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="flex items-start gap-1.5 text-sm font-medium leading-tight">
-                <span
-                  className={`mt-1 inline-block h-2 w-2 shrink-0 rounded-full ${FOOD_DOT[item.foodType]}`}
-                />
+                <FoodMark type={item.foodType} className="mt-px" />
                 {item.name}
               </span>
               <span className="text-sm font-semibold text-primary-800 tabular-nums">

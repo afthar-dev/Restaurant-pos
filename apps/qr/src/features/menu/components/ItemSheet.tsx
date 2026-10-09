@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { rupees } from '@/shared/lib/money';
 import type { CartLine } from '@/features/cart';
-import { button, Sheet } from '@/shared/ui';
+import { Minus, Plus } from 'lucide-react';
+import { button, FoodMark, Sheet } from '@/shared/ui';
 import type { MenuItem } from '../types';
 
 /** Size, add-ons, note and quantity for one dish; Add waits until required choices are made. */
@@ -60,7 +61,10 @@ export function ItemSheet({
           className="aspect-video w-full rounded-xl object-cover"
         />
       )}
-      <h2 className="text-xl font-semibold">{item.name}</h2>
+      <h2 className="flex items-center gap-2 text-xl font-semibold">
+        <FoodMark type={item.foodType} />
+        {item.name}
+      </h2>
       {item.description && <p className="text-slate-600">{item.description}</p>}
 
       {item.variants.length > 1 && (
@@ -117,21 +121,21 @@ export function ItemSheet({
         <button
           type="button"
           aria-label="One less"
-          className={`${button} w-12 border border-slate-300`}
+          className={`${button} inline-flex size-12 items-center justify-center border border-slate-300 px-0`}
           disabled={quantity <= 1}
           onClick={() => setQuantity((q) => q - 1)}
         >
-          −
+          <Minus aria-hidden="true" className="size-5" />
         </button>
         <span className="w-8 text-center text-lg tabular-nums">{quantity}</span>
         <button
           type="button"
           aria-label="One more"
-          className={`${button} w-12 border border-slate-300`}
+          className={`${button} inline-flex size-12 items-center justify-center border border-slate-300 px-0`}
           disabled={quantity >= 20}
           onClick={() => setQuantity((q) => q + 1)}
         >
-          +
+          <Plus aria-hidden="true" className="size-5" />
         </button>
         <button
           type="button"

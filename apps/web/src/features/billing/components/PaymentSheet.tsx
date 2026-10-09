@@ -5,6 +5,7 @@ import {
   ErrorNote,
   Field,
   inputClass,
+  PaymentIcon,
   primaryButton,
   secondaryButton,
   Sheet,
@@ -104,13 +105,14 @@ export function PaymentSheet({
               key={m.mode}
               type="button"
               aria-pressed={mode === m.mode}
-              className={`min-h-12 rounded-lg border text-base font-semibold ${
+              className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border text-base font-semibold ${
                 mode === m.mode
                   ? 'border-primary-700 bg-primary-700 text-white'
                   : 'border-border-strong bg-surface'
               }`}
               onClick={() => setMode(m.mode)}
             >
+              <PaymentIcon mode={m.mode} size="md" />
               {m.label}
             </button>
           ))}

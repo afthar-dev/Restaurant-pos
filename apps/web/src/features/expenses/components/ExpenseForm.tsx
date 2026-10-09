@@ -5,9 +5,10 @@ import {
   ErrorNote,
   Field,
   fieldErrors,
-  inputClass,
-  primaryButton,
   type FieldErrors,
+  inputClass,
+  PaymentIcon,
+  primaryButton,
 } from '@/shared/ui';
 import { useAddExpense } from '../mutations';
 import { useExpenseCategories } from '../queries';
@@ -99,6 +100,7 @@ export function ExpenseForm() {
                 checked={mode === m}
                 onChange={() => change(setMode)(m)}
               />
+              <PaymentIcon mode={m} className="text-muted" />
               {MODE_LABEL[m]}
             </label>
           ))}

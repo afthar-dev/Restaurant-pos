@@ -2,7 +2,7 @@ import { parseRupees, type PaymentMode } from '@rpos/shared';
 import { useEffect, useId, useRef, useState } from 'react';
 import { cn } from '@/shared/lib/cn';
 import { rupees } from '@/shared/lib/money';
-import { Button, describeError, ErrorNote, Field, MoneyInput } from '@/shared/ui';
+import { Button, describeError, ErrorNote, Field, MoneyInput, PaymentIcon } from '@/shared/ui';
 import { useAddPayment } from '../mutations';
 import { cashOutcome, suggestNotes } from '../settle';
 import type { Bill } from '../types';
@@ -155,9 +155,10 @@ export function SettlePanel({
                 }}
                 type="button"
                 aria-keyshortcuts={m.key.toUpperCase()}
-                className="relative flex min-h-14 items-center justify-center rounded-lg border border-border-strong bg-surface text-lg font-semibold shadow-sm transition-colors hover:border-primary-300 hover:bg-primary-50 active:bg-primary-100"
+                className="relative flex min-h-14 items-center justify-center gap-2 rounded-lg border border-border-strong bg-surface text-lg font-semibold shadow-sm transition-colors hover:border-primary-300 hover:bg-primary-50 active:bg-primary-100"
                 onClick={() => choose(m.mode)}
               >
+                <PaymentIcon mode={m.mode} size="md" />
                 {m.label}
                 <kbd
                   aria-hidden="true"

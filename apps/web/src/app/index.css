@@ -57,6 +57,10 @@
   --color-pay-cash: #1baf7a;
   --color-pay-upi: #2a78d6;
   --color-pay-card: #eb6834;
+  /* Food marks (FSSAI style). Each is 3:1 or better on white and surface-2. */
+  --color-veg: #15803d;
+  --color-nonveg: #7c2d12;
+  --color-egg: #b45309;
 
   --radius-sm: 6px;
   --radius-md: 10px;

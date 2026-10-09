@@ -441,6 +441,14 @@ describe('AddonsPage', () => {
     expect(callsTo(mock, 'POST', '/api/menu/addon-groups')).toHaveLength(0);
   });
 
+  it('explains add-on groups when there are none', async () => {
+    asManager();
+    mockApi({ 'GET /api/menu/addon-groups': () => json([]) });
+    renderRoute('/admin/addons');
+    const title = await screen.findByText('No add-on groups yet');
+    expect(title.closest('div')?.querySelector('svg')).not.toBeNull();
+  });
+
   it('saves a group with prices in paise', async () => {
     asManager();
     const mock = mockApi({

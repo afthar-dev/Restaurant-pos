@@ -18,6 +18,15 @@ function body(mock: ReturnType<typeof mockApi>, method: string, path: string) {
 }
 
 describe('TaxPage', () => {
+  it('explains what to add when there are no tax rates', async () => {
+    asOwner();
+    mockApi({ 'GET /api/tax-rates': () => json([]) });
+    renderRoute('/admin/tax');
+    const title = await screen.findByText('No tax rates yet');
+    expect(title.closest('div')?.querySelector('svg')).not.toBeNull();
+    expect(screen.getByText(/GST rate your dishes use/)).toBeInTheDocument();
+  });
+
   it('adds a GST rate entered as a percentage', async () => {
     asOwner();
     const mock = mockApi({
@@ -30,6 +39,9 @@ describe('TaxPage', () => {
     renderRoute('/admin/tax');
     expect(await screen.findByText('GST 5%')).toBeInTheDocument();
     expect(screen.getByText('2.5% + 2.5%')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^Archive/ }).querySelector('svg.lucide-archive'),
+    ).not.toBeNull();
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'GST 18%' } });
     fireEvent.change(screen.getByLabelText('Total GST (%)'), { target: { value: '18' } });
@@ -42,6 +54,17 @@ describe('TaxPage', () => {
 });
 
 describe('KitchenPage', () => {
+  it('explains what to add when there are no printers', async () => {
+    asOwner();
+    mockApi({
+      'GET /api/stations': () => json([{ id: STATION, name: 'Kitchen', archivedAt: null }]),
+      'GET /api/printers': () => json([]),
+    });
+    renderRoute('/admin/kitchen');
+    const title = await screen.findByText('No printers yet');
+    expect(title.closest('div')?.querySelector('svg')).not.toBeNull();
+  });
+
   it('asks for a station before saving a KOT printer', async () => {
     asOwner();
     const mock = mockApi({

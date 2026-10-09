@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { useCan } from '@/shared/session/store';
+import { Check, Pencil, X } from 'lucide-react';
 import {
   dangerButton,
   describeError,
@@ -99,6 +100,7 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
             disabled={busy}
             onClick={() => decision.decide({ action: 'approve', body: {} })}
           >
+            <Check aria-hidden="true" />
             Approve
           </button>
           <button
@@ -107,6 +109,7 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
             disabled={busy}
             onClick={() => setMode('edit')}
           >
+            <Pencil aria-hidden="true" />
             Edit
           </button>
           <button
@@ -115,6 +118,7 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
             disabled={busy}
             onClick={() => setMode('reject')}
           >
+            <X aria-hidden="true" />
             Reject
           </button>
         </div>
@@ -127,6 +131,7 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
             disabled={busy || edited.length === 0}
             onClick={() => decision.decide({ action: 'approve', body: { lines: edited } })}
           >
+            <Check aria-hidden="true" />
             Approve changes
           </button>
           <button

@@ -10,6 +10,7 @@ import {
   Field,
   inputClass,
   PageHeader,
+  PaymentIcon,
   primaryButton,
   secondaryButton,
 } from '@/shared/ui';
@@ -52,7 +53,18 @@ const ORDER_STATE: Record<string, string> = {
   PENDING_APPROVAL: 'waiting for approval',
 };
 
-function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+const PAY_LABEL = { CASH: 'Cash', UPI: 'UPI', CARD: 'Card' } as const;
+
+function PayLabel({ mode }: { mode: keyof typeof PAY_LABEL }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <PaymentIcon mode={mode} className="text-muted" />
+      {PAY_LABEL[mode]}
+    </span>
+  );
+}
+
+function Row({ label, value, strong }: { label: ReactNode; value: string; strong?: boolean }) {
   return (
     <div className={`flex justify-between gap-2 ${strong ? 'font-semibold' : ''}`}>
       <span>{label}</span>
@@ -259,9 +271,9 @@ function ReportView({
           <Row label="Total" value={rupees(sales.total)} strong />
         </Block>
         <Block title="Payments">
-          <Row label="Cash" value={rupees(report.payments.CASH)} />
-          <Row label="UPI" value={rupees(report.payments.UPI)} />
-          <Row label="Card" value={rupees(report.payments.CARD)} />
+          <Row label={<PayLabel mode="CASH" />} value={rupees(report.payments.CASH)} />
+          <Row label={<PayLabel mode="UPI" />} value={rupees(report.payments.UPI)} />
+          <Row label={<PayLabel mode="CARD" />} value={rupees(report.payments.CARD)} />
           <p className="pt-1 text-muted">
             {`Dine-in · ${report.byType.DINE_IN.orders} orders · ${rupees(report.byType.DINE_IN.total)}`}
           </p>

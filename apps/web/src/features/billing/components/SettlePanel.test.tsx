@@ -31,6 +31,15 @@ const keyOf = (mock: ReturnType<typeof mockApi>, i: number) =>
   new Headers(posts(mock)[i]?.[1]?.headers).get('Idempotency-Key');
 
 describe('SettlePanel', () => {
+  it('shows an icon and the key hint on each payment button', () => {
+    setup();
+    for (const name of ['Cash', 'UPI', 'Card']) {
+      const button = screen.getByRole('button', { name: new RegExp(`^${name}`) });
+      expect(button.querySelector('svg.lucide')).not.toBeNull();
+      expect(button.querySelector('kbd')).not.toBeNull();
+    }
+  });
+
   it('takes a whole-bill UPI payment in two taps', async () => {
     const { mock, onPaid } = setup({ 'POST /api/bills/b1/payments': PAID });
     expect(screen.getByRole('heading', { name: 'Bill 12 · ₹473 due' })).toBeInTheDocument();

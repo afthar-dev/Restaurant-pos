@@ -1,5 +1,5 @@
 import type { DeviceType, KotStatus } from '@rpos/shared';
-import { ChefHat } from 'lucide-react';
+import { ChefHat, CircleCheck, Flame, HandPlatter, type LucideIcon, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useCurrentDevice } from '@/features/auth';
@@ -22,10 +22,10 @@ function useMinuteTick() {
   return now;
 }
 
-const NEXT: Record<string, { status: KotStatus; verb: string }> = {
-  NEW: { status: 'PREPARING', verb: 'Start' },
-  PREPARING: { status: 'READY', verb: 'Ready' },
-  READY: { status: 'SERVED', verb: 'Picked up' },
+const NEXT: Record<string, { status: KotStatus; verb: string; icon: LucideIcon }> = {
+  NEW: { status: 'PREPARING', verb: 'Start', icon: Flame },
+  PREPARING: { status: 'READY', verb: 'Ready', icon: CircleCheck },
+  READY: { status: 'SERVED', verb: 'Picked up', icon: HandPlatter },
 };
 
 function TicketCard({
@@ -42,7 +42,9 @@ function TicketCard({
   const cancelled = ticket.type === 'CANCEL';
   const label = `KOT ${ticket.kotNo}, ${orderLabel(ticket)}${cancelled ? ', cancelled' : ''}`;
   const minutes = Math.max(0, Math.floor((now - new Date(ticket.createdAt).getTime()) / 60_000));
-  const next = cancelled ? { status: 'SERVED' as KotStatus, verb: 'Dismiss' } : NEXT[ticket.status];
+  const next = cancelled
+    ? { status: 'SERVED' as KotStatus, verb: 'Dismiss', icon: X }
+    : NEXT[ticket.status];
   const late = !cancelled && ticket.status !== 'READY' && minutes >= LATE_MINUTES;
 
   return (
@@ -104,10 +106,11 @@ function TicketCard({
           aria-label={`${next.verb} KOT ${ticket.kotNo}`}
           disabled={busy}
           onClick={() => onAdvance(next.status)}
-          className={`min-h-14 rounded-lg text-lg font-semibold text-white disabled:opacity-60 ${
+          className={`inline-flex min-h-14 items-center justify-center gap-2 rounded-lg text-lg font-semibold text-white disabled:opacity-60 ${
             cancelled ? 'bg-red-700' : 'bg-primary-700'
           }`}
         >
+          <next.icon aria-hidden="true" className="size-6" />
           {next.verb}
         </button>
       )}

@@ -37,6 +37,14 @@ function asWaiter() {
 }
 
 describe('AvailabilityPage', () => {
+  it('shows the veg symbol beside each dish', async () => {
+    asWaiter();
+    mockApi({ 'GET /api/menu': () => json(menu) });
+    renderRoute('/availability');
+    await screen.findByRole('switch', { name: 'Paneer Tikka available' });
+    expect(screen.getAllByRole('img', { name: 'Veg' })).toHaveLength(2);
+  });
+
   it('marks an item out of stock', async () => {
     asWaiter();
     const mock = mockApi({

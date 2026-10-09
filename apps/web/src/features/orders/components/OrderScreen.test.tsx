@@ -32,6 +32,15 @@ describe('MenuBrowser', () => {
     });
   });
 
+  it('marks each dish tile with its veg / non-veg symbol', async () => {
+    asWaiter();
+    mockApi({ 'GET /api/menu': () => json(MENU) });
+    renderWithProviders(<MenuBrowser orderId="o1" orderType="DINE_IN" />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Breads' }));
+    const tile = screen.getByRole('button', { name: 'Tandoori Roti, ₹30' });
+    expect(tile.querySelector('svg[aria-label="Veg"]')).not.toBeNull();
+  });
+
   it('counts every tap while earlier dishes are still saving', async () => {
     asWaiter();
     const mock = mockApi({
@@ -147,6 +156,14 @@ describe('OrderPanel', () => {
     expect(screen.getByText('KOT 7 · Kitchen · preparing')).toBeInTheDocument();
     expect(screen.getByText('₹390')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send to kitchen (1)' })).toBeEnabled();
+  });
+
+  it('shows a kitchen icon on Send to kitchen', async () => {
+    asWaiter();
+    mockApi({ 'GET /api/orders/o1': () => json(withItems) });
+    renderWithProviders(<OrderPanel orderId="o1" />);
+    const send = await screen.findByRole('button', { name: 'Send to kitchen (1)' });
+    expect(send.querySelector('svg.lucide-chef-hat')).not.toBeNull();
   });
 
   it('drops the send button once everything is with the kitchen', async () => {

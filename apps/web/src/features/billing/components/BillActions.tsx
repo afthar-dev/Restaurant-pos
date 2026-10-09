@@ -3,6 +3,7 @@ import { useCan } from '@/shared/session/store';
 import { secondaryButton } from '@/shared/ui';
 import type { Bill } from '../types';
 import { VoidSheet } from './VoidSheet';
+import { Ban } from 'lucide-react';
 
 /** Void an unpaid or paid bill. Payment lives in `BillSettle`. */
 export function BillActions({ bill }: { bill: Bill }) {
@@ -17,6 +18,7 @@ export function BillActions({ bill }: { bill: Bill }) {
         className={`${secondaryButton} min-h-11`}
         onClick={() => setVoiding(true)}
       >
+        <Ban aria-hidden="true" />
         {canVoid ? 'Void' : 'Void (manager)'}
       </button>
       {voiding && <VoidSheet bill={bill} onDone={() => setVoiding(false)} />}
