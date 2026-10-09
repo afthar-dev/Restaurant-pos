@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -33,6 +33,8 @@ function block(marker: string): string {
 const base = vars(tw);
 const light = new Map([...base, ...vars(css.slice(0, css.indexOf('/* dark appearance')))]);
 const dark = new Map([...light, ...vars(block('/* dark appearance'))]);
+// The kitchen display forces dark with its own copy of the declarations.
+const kitchen = new Map([...light, ...vars(block("[data-theme='dark'] {"))]);
 
 type Rgb = [number, number, number];
 
@@ -96,6 +98,8 @@ const PAIRS: [string, string, number][] = [
   ['#ffffff', 'color-danger-solid', 4.5],
   ['#ffffff', 'color-success-solid', 4.5],
   // Chart bars and the food marks are graphical objects: 3:1 against the surface.
+  ['color-muted', 'color-surface-2', 4.5],
+  ['color-amber-800', 'color-surface', 4.5],
   ['color-primary-600', 'color-surface', 3],
   ['color-veg', 'color-surface', 3],
   ['color-nonveg', 'color-surface', 3],
@@ -108,8 +112,44 @@ const PAIRS: [string, string, number][] = [
 describe.each([
   ['light', light],
   ['dark', dark],
+  ['kitchen (forced dark)', kitchen],
 ])('%s appearance', (_name, table) => {
   it.each(PAIRS)('%s on %s is readable', (fg, bg, min) => {
     expect(ratio(fg, bg, table)).toBeGreaterThanOrEqual(min);
+  });
+});
+
+describe('dark copies', () => {
+  it('declares the same values for the device dark mode and the kitchen display', () => {
+    expect(Object.fromEntries(vars(block("[data-theme='dark'] {")))).toEqual(
+      Object.fromEntries(vars(block('/* dark appearance'))),
+    );
+  });
+});
+
+/*
+ * In dark the status scales mirror, so a class that only makes sense in one appearance breaks
+ * the other: dark-shade backgrounds (red-950) turn near-white, light-shade text (red-300) turns
+ * dark, and the slate scale does not follow the theme at all. Use the light-appearance meaning
+ * (bg-red-50, text-red-700) or a token.
+ */
+describe('colour classes in the source', () => {
+  it('uses none that break when the scales mirror', () => {
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) walk(path);
+        else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) files.push(path);
+      }
+    };
+    walk(join(process.cwd(), 'src'));
+    expect(files.length).toBeGreaterThan(50);
+    const bad =
+      /\btext-(?:red|amber|green|sky|violet)-(?:300|400)\b|\bbg-(?:red|amber|green|sky|violet)-(?:800|900|950)\b|\bbg-slate-(?:50|100|200|300)\b/g;
+    const found = files.flatMap((f) =>
+      [...readFileSync(f, 'utf8').matchAll(bad)].map((m) => `${f.split('src')[1]}: ${m[0]}`),
+    );
+    expect(found).toEqual([]);
   });
 });

@@ -19,7 +19,7 @@ function Switch({ on, label, onToggle }: { on: boolean; label: string; onToggle:
       aria-checked={on}
       aria-label={label}
       onClick={onToggle}
-      className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${on ? 'bg-success-solid' : 'bg-slate-300'}`}
+      className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${on ? 'bg-success-solid' : 'bg-border-strong'}`}
     >
       <span
         className={`absolute top-0.5 h-6 w-6 rounded-full bg-surface shadow transition-transform ${

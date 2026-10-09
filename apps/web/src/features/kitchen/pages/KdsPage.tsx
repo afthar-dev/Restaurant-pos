@@ -52,13 +52,13 @@ function TicketCard({
       aria-label={label}
       className={`flex flex-col gap-3 rounded-xl border-2 p-4 shadow-card ${
         cancelled
-          ? 'border-red-500 bg-red-950/50'
+          ? 'border-red-500 bg-red-50'
           : `bg-surface ${late ? 'border-amber-400' : 'border-border'}`
       }`}
     >
       <header className="flex items-baseline justify-between gap-2">
         <span className="text-2xl font-bold">
-          {cancelled && <span className="mr-2 text-red-400">CANCEL</span>}
+          {cancelled && <span className="mr-2 text-red-700">CANCEL</span>}
           KOT {ticket.kotNo}
         </span>
         <span className="text-xl font-semibold">{orderLabel(ticket)}</span>
@@ -75,7 +75,7 @@ function TicketCard({
       </p>
       <ul className="flex flex-col gap-2 text-lg">
         {ticket.lines.map((l) => (
-          <li key={l.id} className={cancelled ? 'text-red-300 line-through' : ''}>
+          <li key={l.id} className={cancelled ? 'text-red-700 line-through' : ''}>
             <span className="font-semibold">
               {l.quantity} × {l.itemName}
               {l.variantName !== 'Regular' ? ` (${l.variantName})` : ''}
@@ -95,7 +95,7 @@ function TicketCard({
               </span>
             ))}
             {l.note && (
-              <span className="block pl-6 text-base italic text-amber-300">“{l.note}”</span>
+              <span className="block pl-6 text-base italic text-amber-800">“{l.note}”</span>
             )}
           </li>
         ))}
