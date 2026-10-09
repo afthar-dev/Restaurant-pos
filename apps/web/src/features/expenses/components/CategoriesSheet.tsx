@@ -1,3 +1,4 @@
+import { Trash2 } from 'lucide-react';
 import { expenseCategorySchema } from '@rpos/shared';
 import { useState, type FormEvent } from 'react';
 import {
@@ -68,6 +69,7 @@ export function CategoriesSheet({ onClose }: { onClose: () => void }) {
                       disabled={archive.isPending}
                       onClick={() => archive.mutate(c)}
                     >
+                      <Trash2 aria-hidden="true" />
                       Remove
                     </button>
                   </span>

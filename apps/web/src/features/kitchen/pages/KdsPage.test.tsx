@@ -158,6 +158,22 @@ describe('Kitchen display', () => {
     expect(await screen.findByText('Late · 32 min')).toBeInTheDocument();
   });
 
+  it('shows what each ticket button does with an icon', async () => {
+    mockApi({
+      'GET /api/devices/current': kdsDevice,
+      'GET /api/kds/stations': () => json(stations),
+      'GET /api/kds/kots': () => json(tickets),
+    });
+    renderRoute('/kds');
+    const start = await screen.findByRole('button', { name: 'Start KOT 1' });
+    expect(start.querySelector('svg.lucide-flame')).not.toBeNull();
+    expect(
+      screen
+        .getByRole('button', { name: 'Picked up KOT 2' })
+        .querySelector('svg.lucide-hand-platter'),
+    ).not.toBeNull();
+  });
+
   it('starts, finishes and dismisses tickets', async () => {
     const mock = mockApi({
       'GET /api/devices/current': kdsDevice,

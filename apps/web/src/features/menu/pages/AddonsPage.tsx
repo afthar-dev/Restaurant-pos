@@ -1,4 +1,4 @@
-import { ListPlus } from 'lucide-react';
+import { Archive, ListPlus } from 'lucide-react';
 import { addonGroupSchema, paiseToRupeesInput, parseRupees } from '@rpos/shared';
 import { useState, type FormEvent } from 'react';
 import {
@@ -242,6 +242,7 @@ export function AddonsPage() {
                   Edit
                 </button>
                 <button type="button" className={secondaryButton} onClick={() => setConfirming(g)}>
+                  <Archive aria-hidden="true" />
                   Archive
                 </button>
               </div>

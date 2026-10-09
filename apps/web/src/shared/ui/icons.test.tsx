@@ -21,6 +21,22 @@ describe('Icon', () => {
 });
 
 describe('FoodMark', () => {
+  it('draws egg as a ring so it differs from veg by shape, not only colour', () => {
+    render(
+      <>
+        <FoodMark type="VEG" />
+        <FoodMark type="EGG" />
+      </>,
+    );
+    expect(screen.getByRole('img', { name: 'Veg' }).querySelector('circle')).toHaveAttribute(
+      'fill',
+      'currentColor',
+    );
+    const egg = screen.getByRole('img', { name: 'Egg' }).querySelector('circle');
+    expect(egg).toHaveAttribute('fill', 'none');
+    expect(egg).toHaveAttribute('stroke', 'currentColor');
+  });
+
   it('names each food type and draws its symbol', () => {
     render(
       <main>

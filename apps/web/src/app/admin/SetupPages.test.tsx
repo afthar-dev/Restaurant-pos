@@ -39,6 +39,9 @@ describe('TaxPage', () => {
     renderRoute('/admin/tax');
     expect(await screen.findByText('GST 5%')).toBeInTheDocument();
     expect(screen.getByText('2.5% + 2.5%')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^Archive/ }).querySelector('svg.lucide-archive'),
+    ).not.toBeNull();
 
     fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'GST 18%' } });
     fireEvent.change(screen.getByLabelText('Total GST (%)'), { target: { value: '18' } });
