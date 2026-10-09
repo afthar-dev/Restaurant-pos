@@ -56,10 +56,3 @@ export const FOOD_LABEL: Record<FoodType, string> = {
   NON_VEG: 'Non-veg',
   EGG: 'Egg',
 };
-
-/** Green / red / amber dot, as on Indian menus. */
-export const FOOD_DOT: Record<FoodType, string> = {
-  VEG: 'bg-green-600',
-  NON_VEG: 'bg-red-700',
-  EGG: 'bg-amber-500',
-};

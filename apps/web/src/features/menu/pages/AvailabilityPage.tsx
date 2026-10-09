@@ -1,8 +1,15 @@
 import { useState } from 'react';
-import { describeError, ErrorNote, inputClass, LoadingScreen, PageHeader } from '@/shared/ui';
+import {
+  describeError,
+  ErrorNote,
+  FoodMark,
+  inputClass,
+  LoadingScreen,
+  PageHeader,
+} from '@/shared/ui';
 import { useToggleAddon, useToggleItem } from '../mutations';
 import { useMenu } from '../queries';
-import { FOOD_DOT, FOOD_LABEL, type MenuAddon } from '../types';
+import { type MenuAddon } from '../types';
 
 function Switch({ on, label, onToggle }: { on: boolean; label: string; onToggle: () => void }) {
   return (
@@ -81,11 +88,7 @@ export function AvailabilityPage() {
             {c.items.map((item) => (
               <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <span className="flex items-center gap-2">
-                  <span
-                    role="img"
-                    aria-label={FOOD_LABEL[item.foodType]}
-                    className={`inline-block h-2.5 w-2.5 rounded-full ${FOOD_DOT[item.foodType]}`}
-                  />
+                  <FoodMark type={item.foodType} />
                   <span className={item.isAvailable ? '' : 'text-subtle line-through'}>
                     {item.name}
                   </span>

@@ -32,6 +32,15 @@ describe('MenuBrowser', () => {
     });
   });
 
+  it('marks each dish tile with its veg / non-veg symbol', async () => {
+    asWaiter();
+    mockApi({ 'GET /api/menu': () => json(MENU) });
+    renderWithProviders(<MenuBrowser orderId="o1" orderType="DINE_IN" />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Breads' }));
+    const tile = screen.getByRole('button', { name: 'Tandoori Roti, ₹30' });
+    expect(tile.querySelector('svg[aria-label="Veg"]')).not.toBeNull();
+  });
+
   it('counts every tap while earlier dishes are still saving', async () => {
     asWaiter();
     const mock = mockApi({

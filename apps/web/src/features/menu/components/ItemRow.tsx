@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { rupees } from '@/shared/lib/money';
-import { FOOD_DOT, FOOD_LABEL, type MenuItem } from '../types';
+import { FoodMark } from '@/shared/ui';
+import type { MenuItem } from '../types';
 
 /** One dish in Admin → Menu: name, badges, sizes and prices, and its actions on the right. */
 export function ItemRow({ item, actions }: { item: MenuItem; actions: ReactNode }) {
@@ -16,11 +17,7 @@ export function ItemRow({ item, actions }: { item: MenuItem; actions: ReactNode 
               className="size-10 shrink-0 rounded-md object-cover"
             />
           )}
-          <span
-            role="img"
-            aria-label={FOOD_LABEL[item.foodType]}
-            className={`inline-block h-2.5 w-2.5 rounded-full ${FOOD_DOT[item.foodType]}`}
-          />
+          <FoodMark type={item.foodType} />
           {item.name}
           {item.isCombo && <span className="text-xs text-subtle">combo</span>}
           {!item.isAvailable && (
