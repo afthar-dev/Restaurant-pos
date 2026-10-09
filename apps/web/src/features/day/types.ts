@@ -10,7 +10,7 @@ export interface BusinessDay {
 
 export interface DayBlockers {
   orders: { id: string; label: string; status: OrderStatus }[];
-  bills: { id: string; billNo: number; due: number }[];
+  bills: { id: string; orderId: string; billNo: number; due: number }[];
 }
 
 export interface CloseCheck {

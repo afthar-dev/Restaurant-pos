@@ -97,15 +97,21 @@ describe('Day close', () => {
               { id: 'o1', label: 'T1', status: 'OPEN' },
               { id: 'o4', label: 'Parcel #4', status: 'BILLED' },
             ],
-            bills: [{ id: 'b1', billNo: 12, due: 47300 }],
+            bills: [{ id: 'b1', orderId: 'o4', billNo: 12, due: 47300 }],
           },
         }),
     });
     renderRoute('/day');
     const open = await screen.findByRole('list', { name: 'Still open' });
-    expect(within(open).getByText('T1 — order open')).toBeInTheDocument();
-    expect(within(open).getByText('Parcel #4 — bill printed, not paid')).toBeInTheDocument();
-    expect(within(open).getByText('Bill 12 — ₹473 due')).toBeInTheDocument();
+    // Each line opens that order on the POS; an order and its unpaid bill are one line.
+    expect(within(open).getByRole('link', { name: 'T1: order still open' })).toHaveAttribute(
+      'href',
+      '/pos?order=o1',
+    );
+    expect(
+      within(open).getByRole('link', { name: 'Parcel #4: bill 12, ₹473 due' }),
+    ).toHaveAttribute('href', '/pos?order=o4');
+    expect(within(open).getAllByRole('listitem')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Close day' })).toBeDisabled();
   });
 
@@ -158,7 +164,7 @@ describe('Day close', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close day' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Yes, close the day' }));
     const open = await screen.findByRole('list', { name: 'Still open' });
-    expect(within(open).getByText('T9 — order open')).toBeInTheDocument();
+    expect(within(open).getByRole('link', { name: 'T9: order still open' })).toBeInTheDocument();
   });
 
   it('lets the manager close once the refused-for table is settled', async () => {

@@ -20,7 +20,8 @@ import { useCloseDay, useRefreshDays, useReopenDay } from '../mutations';
 import { useBusinessDay, useCloseCheck, useDayReport, usePastDays } from '../queries';
 import type { DayBlockers, DayReport, DaySummary } from '../types';
 import { rupees } from '@/shared/lib/money';
-import { Sunrise } from 'lucide-react';
+import { ChevronRight, Sunrise } from 'lucide-react';
+import { Link } from 'react-router';
 
 const signed = (paise: number) =>
   paise < 0 ? `−${rupees(-paise)}` : paise > 0 ? `+${rupees(paise)}` : rupees(0);
@@ -29,7 +30,7 @@ const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
 const ORDER_STATE: Record<string, string> = {
-  OPEN: 'order open',
+  OPEN: 'order still open',
   BILLED: 'bill printed, not paid',
   PENDING_APPROVAL: 'waiting for approval',
 };
@@ -52,17 +53,42 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+/** One line per order: an order with an unpaid bill says what is due rather than appearing twice. */
+function blockerLines(blockers: DayBlockers) {
+  const lines = blockers.orders.map((o) => {
+    const bill = blockers.bills.find((b) => b.orderId === o.id);
+    return {
+      key: o.id,
+      orderId: o.id,
+      text: bill
+        ? `${o.label}: bill ${bill.billNo}, ${rupees(bill.due)} due`
+        : `${o.label}: ${ORDER_STATE[o.status] ?? 'order still open'}`,
+    };
+  });
+  for (const b of blockers.bills) {
+    if (!blockers.orders.some((o) => o.id === b.orderId)) {
+      lines.push({ key: b.id, orderId: b.orderId, text: `Bill ${b.billNo}: ${rupees(b.due)} due` });
+    }
+  }
+  return lines;
+}
+
 function Blockers({ blockers }: { blockers: DayBlockers }) {
   if (blockers.orders.length === 0 && blockers.bills.length === 0) return null;
   return (
     <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
       <p className="font-medium text-amber-900">Finish these before closing the day:</p>
-      <ul aria-label="Still open" className="mt-1 list-disc pl-5">
-        {blockers.orders.map((o) => (
-          <li key={o.id}>{`${o.label} — ${ORDER_STATE[o.status] ?? 'open'}`}</li>
-        ))}
-        {blockers.bills.map((b) => (
-          <li key={b.id}>{`Bill ${b.billNo} — ${rupees(b.due)} due`}</li>
+      <ul aria-label="Still open" className="mt-1 flex flex-col">
+        {blockerLines(blockers).map((line) => (
+          <li key={line.key}>
+            <Link
+              to={`/pos?order=${line.orderId}`}
+              className="inline-flex min-h-11 items-center gap-1 font-medium text-amber-950 underline-offset-4 hover:underline"
+            >
+              {line.text}
+              <ChevronRight aria-hidden="true" className="size-4" />
+            </Link>
+          </li>
         ))}
       </ul>
     </div>
