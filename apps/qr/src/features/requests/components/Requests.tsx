@@ -1,5 +1,13 @@
+import { CircleCheck, CircleX, Clock, type LucideIcon } from 'lucide-react';
 import { rupees } from '@/shared/lib/money';
+import { Icon } from '@/shared/ui';
 import type { OrderRequest } from '../types';
+
+const STATE_ICON: Record<OrderRequest['status'], LucideIcon> = {
+  PENDING: Clock,
+  APPROVED: CircleCheck,
+  REJECTED: CircleX,
+};
 
 const TONE: Record<OrderRequest['status'], string> = {
   PENDING: 'border-amber-300 bg-amber-50 text-amber-950',
@@ -15,7 +23,10 @@ export function Requests({ requests }: { requests: OrderRequest[] }) {
       <h2 className="text-lg font-semibold">Your orders</h2>
       {requests.map((r) => (
         <article key={r.id} className={`rounded-xl border p-3 ${TONE[r.status]}`}>
-          <p className="font-semibold">{r.message}</p>
+          <p className="flex items-center gap-2 font-semibold">
+            <Icon as={STATE_ICON[r.status]} />
+            {r.message}
+          </p>
           <ul className="mt-1 text-sm">
             {r.lines.map((l, index) => (
               <li key={index}>

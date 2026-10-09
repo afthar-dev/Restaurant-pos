@@ -1,1 +1,8 @@
 @import 'tailwindcss';
+
+@theme {
+  /* Food marks (FSSAI style), same values as the staff app. */
+  --color-veg: #15803d;
+  --color-nonveg: #7c2d12;
+  --color-egg: #b45309;
+}

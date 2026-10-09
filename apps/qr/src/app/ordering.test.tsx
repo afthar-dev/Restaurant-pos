@@ -129,6 +129,27 @@ describe('ordering from the table', () => {
     expect(within(sheet).getByRole('img', { name: 'Paneer Tikka' })).toHaveAttribute('src', PHOTO);
   });
 
+  it('marks each dish veg / non-veg and says it once to screen readers', async () => {
+    api();
+    render(<App search={`?t=${CODE}`} />);
+    const row = await screen.findByRole('button', { name: /^Paneer Tikka/ });
+    expect(row).toHaveAccessibleName(/^Paneer Tikka, Veg, /);
+    expect(row.querySelector('svg[aria-label="Veg"]')).not.toBeNull();
+  });
+
+  it('uses icon steppers with names and 44 px targets', async () => {
+    api();
+    render(<App search={`?t=${CODE}`} />);
+    fireEvent.click(await screen.findByRole('button', { name: /^Paneer Tikka/ }));
+    const sheet = await screen.findByRole('dialog', { name: 'Paneer Tikka' });
+    const more = within(sheet).getByRole('button', { name: 'One more' });
+    expect(more.querySelector('svg.lucide-plus')).not.toBeNull();
+    expect(more).toHaveClass('size-12');
+    expect(
+      within(sheet).getByRole('button', { name: 'One less' }).querySelector('svg.lucide-minus'),
+    ).not.toBeNull();
+  });
+
   it('opens the menu for the table that was scanned', async () => {
     const mock = api();
     render(<App search={`?t=${CODE}`} />);
@@ -213,7 +234,8 @@ describe('ordering from the table', () => {
         json([{ ...waiting(), status: 'APPROVED', message: 'Accepted — sent to the kitchen' }]),
     });
     render(<App search={`?t=${CODE}`} />);
-    expect(await screen.findByText('Accepted — sent to the kitchen')).toBeInTheDocument();
+    const message = await screen.findByText('Accepted — sent to the kitchen');
+    expect(message.closest('article')?.querySelector('svg.lucide-circle-check')).not.toBeNull();
   });
 
   it('asks to scan again when the table was closed, and starts again', async () => {
