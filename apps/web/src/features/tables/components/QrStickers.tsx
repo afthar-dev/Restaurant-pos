@@ -1,31 +1,91 @@
-import { useState } from 'react';
+import { Download, Printer, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useOutlet } from '@/features/settings';
-import { ConfirmBar, describeError, ErrorNote, secondaryButton } from '@/shared/ui';
-import { printHtmlInIframe, renderQrStickers, type TableCode } from '@/features/printing';
+import { Button, ConfirmBar, describeError, Dialog, ErrorNote, secondaryButton } from '@/shared/ui';
+import {
+  printHtmlInIframe,
+  renderQrStickers,
+  stickerUrl,
+  type TableCode,
+} from '@/features/printing';
 
 import { useRotateTableCode } from '../mutations';
 import { useTableCodes } from '../queries';
+import { fileSafe, qrPng, qrSvg, saveBlob, zipFiles } from '../qrImages';
 
-/** Print the table QR stickers customers scan to order, and replace a lost or copied one. */
+/** A table's QR code drawn on screen, named for screen readers. */
+function QrImage({ table, className }: { table: TableCode; className?: string }) {
+  const [svg, setSvg] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    void qrSvg(stickerUrl(window.location.origin, table.qrToken)).then((s) => {
+      if (live) setSvg(s);
+    });
+    return () => {
+      live = false;
+    };
+  }, [table.qrToken]);
+  return (
+    <div
+      role="img"
+      aria-label={`QR code for ${table.name}`}
+      className={`aspect-square rounded-md bg-white p-1 [&_svg]:size-full ${className ?? ''}`}
+      // The SVG comes from the qrcode library, built from our own URL.
+      dangerouslySetInnerHTML={svg ? { __html: svg } : undefined}
+    />
+  );
+}
+
+/**
+ * The table QR codes customers scan to order: see each one, open it large to download or print
+ * it, download all of them at once, and replace a lost or copied one.
+ */
 export function QrStickers() {
   const codes = useTableCodes();
   const outlet = useOutlet();
+  const restaurant = outlet.data?.name ?? '';
+  const [open, setOpen] = useState<TableCode | null>(null);
   const [confirming, setConfirming] = useState<TableCode | null>(null);
   const [renewed, setRenewed] = useState<TableCode | null>(null);
-  const [printError, setPrintError] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  async function print(tables: TableCode[]) {
-    setPrintError(null);
+  async function attempt(verb: string, work: () => Promise<void>) {
+    setProblem(null);
+    setBusy(true);
     try {
-      const html = await renderQrStickers(tables, outlet.data?.name ?? '', window.location.origin);
-      await printHtmlInIframe(html);
+      await work();
     } catch (error) {
-      setPrintError(`Could not print: ${describeError(error)}`);
+      setProblem(`Could not ${verb}: ${describeError(error)}`);
+    } finally {
+      setBusy(false);
     }
   }
 
+  const print = (tables: TableCode[]) =>
+    attempt('print', async () => {
+      const html = await renderQrStickers(tables, restaurant, window.location.origin);
+      await printHtmlInIframe(html);
+    });
+
+  const png = (t: TableCode) =>
+    qrPng(stickerUrl(window.location.origin, t.qrToken), t.name, restaurant);
+
+  const downloadOne = (t: TableCode) =>
+    attempt('download', async () => saveBlob(await png(t), `${fileSafe(t.name)}-qr.png`));
+
+  const downloadAll = (tables: TableCode[]) =>
+    attempt('download', async () => {
+      const files = [];
+      for (const t of tables) {
+        files.push({ name: `${fileSafe(`${t.areaName} ${t.name}`)}-qr.png`, blob: await png(t) });
+      }
+      saveBlob(await zipFiles(files), 'table-qr-codes.zip');
+    });
+
   const rotate = useRotateTableCode((table) => {
     setConfirming(null);
+    setOpen(null);
     setRenewed(table);
   });
 
@@ -43,24 +103,25 @@ export function QrStickers() {
             staff to approve.
           </p>
         </div>
-        <button
-          type="button"
-          className={`${secondaryButton} min-h-11`}
-          disabled={tables.length === 0}
-          onClick={() => void print(tables)}
-        >
-          Print all stickers
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            icon={<Download aria-hidden="true" />}
+            disabled={tables.length === 0 || busy}
+            onClick={() => void downloadAll(tables)}
+          >
+            Download all
+          </Button>
+          <Button
+            variant="secondary"
+            icon={<Printer aria-hidden="true" />}
+            disabled={tables.length === 0 || busy}
+            onClick={() => void print(tables)}
+          >
+            Print all stickers
+          </Button>
+        </div>
       </div>
-      {confirming && (
-        <ConfirmBar
-          question={`Replace the QR code for ${confirming.name}? The old sticker stops working at once.`}
-          confirmLabel={`Yes, new code for ${confirming.name}`}
-          onConfirm={() => rotate.mutate(confirming)}
-          onCancel={() => setConfirming(null)}
-          busy={rotate.isPending}
-        />
-      )}
       {renewed && (
         <div role="status" className="flex flex-wrap items-center gap-2 text-sm text-green-800">
           <span>{`${renewed.name} has a new QR code.`}</span>
@@ -73,25 +134,88 @@ export function QrStickers() {
           </button>
         </div>
       )}
-      <ErrorNote message={rotate.isError ? describeError(rotate.error) : null} />
-      <ErrorNote message={printError} />
-      <ul className="flex flex-wrap gap-2">
+      {!open && <ErrorNote message={problem} />}
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-3">
         {tables.map((t) => (
-          <li key={t.id}>
-            <button
-              type="button"
-              aria-label={`New QR code for ${t.name}`}
-              className="min-h-11 rounded-md border border-border px-3 text-sm"
+          <li
+            key={t.id}
+            className="flex flex-col items-center gap-2 rounded-lg border border-border p-3"
+          >
+            <QrImage table={t} className="w-full max-w-28" />
+            <span className="text-center text-sm">
+              <span className="block font-semibold">{t.name}</span>
+              <span className="text-subtle">{t.areaName}</span>
+            </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-label={`Open QR code for ${t.name}`}
+              className="min-h-11 w-full"
               onClick={() => {
                 setRenewed(null);
-                setConfirming(t);
+                setProblem(null);
+                setOpen(t);
               }}
             >
-              {t.name} · new code
-            </button>
+              Open
+            </Button>
           </li>
         ))}
       </ul>
+
+      {open && (
+        <Dialog
+          label={`QR code for ${open.name}`}
+          onClose={() => {
+            setOpen(null);
+            setConfirming(null);
+          }}
+        >
+          <div className="flex flex-col items-center gap-3">
+            <h2 className="text-lg font-semibold">{`${open.name} · ${open.areaName}`}</h2>
+            <QrImage table={open} className="w-full max-w-64" />
+            <p className="max-w-full text-center text-xs break-all text-muted">
+              {stickerUrl(window.location.origin, open.qrToken)}
+            </p>
+            {confirming ? (
+              <ConfirmBar
+                question={`Replace the QR code for ${confirming.name}? The old sticker stops working at once.`}
+                confirmLabel={`Yes, new code for ${confirming.name}`}
+                onConfirm={() => rotate.mutate(confirming)}
+                onCancel={() => setConfirming(null)}
+                busy={rotate.isPending}
+              />
+            ) : (
+              <div className="grid w-full gap-2 sm:grid-cols-3">
+                <Button
+                  icon={<Download aria-hidden="true" />}
+                  disabled={busy}
+                  onClick={() => void downloadOne(open)}
+                >
+                  Download PNG
+                </Button>
+                <Button
+                  variant="secondary"
+                  icon={<Printer aria-hidden="true" />}
+                  disabled={busy}
+                  onClick={() => void print([open])}
+                >
+                  Print sticker
+                </Button>
+                <Button
+                  variant="secondary"
+                  icon={<RefreshCw aria-hidden="true" />}
+                  onClick={() => setConfirming(open)}
+                >
+                  Replace code
+                </Button>
+              </div>
+            )}
+            <ErrorNote message={rotate.isError ? describeError(rotate.error) : null} />
+            <ErrorNote message={problem} />
+          </div>
+        </Dialog>
+      )}
     </section>
   );
 }
