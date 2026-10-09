@@ -113,6 +113,9 @@ describe('Day close', () => {
     ).toHaveAttribute('href', '/pos?order=o4');
     expect(within(open).getAllByRole('listitem')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Close day' })).toBeDisabled();
+    // Says which day is being closed, which matters when it was left open overnight.
+    expect(screen.getByRole('heading', { name: 'Close the business day' })).toBeInTheDocument();
+    expect(screen.getByText('Opened Tue, 6 Oct, 9:00 am by Meena')).toBeInTheDocument();
   });
 
   it('closes the day with the counted cash and shows the report', async () => {

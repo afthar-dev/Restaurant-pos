@@ -26,6 +26,23 @@ import { Link } from 'react-router';
 const signed = (paise: number) =>
   paise < 0 ? `−${rupees(-paise)}` : paise > 0 ? `+${rupees(paise)}` : rupees(0);
 
+/** "Tue, 6 Oct, 9:00 am" in India time. */
+const openedLabel = (iso: string) => {
+  const at = new Date(iso);
+  const date = at.toLocaleDateString('en-IN', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'Asia/Kolkata',
+  });
+  const time = at.toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'Asia/Kolkata',
+  });
+  return `${date}, ${time}`;
+};
+
 const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
@@ -98,6 +115,7 @@ function Blockers({ blockers }: { blockers: DayBlockers }) {
 function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
   const id = useId();
   const check = useCloseCheck();
+  const openDay = useBusinessDay().data?.day;
   const [counted, setCounted] = useState('');
   const [note, setNote] = useState('');
   const [confirming, setConfirming] = useState(false);
@@ -132,8 +150,17 @@ function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
   }
 
   return (
-    <section aria-label="Close today" className="flex flex-col gap-3">
-      <h2 className="text-lg font-semibold">Close today</h2>
+    <section aria-labelledby={`${id}-title`} className="flex flex-col gap-3">
+      <div>
+        <h2 id={`${id}-title`} className="text-lg font-semibold">
+          Close the business day
+        </h2>
+        {openDay && (
+          <p className="text-sm text-muted">
+            {`Opened ${openedLabel(openDay.openedAt)} by ${openDay.openedBy.name}`}
+          </p>
+        )}
+      </div>
       <Blockers blockers={blockers} />
       <Block title="Cash in the drawer">
         <Row label="Opening" value={rupees(cash.opening)} />
