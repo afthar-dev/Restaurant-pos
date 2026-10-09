@@ -414,6 +414,8 @@ export async function loadDemo(prisma: PrismaClient): Promise<string[]> {
   const pick = <T>(list: T[]) => list[Math.floor(random() * list.length)]!;
   const cashierId = staffIds.Arun!;
   const waiters = [staffIds.Ravi!, staffIds.Priya!];
+  // Bill numbers continue from the app's BILL counter, and the counter is moved past them at
+  // the end, so bills made in the app afterwards do not reuse a demo bill's number.
   const fyNext = new Map<string, number>();
   const nextBillNo = async (fy: string) => {
     if (!fyNext.has(fy)) {
@@ -421,7 +423,10 @@ export async function loadDemo(prisma: PrismaClient): Promise<string[]> {
         where: { outletId: outlet.id, financialYear: fy },
         _max: { billNo: true },
       });
-      fyNext.set(fy, (last._max.billNo ?? 0) + 1);
+      const counter = await prisma.counter.findUnique({
+        where: { outletId_key_period: { outletId: outlet.id, key: 'BILL', period: fy } },
+      });
+      fyNext.set(fy, Math.max(last._max.billNo ?? 0, counter?.value ?? 0) + 1);
     }
     const n = fyNext.get(fy)!;
     fyNext.set(fy, n + 1);
@@ -629,6 +634,13 @@ export async function loadDemo(prisma: PrismaClient): Promise<string[]> {
       },
     });
     daysAdded += 1;
+  }
+  for (const [fy, next] of fyNext) {
+    await prisma.counter.upsert({
+      where: { outletId_key_period: { outletId: outlet.id, key: 'BILL', period: fy } },
+      create: { outletId: outlet.id, key: 'BILL', period: fy, value: next - 1 },
+      update: { value: next - 1 },
+    });
   }
   notes.push(`${daysAdded} closed days of sales history with ${billsAdded} paid bills.`);
   return notes;
