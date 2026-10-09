@@ -91,8 +91,16 @@ one with the cash in the drawer.
 
 ### Kitchen screen
 
-1. Register a window as a **kitchen** device, or open **Kitchen** as the owner.
-2. Mark tickets as preparing and ready; the captain and POS see the change straight away.
+The kitchen screen runs without anyone signed in, so the browser it runs in must be registered
+as a kitchen screen first. Until then it says "This screen is not set up yet". One browser is
+one device, so use a separate window and keep your counter window as it is:
+
+1. Open a **private window** at http://localhost:5173 and sign in as the owner.
+2. **Admin → Devices** → name it (for example "Kitchen"), set **Used for** to **Kitchen
+   screen** and press **Register this device**.
+3. Open **Kitchen** (http://localhost:5173/kds) in that window. It shows the tickets sent from
+   the POS and captain.
+4. Mark tickets as preparing and ready; the captain and POS see the change straight away.
 
 ### Dish availability
 
