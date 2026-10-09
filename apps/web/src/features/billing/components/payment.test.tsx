@@ -1,6 +1,7 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { Permission } from '@rpos/shared';
 import { describe, expect, it, vi } from 'vitest';
+import { useNotifications } from '@/features/notifications';
 import { useSession } from '@/shared/session/store';
 import { bill, line, order } from '@/test/fixtures';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
@@ -218,6 +219,10 @@ describe('paying from the order screen', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'UPI' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm ₹473 by UPI' }));
     expect(await screen.findByText('Bill 12 paid. T1 is free.')).toBeInTheDocument();
+    // Also a toast, which stays in view wherever the counter has scrolled and after it closes.
+    expect(useNotifications.getState().toasts.map((t) => t.text)).toContain(
+      'Bill 12 paid. T1 is free.',
+    );
     await expect.poll(() => onClosed.mock.calls.length, { timeout: 4000 }).toBe(1);
   });
 
