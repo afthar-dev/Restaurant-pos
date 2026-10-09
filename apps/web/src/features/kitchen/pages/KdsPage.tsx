@@ -1,8 +1,12 @@
-import type { KotStatus } from '@rpos/shared';
+import type { DeviceType, KotStatus } from '@rpos/shared';
+import { ChefHat } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { useCurrentDevice } from '@/features/auth';
+import { useRegisterDevice } from '@/features/devices';
 import { orderLabel } from '@/features/orders';
-import { describeError, ErrorNote, LoadingScreen } from '@/shared/ui';
+import { useCan, useSession } from '@/shared/session/store';
+import { Button, describeError, ErrorNote, LoadingScreen } from '@/shared/ui';
 import { useAdvanceKot } from '../mutations';
 import { useKdsStations, useKdsTickets } from '../queries';
 import { useStationFilter } from '../store';
@@ -201,18 +205,59 @@ export function KdsPage() {
   }
   if (!device.data) {
     return (
-      <p className="mx-auto max-w-md rounded-lg border border-border bg-surface p-6 text-muted">
-        This screen is not set up yet. A manager can register it as a kitchen screen in Admin →
-        Devices.
-      </p>
+      <SetUpScreen message="This screen is not set up yet. A manager can register it as a kitchen screen in Admin → Devices." />
     );
   }
   if (device.data.type !== 'KDS') {
     return (
-      <p className="mx-auto max-w-md rounded-lg border border-border bg-surface p-6 text-muted">
-        {device.data.name} is registered as a counter, not a kitchen screen.
-      </p>
+      <SetUpScreen
+        message={`${device.data.name} is registered as ${USED_AS[device.data.type]}, not a kitchen screen.`}
+        replacing={`${device.data.name} will stop working as ${USED_AS[device.data.type]}.`}
+      />
     );
   }
   return <KitchenBoard />;
+}
+
+const USED_AS: Record<Exclude<DeviceType, 'KDS'>, string> = {
+  POS: 'a counter',
+  CAPTAIN: 'a waiter phone',
+  PRINT_AGENT: 'a print agent',
+};
+
+/**
+ * Why this browser cannot show the kitchen yet. Someone who manages devices can make it the
+ * kitchen screen right here; everyone else is told who can.
+ */
+function SetUpScreen({ message, replacing }: { message: string; replacing?: string }) {
+  const canSetUp = useCan('devices.manage');
+  const signedIn = useSession((state) => state.user !== null);
+  const register = useRegisterDevice(() => undefined);
+  return (
+    <div className="mx-auto flex max-w-md flex-col items-start gap-4 rounded-lg border border-border bg-surface p-6">
+      <ChefHat aria-hidden="true" className="size-6 text-muted" />
+      <p className="text-muted">{message}</p>
+      {canSetUp && (
+        <>
+          {replacing && <p className="text-sm text-muted">{replacing}</p>}
+          <Button
+            loading={register.isPending}
+            onClick={() => register.mutate({ name: 'Kitchen', type: 'KDS' })}
+          >
+            {replacing ? 'Use this screen for the kitchen instead' : 'Set up this screen'}
+          </Button>
+          <ErrorNote message={register.isError ? describeError(register.error) : null} />
+        </>
+      )}
+      {!signedIn && (
+        <Link
+          to="/login"
+          state={{ from: '/kds' }}
+          className="inline-flex min-h-11 items-center text-sm font-medium text-primary-800 underline-offset-4 hover:underline"
+        >
+          Sign in to set it up
+        </Link>
+      )}
+    </div>
+  );
 }
