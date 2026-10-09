@@ -64,7 +64,7 @@ function TicketCard({
       <p className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted">
         <span>{`${ticket.stationName} · ${ticket.waiterName} ·`}</span>
         {late ? (
-          <span className="rounded bg-amber-400 px-1.5 font-semibold text-amber-950">
+          <span className="rounded bg-warning-solid px-1.5 font-semibold text-on-warning">
             {`Late · ${ageLabel(minutes)}`}
           </span>
         ) : (
@@ -105,7 +105,7 @@ function TicketCard({
           disabled={busy}
           onClick={() => onAdvance(next.status)}
           className={`min-h-14 rounded-lg text-lg font-semibold text-white disabled:opacity-60 ${
-            cancelled ? 'bg-red-700' : 'bg-primary-700'
+            cancelled ? 'bg-danger-solid' : 'bg-primary-700'
           }`}
         >
           {next.verb}

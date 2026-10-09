@@ -9,7 +9,7 @@ import { lineDetail } from './lineDetail';
 const KOT_DOT: Record<OrderKot['status'], string> = {
   NEW: 'bg-sky-500',
   PREPARING: 'bg-amber-500',
-  READY: 'bg-green-600',
+  READY: 'bg-success-solid',
   SERVED: 'bg-slate-400',
 };
 

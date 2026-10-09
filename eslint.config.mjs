@@ -87,6 +87,7 @@ export default tseslint.config(
       '**/*.config.{js,mjs,cjs,ts}',
       '**/*.js',
       'scripts/**',
+      'apps/*/scripts/**',
     ],
   },
   js.configs.recommended,
