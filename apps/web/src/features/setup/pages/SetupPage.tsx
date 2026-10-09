@@ -69,7 +69,7 @@ function StepRow({
             <h2 className="text-base font-semibold">{step.title}</h2>
             <p className="text-sm text-muted">{step.help}</p>
             {step.status === 'skipped' && (
-              <p className="text-sm text-subtle">{`Skipped — ${step.skipLabel}`}</p>
+              <p className="text-sm text-subtle">{`Skipped: ${step.skipLabel}`}</p>
             )}
             {step.status === 'error' && (
               <p className="text-sm text-red-700">Could not check this step.</p>

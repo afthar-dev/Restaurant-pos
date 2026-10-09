@@ -62,7 +62,7 @@ describe('SetupPage', () => {
     renderRoute('/setup');
     fireEvent.click(await screen.findByRole('button', { name: 'We only do parcels' }));
     expect(screen.getByText('1 of 6 done')).toBeInTheDocument();
-    expect(screen.getByText('Skipped — We only do parcels')).toBeInTheDocument();
+    expect(screen.getByText('Skipped: We only do parcels')).toBeInTheDocument();
     expect(JSON.parse(localStorage.getItem('rpos.setup.skipped')!)).toEqual(['tables']);
     fireEvent.click(screen.getByRole('button', { name: 'Undo skip for Tables and QR stickers' }));
     expect(screen.getByText('0 of 6 done')).toBeInTheDocument();
