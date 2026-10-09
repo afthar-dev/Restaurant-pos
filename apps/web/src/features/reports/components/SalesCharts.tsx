@@ -1,60 +1,14 @@
 import { useId } from 'react';
 import { rupees } from '@/shared/lib/money';
 import { Card, CardBody } from '@/shared/ui';
-import { BarChart, type Bar } from '../charts/BarChart';
-import { PaymentMix } from '../charts/PaymentMix';
-import { billCount, dayLabel, hourLabel, hourRange, shortDayLabel } from '../charts/scale';
+import { AreaTrend } from '../charts/AreaTrend';
+import { ChartFrame } from '../charts/ChartFrame';
+import { ColumnChart } from '../charts/ColumnChart';
+import { PaymentDonut } from '../charts/PaymentDonut';
+import { dayPoints, hourPoints } from '../charts/points';
+import { billCount, dayLabel, hourRange } from '../charts/scale';
 import { TopDishes } from '../charts/TopDishes';
 import type { SalesReport } from '../types';
-
-function dayBars(days: SalesReport['days']): Bar[] {
-  const every = Math.ceil(days.length / 8);
-  return days.map((d, i) => ({
-    key: d.dayId,
-    label: i % every === 0 ? shortDayLabel(d.date) : '',
-    value: d.total,
-    detail: `${dayLabel(d.date)} · ${rupees(d.total)} · ${billCount(d.bills)}`,
-  }));
-}
-
-/**
- * The hours in service order: the day starts after the longest quiet stretch, so a late night
- * (11pm, 12am, 1am) sits next to the evening instead of at the far left.
- */
-function serviceHours(busy: number[]): number[] {
-  const sorted = [...new Set(busy)].sort((a, b) => a - b);
-  if (sorted.length <= 1) return sorted;
-  let start = sorted[0]!;
-  let gap = -1;
-  sorted.forEach((hour, i) => {
-    const next = sorted[(i + 1) % sorted.length]!;
-    const quiet = (next - hour + 24) % 24;
-    if (quiet > gap) {
-      gap = quiet;
-      start = next;
-    }
-  });
-  return Array.from({ length: 24 - gap + 1 }, (_, k) => (start + k) % 24);
-}
-
-/** Every hour from the first to the last with sales, so quiet hours show as gaps. */
-function hourBars(hours: SalesReport['hours']): Bar[] {
-  const order = serviceHours(hours.map((h) => h.hour));
-  const first = order[0]!;
-  const bars: Bar[] = [];
-  for (const h of order) {
-    const row = hours.find((x) => x.hour === h);
-    const total = row?.total ?? 0;
-    const bills = row?.bills ?? 0;
-    bars.push({
-      key: String(h),
-      label: h % 3 === 0 || h === first ? hourLabel(h) : '',
-      value: total,
-      detail: `${hourRange(h)} · ${rupees(total)} · ${billCount(bills)}`,
-    });
-  }
-  return bars;
-}
 
 const most = <T,>(rows: T[], value: (row: T) => number) =>
   rows.reduce((a, b) => (value(b) > value(a) ? b : a));
@@ -77,29 +31,31 @@ export function SalesCharts({ report }: { report: SalesReport }) {
         {bestDay && (
           <Card>
             <CardBody>
-              <BarChart
+              <ChartFrame
                 title="Sales by day"
                 takeaway={`Best day: ${dayLabel(bestDay.date)}, ${rupees(bestDay.total)}`}
-                bars={dayBars(days)}
-              />
+              >
+                <ColumnChart title="Sales by day" points={dayPoints(days, true)} />
+              </ChartFrame>
             </CardBody>
           </Card>
         )}
         {peak && (
           <Card>
             <CardBody>
-              <BarChart
+              <ChartFrame
                 title="Busiest hours"
                 takeaway={`Busiest: ${hourRange(peak.hour)}, ${rupees(peak.total)} from ${billCount(peak.bills)}`}
-                bars={hourBars(hours)}
-              />
+              >
+                <AreaTrend title="Busiest hours" points={hourPoints(hours)} />
+              </ChartFrame>
             </CardBody>
           </Card>
         )}
         {paid > 0 && (
           <Card>
             <CardBody>
-              <PaymentMix payments={summary.payments} />
+              <PaymentDonut payments={summary.payments} />
             </CardBody>
           </Card>
         )}

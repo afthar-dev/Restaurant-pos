@@ -4,16 +4,21 @@ import {
   dayLabel,
   hourLabel,
   hourRange,
-  niceMax,
+  niceTicks,
   shortDayLabel,
   shortRupees,
 } from './scale';
 
 describe('chart scale', () => {
-  it('rounds the axis top up to 1, 2, 2.5 or 5 times a power of ten', () => {
-    expect([0, 1, 7, 250, 12_340, 99_000, 12_345_600].map(niceMax)).toEqual([
-      0, 1, 10, 250, 20_000, 100_000, 20_000_000,
-    ]);
+  it('puts axis ticks on 1, 2 or 5 times a power of ten', () => {
+    expect(niceTicks(0)).toEqual([0]);
+    // ₹26,546 → steps of ₹10k, not ₹33.3k thirds.
+    expect(niceTicks(2_654_600)).toEqual([0, 1_000_000, 2_000_000, 3_000_000]);
+    // ₹14,794 → ₹5k steps.
+    expect(niceTicks(1_479_400)).toEqual([0, 500_000, 1_000_000, 1_500_000]);
+    // Exactly on a step: no extra empty tick above.
+    expect(niceTicks(2_000_000)).toEqual([0, 500_000, 1_000_000, 1_500_000, 2_000_000]);
+    expect(niceTicks(7)).toEqual([0, 2, 4, 6, 8]);
   });
 
   it('writes short rupee amounts for axes', () => {

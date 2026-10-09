@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { expectNoAxeViolations } from '@/test/a11y';
 import type { SalesReport } from '../types';
@@ -58,10 +58,12 @@ describe('SalesCharts', () => {
     expect(screen.getByText('Top seller: Paneer Tikka, ₹4,400')).toBeInTheDocument();
   });
 
-  it('keeps the hours continuous, with empty hours as empty bars', () => {
+  it('lists every service hour, quiet ones included', () => {
     render(<SalesCharts report={REPORT} />);
-    const hours = within(screen.getByRole('group', { name: /^Busiest hours/ }));
-    expect(hours.getAllByRole('img').map((b) => b.getAttribute('aria-label'))).toEqual([
+    const items = within(screen.getByRole('list', { name: 'Busiest hours data' })).getAllByRole(
+      'listitem',
+    );
+    expect(items.map((li) => li.textContent)).toEqual([
       '1pm–2pm · ₹8,400 · 14 bills',
       '2pm–3pm · ₹0 · 0 bills',
       '3pm–4pm · ₹1,500 · 3 bills',
@@ -73,10 +75,14 @@ describe('SalesCharts', () => {
     const legend = within(screen.getByRole('list', { name: 'Payment modes' }));
     expect(legend.getByText('Card').closest('li')).toHaveTextContent('Card₹00%');
     expect(legend.getByText('Cash').closest('li')).toHaveTextContent('Cash₹5,00033%');
-    expect(
-      screen.getByRole('img', { name: 'Cash ₹5,000 (33%), UPI ₹10,000 (67%), Card ₹0 (0%)' })
-        .children,
-    ).toHaveLength(2);
+    expect(document.querySelectorAll('.recharts-pie-sector')).toHaveLength(2);
+  });
+
+  it('lists every day for screen readers', () => {
+    render(<SalesCharts report={REPORT} />);
+    expect(screen.getByRole('list', { name: 'Sales by day data' })).toHaveTextContent(
+      'Sat 10 Oct · ₹18,250 · 10 bills',
+    );
   });
 
   it('names dishes with their size when it is not Regular', () => {
@@ -102,27 +108,6 @@ describe('SalesCharts', () => {
         <SalesCharts report={REPORT} />
       </main>,
     );
-    fireEvent.focus(screen.getAllByRole('img')[0]!);
     await expectNoAxeViolations();
-  });
-
-  it('keeps a late night next to the evening, not at the far left', () => {
-    render(
-      <SalesCharts
-        report={{
-          ...REPORT,
-          hours: [
-            { hour: 0, bills: 2, total: 100_000 },
-            { hour: 1, bills: 1, total: 50_000 },
-            { hour: 22, bills: 5, total: 400_000 },
-            { hour: 23, bills: 3, total: 200_000 },
-          ],
-        }}
-      />,
-    );
-    const hours = within(screen.getByRole('group', { name: /^Busiest hours/ }));
-    expect(
-      hours.getAllByRole('img').map((b) => b.getAttribute('aria-label')?.split(' · ')[0]),
-    ).toEqual(['10pm–11pm', '11pm–12am', '12am–1am', '1am–2am']);
   });
 });
