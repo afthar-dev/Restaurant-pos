@@ -132,8 +132,11 @@ Screens are built from the kit, not from raw Tailwind colours.
 - **Empty lists explain the next step** with `EmptyState` (icon, title, one sentence), not a
   bare "No items".
 - **Touch targets** are at least 44 px (`min-h-11`); money and quantities use `tabular-nums`.
-- **Icons** come from `lucide-react`, always `aria-hidden` next to visible text. A dot or icon
-  that carries meaning on its own gets `role="img"` and an `aria-label`.
+- **Icons** come from `lucide-react` (both apps), stroke 2, at three sizes through `Icon`
+  (`sm` 16 px inline with text, `md` 20 px in controls and rows, `lg` 24 px in empty states and
+  headers); kit buttons size their icons themselves. An icon beside text is `aria-hidden`; one
+  that stands alone gets a `label`. Payment modes use `PaymentIcon`; veg / non-veg / egg use
+  `FoodMark`, never a coloured dot.
 - **Charts** use Recharts and live in `features/reports/charts/` (the only folder allowed to
   import it, so it stays out of the first bundle). Charts take `ChartPoint[]`, draw colours
   from tokens, put the data in a screen-reader list (`ChartData`) and switch animation off
