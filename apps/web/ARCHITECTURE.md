@@ -113,6 +113,12 @@ Screens are built from the kit, not from raw Tailwind colours.
   `primary-*` scale for actions and selection. Green, amber, red, sky and violet mean success,
   warning, danger, info and QR orders. The kitchen display sets `data-theme="dark"`, which
   redefines the same tokens, so token classes work there unchanged.
+- **Appearance:** light and dark follow the device (no in-app switch). Use the tokens or the
+  status scales: `bg-red-50 text-red-700`-style pairs invert together in dark (see
+  `scripts/dark-palette.mjs`). White text sits only on `primary-700`, `danger-solid` or
+  `success-solid`; the amber flag is `warning-solid` with `text-on-warning`.
+  `src/app/theme.test.ts` checks the contrast of every pair in use; add new pairs there.
+- **Figures** in a row use `StatStrip` (one surface, hairline rules), not a card per number.
 - **Every screen starts with `PageHeader`**: a title and one plain sentence on what the screen
   is for. Admin sections use `as="h2"` because the Admin layout owns the h1.
 - **Pieces:** `Button`/`IconButton` (`IconButton` needs a `label`), `Card`, `Badge`,

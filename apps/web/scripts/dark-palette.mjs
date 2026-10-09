@@ -2,6 +2,8 @@
 // value of its mirror (50 <-> 950, 100 <-> 900 ...), so light tints become dark tints and dark
 // text becomes light text, and classes like `bg-red-50 text-red-700` keep working in dark.
 // Run: node apps/web/scripts/dark-palette.mjs
+// After pasting, keep the hand-tuned --color-amber-50 (#2a1d0e): the mirrored amber-950 is too
+// loud for warning boxes on the dark surface.
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
