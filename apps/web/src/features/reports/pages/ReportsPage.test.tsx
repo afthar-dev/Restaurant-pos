@@ -65,11 +65,7 @@ describe('ReportsPage', () => {
     renderRoute('/reports');
     expect(
       // The page and its chart library load lazily; give the first render time on a busy machine.
-      await screen.findByText(
-        '₹1,170.50',
-        { selector: 'span:not([aria-hidden="true"] span)' },
-        { timeout: 15_000 },
-      ),
+      await screen.findByText('₹1,170.50', { selector: 'dd' }, { timeout: 15_000 }),
     ).toBeInTheDocument();
     expect(screen.getByText('₹1,160.50')).toBeInTheDocument();
     const url = String(callsTo(mock, 'GET', '/api/reports/sales')[0]?.[0]);

@@ -54,7 +54,7 @@ export function OrderWorkspace({
         {settled && order.data && (
           <p
             role="status"
-            className="rounded-lg bg-green-700 px-4 py-3 text-base font-semibold text-white"
+            className="rounded-lg bg-success-solid px-4 py-3 text-base font-semibold text-white"
           >
             {paidText}
           </p>

@@ -44,11 +44,7 @@ export function Sidebar({
           if (items.length === 0) return null;
           return (
             <div key={group} className="flex flex-col gap-1">
-              {!collapsed && (
-                <p className="px-3 pb-1 text-xs font-semibold tracking-wide text-subtle uppercase">
-                  {group}
-                </p>
-              )}
+              {!collapsed && <p className="px-3 pb-1 text-xs font-medium text-subtle">{group}</p>}
               {items.map((entry) => {
                 const Icon = entry.icon;
                 const link = (
@@ -58,10 +54,11 @@ export function Sidebar({
                     aria-label={collapsed ? entry.label : undefined}
                     aria-current={isActive(entry, pathname) ? 'page' : undefined}
                     className={cn(
-                      'flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors',
+                      'relative flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors',
                       collapsed && 'justify-center px-0',
                       isActive(entry, pathname)
-                        ? 'bg-primary-50 text-primary-800'
+                        ? // A saffron rule on the left marks the current screen.
+                          'bg-primary-50 font-semibold text-primary-800 before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-primary-600'
                         : 'text-muted hover:bg-surface-2 hover:text-text',
                     )}
                   >

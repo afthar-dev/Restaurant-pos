@@ -10,8 +10,8 @@ import {
   Dialog,
   EmptyState,
   ErrorNote,
-  LoadingScreen,
   secondaryButton,
+  Skeleton,
 } from '@/shared/ui';
 import { useOpenTable } from '../mutations';
 import { useFloorStatus } from '../queries';
@@ -101,7 +101,16 @@ export function FloorGrid({
         <ErrorNote message={describeError(floor.error)} onRetry={() => void floor.refetch()} />
       );
     }
-    return <LoadingScreen rows={2} />;
+    return (
+      <div role="status" aria-label="Loading tables" className="flex flex-col gap-2">
+        <Skeleton className="h-4 w-28" />
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-2">
+          {Array.from({ length: 8 }, (_, i) => (
+            <Skeleton key={i} data-skeleton="table" className="h-24 rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (

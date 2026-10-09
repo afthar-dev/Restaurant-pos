@@ -6,7 +6,7 @@ import { useCurrentDevice } from '@/features/auth';
 import { useRegisterDevice } from '@/features/devices';
 import { orderLabel } from '@/features/orders';
 import { useCan, useSession } from '@/shared/session/store';
-import { Button, describeError, ErrorNote, LoadingScreen } from '@/shared/ui';
+import { Button, describeError, ErrorNote, LoadingScreen, Skeleton } from '@/shared/ui';
 import { useAdvanceKot } from '../mutations';
 import { useKdsStations, useKdsTickets } from '../queries';
 import { ageLabel, LATE_MINUTES } from '../age';
@@ -52,13 +52,13 @@ function TicketCard({
       aria-label={label}
       className={`flex flex-col gap-3 rounded-xl border-2 p-4 shadow-card ${
         cancelled
-          ? 'border-red-500 bg-red-950/50'
+          ? 'border-red-500 bg-red-50'
           : `bg-surface ${late ? 'border-amber-400' : 'border-border'}`
       }`}
     >
       <header className="flex items-baseline justify-between gap-2">
         <span className="text-2xl font-bold">
-          {cancelled && <span className="mr-2 text-red-400">CANCEL</span>}
+          {cancelled && <span className="mr-2 text-red-700">CANCEL</span>}
           KOT {ticket.kotNo}
         </span>
         <span className="text-xl font-semibold">{orderLabel(ticket)}</span>
@@ -66,7 +66,7 @@ function TicketCard({
       <p className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted">
         <span>{`${ticket.stationName} · ${ticket.waiterName} ·`}</span>
         {late ? (
-          <span className="rounded bg-amber-400 px-1.5 font-semibold text-amber-950">
+          <span className="rounded bg-warning-solid px-1.5 font-semibold text-on-warning">
             {`Late · ${ageLabel(minutes)}`}
           </span>
         ) : (
@@ -75,7 +75,7 @@ function TicketCard({
       </p>
       <ul className="flex flex-col gap-2 text-lg">
         {ticket.lines.map((l) => (
-          <li key={l.id} className={cancelled ? 'text-red-300 line-through' : ''}>
+          <li key={l.id} className={cancelled ? 'text-red-700 line-through' : ''}>
             <span className="font-semibold">
               {l.quantity} × {l.itemName}
               {l.variantName !== 'Regular' ? ` (${l.variantName})` : ''}
@@ -95,7 +95,7 @@ function TicketCard({
               </span>
             ))}
             {l.note && (
-              <span className="block pl-6 text-base italic text-amber-300">“{l.note}”</span>
+              <span className="block pl-6 text-base italic text-amber-800">“{l.note}”</span>
             )}
           </li>
         ))}
@@ -107,7 +107,7 @@ function TicketCard({
           disabled={busy}
           onClick={() => onAdvance(next.status)}
           className={`inline-flex min-h-14 items-center justify-center gap-2 rounded-lg text-lg font-semibold text-white disabled:opacity-60 ${
-            cancelled ? 'bg-red-700' : 'bg-primary-700'
+            cancelled ? 'bg-danger-solid' : 'bg-primary-700'
           }`}
         >
           <next.icon aria-hidden="true" className="size-6" />
@@ -142,7 +142,14 @@ function KitchenBoard() {
     return tickets.isError ? (
       <ErrorNote message={describeError(tickets.error)} />
     ) : (
-      <LoadingScreen />
+      <div role="status" aria-label="Loading tickets" className="grid gap-4 md:grid-cols-3">
+        {Array.from({ length: 3 }, (_, i) => (
+          <div key={i} className="flex flex-col gap-3">
+            <Skeleton className="h-6 w-24" />
+            <Skeleton data-skeleton="ticket" className="h-40 rounded-xl" />
+          </div>
+        ))}
+      </div>
     );
   }
 

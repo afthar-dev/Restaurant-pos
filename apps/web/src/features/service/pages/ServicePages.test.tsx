@@ -87,6 +87,18 @@ describe('POS counter', () => {
   });
 });
 
+describe('POS loading', () => {
+  beforeEach(() => handlers.clear());
+
+  it('shows table-shaped placeholders while the floor loads', async () => {
+    useSession.getState().setSession(sessionBody('CASHIER', ['order.take', 'bill.print']));
+    serviceApi({ 'GET /api/floor/status': () => new Promise<Response>(() => undefined) });
+    renderRoute('/pos');
+    const loading = await screen.findByRole('status', { name: 'Loading tables' });
+    expect(loading.querySelectorAll('[data-skeleton="table"]')).toHaveLength(8);
+  });
+});
+
 describe('POS counter on a tablet', () => {
   beforeEach(() => handlers.clear());
 

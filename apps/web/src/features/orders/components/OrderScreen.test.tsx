@@ -166,6 +166,15 @@ describe('OrderPanel', () => {
     expect(send.querySelector('svg.lucide-chef-hat')).not.toBeNull();
   });
 
+  it('uses 44 px icon steppers for unsent dishes', async () => {
+    asWaiter();
+    mockApi({ 'GET /api/orders/o1': () => json(withItems) });
+    renderWithProviders(<OrderPanel orderId="o1" />);
+    const more = await screen.findByRole('button', { name: /^One more / });
+    expect(more).toHaveClass('size-11');
+    expect(more.querySelector('svg.lucide-plus')).not.toBeNull();
+  });
+
   it('drops the send button once everything is with the kitchen', async () => {
     asWaiter();
     const allSent = order({ items: [line({ id: 'l2', status: 'SENT', kotId: 'k2' })] });

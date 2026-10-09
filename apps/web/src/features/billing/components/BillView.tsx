@@ -68,7 +68,7 @@ export function BillView({
             bill.status === 'PAID'
               ? 'bg-green-100 text-green-800'
               : bill.status === 'VOID'
-                ? 'bg-slate-200 text-text'
+                ? 'bg-surface-2 text-muted'
                 : 'bg-amber-100 text-amber-900'
           }`}
         >

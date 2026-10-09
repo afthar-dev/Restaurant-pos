@@ -20,6 +20,7 @@ export { LoadingScreen, Skeleton } from './Skeleton';
 export { DropdownMenu, MenuItem, MenuLabel, MenuSeparator, Tooltip } from './Menu';
 export { Spinner } from './Spinner';
 export { StatCard } from './StatCard';
+export { StatStrip, type Stat } from './StatStrip';
 export { TabPanel, Tabs } from './Tabs';
 export {
   buttonClass,
