@@ -273,7 +273,12 @@ export function HomePage() {
       {day.data && !dayOpen && <DayNotOpen />}
       {canQr && dayOpen && <QrWaiting />}
       {canSales && <SalesToday />}
-      {canSales && <WeekTrend />}
+      {canSales &&
+        (day.data ? (
+          <WeekTrend openedAt={day.data.day?.openedAt} />
+        ) : (
+          <Skeleton className="h-44" />
+        ))}
       {canClose && dayOpen && <OpenWork />}
       {canStock && <LowStock />}
       <QuickActions />

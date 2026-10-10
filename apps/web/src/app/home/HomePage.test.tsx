@@ -243,6 +243,9 @@ describe('HomePage', () => {
     const to = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
     const shift = (n: number) =>
       new Date(Date.parse(`${to}T00:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
+    const openToday = {
+      day: { ...DAY_OPEN.day, openedAt: `${to}T04:30:00Z` },
+    };
     const week = {
       ...SALES,
       days: [
@@ -288,12 +291,12 @@ describe('HomePage', () => {
       ],
     };
     const mock = mockApi({
-      'GET /api/business-day/current': () => json(DAY_OPEN),
+      'GET /api/business-day/current': () => json(openToday),
       'GET /api/reports/sales': () => json(week),
     });
     renderRoute('/');
     expect(await screen.findByRole('heading', { level: 2, name: 'Last 7 days' })).toBeVisible();
-    expect(screen.getByText('Today ₹1,500 · 7-day total ₹3,500')).toBeInTheDocument();
+    expect(screen.getByText('This business day ₹1,500 · 7-day total ₹3,500')).toBeInTheDocument();
     const data = within(await screen.findByRole('list', { name: 'Last 7 days data' }));
     const days = data.getAllByRole('listitem');
     expect(days).toHaveLength(7);
@@ -306,5 +309,62 @@ describe('HomePage', () => {
       String(url).includes(`from=${shift(6)}`),
     );
     expect(weekCall).toBeDefined();
+  });
+
+  describe('the weekly chart and a business day that runs past midnight', () => {
+    const istDate = (offsetDays: number) =>
+      new Date(Date.now() + 5.5 * 3600_000 - offsetDays * 86_400_000).toISOString().slice(0, 10);
+    const entry = (date: string, total: number, bills: number, status: 'OPEN' | 'CLOSED') => ({
+      dayId: `day-${date}`,
+      date,
+      status,
+      bills,
+      total,
+      cash: 0,
+      upi: 0,
+      card: 0,
+      collected: 0,
+      unpaid: 0,
+      expenses: 0,
+    });
+    const highlightedBars = () =>
+      [...document.querySelectorAll('.recharts-bar-rectangle path')].filter(
+        (p) => p.getAttribute('fill') === 'var(--color-primary-900)',
+      );
+
+    it('highlights the open business day, filed under yesterday, and calls it this business day', async () => {
+      useSession.getState().setSession(sessionBody('OWNER', ['reports.all'], 'Asha'));
+      const openedYesterday = {
+        day: { ...DAY_OPEN.day, openedAt: `${istDate(1)}T14:30:00Z` },
+      };
+      mockApi({
+        'GET /api/business-day/current': () => json(openedYesterday),
+        'GET /api/reports/sales': () =>
+          json({
+            ...SALES,
+            days: [entry(istDate(3), 50_000, 1, 'CLOSED'), entry(istDate(1), 400_000, 6, 'OPEN')],
+          }),
+      });
+      renderRoute('/');
+      // Today has no sales yet: the figure is the open day's, which the reports file under
+      // yesterday's date.
+      expect(
+        await screen.findByText('This business day ₹4,000 · 7-day total ₹4,500'),
+      ).toBeInTheDocument();
+      const data = within(await screen.findByRole('list', { name: 'Last 7 days data' }));
+      expect(data.getAllByRole('listitem')[5]).toHaveTextContent('₹4,000 · 6 bills');
+      await expect.poll(() => highlightedBars().length).toBe(1);
+    });
+
+    it('says Today when no business day is open', async () => {
+      useSession.getState().setSession(sessionBody('OWNER', ['reports.all'], 'Asha'));
+      mockApi({
+        'GET /api/business-day/current': () => json({ day: null }),
+        'GET /api/reports/sales': () =>
+          json({ ...SALES, days: [entry(istDate(0), 120_000, 3, 'CLOSED')] }),
+      });
+      renderRoute('/');
+      expect(await screen.findByText('Today ₹1,200 · 7-day total ₹1,200')).toBeInTheDocument();
+    });
   });
 });

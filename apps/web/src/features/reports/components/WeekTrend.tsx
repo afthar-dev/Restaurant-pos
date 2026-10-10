@@ -7,7 +7,7 @@ import type { ColumnChart as Chart } from '../charts/ColumnChart';
 import { billCount, dayLabel, shortDayLabel } from '../charts/scale';
 import type { ChartPoint } from '../charts/types';
 import { useSalesReport } from '../queries';
-import { datesInRange, presetRange } from '../ranges';
+import { datesInRange, istDateOf, presetRange } from '../ranges';
 
 // Recharts is big: the home screen loads it after the card's text is on screen. If its code
 // cannot load (app updated, Wi-Fi dropped), the card keeps its text and goes without the
@@ -16,8 +16,12 @@ const ColumnChart = lazy<ComponentType<ComponentProps<typeof Chart>>>(() =>
   import('../charts/ColumnChart').catch(() => ({ default: () => null })),
 );
 
-/** Owner home: the last seven India dates, today highlighted; closed days are empty slots. */
-export function WeekTrend() {
+/**
+ * Owner home: the last seven India dates; closed days are empty slots. The highlighted bar is
+ * the open business day (filed under the date it was opened, which is yesterday's after
+ * midnight), or today when no day is open.
+ */
+export function WeekTrend({ openedAt }: { openedAt?: string | null }) {
   // Worked out on each render, so a screen left open overnight moves to the new day.
   const range = presetRange('last7Days');
   const report = useSalesReport(range);
@@ -32,7 +36,11 @@ export function WeekTrend() {
   const week = [...byDate.entries()]
     .filter(([date]) => date >= range.from && date <= range.to)
     .reduce((n, [, t]) => n + t.total, 0);
-  const today = byDate.get(range.to)?.total ?? 0;
+  const openDate = openedAt ? istDateOf(openedAt) : null;
+  const inWeek = openDate !== null && openDate >= range.from && openDate <= range.to;
+  const current = inWeek ? openDate : range.to;
+  const nowLabel = inWeek ? 'This business day' : 'Today';
+  const now = byDate.get(current)?.total ?? 0;
   const points: ChartPoint[] = datesInRange(range).map((date) => {
     const t = byDate.get(date) ?? { total: 0, bills: 0 };
     return {
@@ -40,7 +48,7 @@ export function WeekTrend() {
       label: shortDayLabel(date),
       value: t.total,
       detail: `${dayLabel(date)} · ${rupees(t.total)} · ${billCount(t.bills)}`,
-      highlight: date === range.to,
+      highlight: date === current,
     };
   });
 
@@ -50,7 +58,7 @@ export function WeekTrend() {
         <ChartFrame
           as="h2"
           title="Last 7 days"
-          takeaway={`Today ${rupees(today)} · 7-day total ${rupees(week)}`}
+          takeaway={`${nowLabel} ${rupees(now)} · 7-day total ${rupees(week)}`}
         >
           {/* Same 96 px height as the chart, so the card does not jump when it arrives. */}
           <Suspense fallback={<Skeleton className="h-24 w-full" />}>
