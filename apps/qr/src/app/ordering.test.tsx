@@ -122,6 +122,36 @@ describe('browsing the menu', () => {
     await screen.findByRole('button', { name: /^Paneer Tikka/ });
   };
 
+  it('reads each dish description and counts dishes with a space', async () => {
+    await open();
+    expect(screen.getByRole('button', { name: /^Chicken Kulcha/ })).toHaveAccessibleDescription(
+      'Stuffed with spiced chicken',
+    );
+    expect(screen.getByRole('heading', { level: 2, name: /^Breads/ })).toHaveTextContent(
+      /^Breads 2 dishes$/,
+    );
+  });
+
+  it('says when Veg only hides the matches, and can show them', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('switch', { name: 'Veg only' }));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search dishes' }), {
+      target: { value: 'chicken' },
+    });
+    expect(screen.getByText('No veg dishes match "chicken"')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show non-veg too' }));
+    expect(screen.getByRole('button', { name: /^Chicken Kulcha/ })).toBeInTheDocument();
+  });
+
+  it('stops the page scrolling behind an open sheet', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
+    await screen.findByRole('dialog', { name: 'Menu' });
+    expect(document.body.style.overflow).toBe('hidden');
+    fireEvent.keyDown(screen.getByRole('dialog', { name: 'Menu' }), { key: 'Escape' });
+    expect(document.body.style.overflow).toBe('');
+  });
+
   it('shows every category as its own section', async () => {
     await open();
     expect(screen.getByRole('heading', { level: 2, name: /^Starters/ })).toBeInTheDocument();
@@ -247,6 +277,7 @@ describe('ordering from the table', () => {
     api({ 'GET /api/qr/menu': () => new Promise<Response>(() => undefined) });
     render(<App search={`?t=${CODE}`} />);
     const loading = await screen.findByRole('status', { name: 'Loading the menu' });
+    expect(loading).toHaveTextContent('Loading the menu…');
     expect(loading.querySelectorAll('[data-skeleton="dish"]')).toHaveLength(4);
   });
 
@@ -273,7 +304,8 @@ describe('ordering from the table', () => {
     ).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /^Paneer Tikka/ }));
     const sheet = await screen.findByRole('dialog', { name: 'Paneer Tikka' });
-    expect(within(sheet).getByRole('img', { name: 'Paneer Tikka' })).toHaveAttribute('src', PHOTO);
+    // The heading names the dish; the photo is decoration in the sheet.
+    expect(sheet.querySelector(`img[src="${PHOTO}"]`)).toHaveAttribute('alt', '');
   });
 
   it('marks each dish veg / non-veg and says it once to screen readers', async () => {
@@ -405,6 +437,18 @@ describe('ordering from the table', () => {
     expect(within(cart).getByText('Item total').parentElement).toHaveTextContent('₹420');
     expect(within(cart).getByText('GST is added on the final bill.')).toBeInTheDocument();
     expect(within(cart).getAllByText('₹420')).not.toHaveLength(0);
+  });
+
+  it('says the order is empty after the last dish is removed', async () => {
+    api();
+    render(<App search={`?t=${CODE}`} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add Tandoori Roti' }));
+    fireEvent.click(screen.getByRole('button', { name: /^View order/ }));
+    const cart = await screen.findByRole('dialog', { name: 'Your order' });
+    fireEvent.click(within(cart).getByRole('button', { name: 'One less Tandoori Roti' }));
+    expect(within(cart).getByText('Your order is empty.')).toBeInTheDocument();
+    fireEvent.click(within(cart).getByRole('button', { name: 'Back to the menu' }));
+    expect(screen.queryByRole('dialog', { name: 'Your order' })).toBeNull();
   });
 
   it('shows when the staff accepted the order', async () => {

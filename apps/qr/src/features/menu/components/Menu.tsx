@@ -122,11 +122,13 @@ function DishRow({
   onPick: (item: MenuItem) => void;
   onOpenCart: () => void;
 }) {
+  const describedBy = useId();
   return (
     <li className="flex gap-4 py-5">
       <button
         type="button"
         aria-label={`${item.name}, ${FOOD_LABEL[item.foodType]}, ${fromPrice(item)}`}
+        aria-describedby={item.description ? describedBy : undefined}
         className="flex min-w-0 flex-1 flex-col items-start gap-1 text-left"
         onClick={() => onPick(item)}
       >
@@ -136,7 +138,9 @@ function DishRow({
           {fromPrice(item)}
         </span>
         {item.description && (
-          <span className="line-clamp-2 text-sm text-muted">{item.description}</span>
+          <span id={describedBy} className="line-clamp-2 text-sm text-muted">
+            {item.description}
+          </span>
         )}
       </button>
       <div className="flex w-28 shrink-0 flex-col items-center">
@@ -202,7 +206,7 @@ export function Menu({
 
   return (
     <div className="flex flex-col">
-      <div className="sticky top-0 z-10 -mx-4 flex flex-col gap-3 bg-bg/95 px-4 pt-2 pb-3 backdrop-blur">
+      <div className="sticky top-0 z-10 -mx-4 flex flex-col gap-3 bg-surface/95 px-4 pt-2 pb-3 backdrop-blur">
         <label className="relative block">
           <Search
             aria-hidden="true"
@@ -255,9 +259,23 @@ export function Menu({
       </div>
 
       {sections.length === 0 && (
-        <p className="py-10 text-center text-muted">
-          {query.trim() ? `No dishes match "${query.trim()}"` : 'No veg dishes right now.'}
-        </p>
+        <div className="flex flex-col items-center gap-3 py-10 text-center">
+          <p className="text-muted">
+            {query.trim()
+              ? `No ${vegOnly ? 'veg ' : ''}dishes match "${query.trim()}"`
+              : 'No veg dishes right now.'}
+          </p>
+          {/* When Veg only is what hides the matches, say so and offer the way back. */}
+          {vegOnly && (
+            <button
+              type="button"
+              className="min-h-11 rounded-full border border-border-strong px-4 text-sm font-semibold"
+              onClick={() => setVegOnly(false)}
+            >
+              Show non-veg too
+            </button>
+          )}
+        </div>
       )}
 
       {sections.map((c) => (
@@ -268,8 +286,10 @@ export function Menu({
           className="scroll-mt-32 border-t-8 border-surface-2 pt-4 first:border-t-0"
         >
           <h2 id={`${id}-${c.id}`} tabIndex={-1} className="text-lg font-bold outline-none">
-            {c.name}
-            <span className="ml-2 text-sm font-normal text-muted">{`${c.items.length}`}</span>
+            {c.name}{' '}
+            <span className="ml-1 text-sm font-normal text-muted">
+              {`${c.items.length} ${c.items.length === 1 ? 'dish' : 'dishes'}`}
+            </span>
           </h2>
           <ul className="divide-y divide-border">
             {c.items.map((item) => (
@@ -294,9 +314,12 @@ export function Menu({
                     setQuery('');
                     setVegOnly(false);
                     requestAnimationFrame(() => {
-                      document
-                        .getElementById(sectionId(c.id))
-                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      document.getElementById(sectionId(c.id))?.scrollIntoView({
+                        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+                          ? 'auto'
+                          : 'smooth',
+                        block: 'start',
+                      });
                       // Keyboard and screen-reader users land on the section they chose.
                       document.getElementById(`${id}-${c.id}`)?.focus({ preventScroll: true });
                     });

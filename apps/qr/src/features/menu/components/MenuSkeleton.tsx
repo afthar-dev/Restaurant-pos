@@ -3,6 +3,7 @@ export function MenuSkeleton() {
   const bar = 'animate-pulse rounded-md bg-border';
   return (
     <div role="status" aria-label="Loading the menu" className="flex flex-col gap-4">
+      <span className="sr-only">Loading the menu…</span>
       <div className={`${bar} h-12 rounded-xl`} />
       <div className="flex justify-between">
         <div className={`${bar} h-10 w-28 rounded-full`} />

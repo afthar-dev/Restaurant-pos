@@ -21,7 +21,11 @@ export function Sheet({
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     panel.current?.focus();
+    // The page behind stays put while the sheet is open.
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     return () => {
+      document.body.style.overflow = overflow;
       // Back to the opener, unless whoever closed the sheet already moved focus on purpose.
       if (opener?.isConnected && document.activeElement === document.body) opener.focus();
     };

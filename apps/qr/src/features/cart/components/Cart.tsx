@@ -28,7 +28,19 @@ export function Cart({
         <ShoppingBag aria-hidden="true" className="size-5" />
         Your order
       </h2>
-      <ul className="flex flex-col divide-y divide-border rounded-2xl bg-surface-2 px-3">
+      {lines.length === 0 && (
+        <div className="flex flex-col items-center gap-3 py-6 text-center">
+          <p className="text-muted">Your order is empty.</p>
+          <button
+            type="button"
+            className={`${button} w-full border border-border-strong`}
+            onClick={onClose}
+          >
+            Back to the menu
+          </button>
+        </div>
+      )}
+      <ul className="flex flex-col divide-y divide-border rounded-2xl bg-surface-2 px-3 empty:hidden">
         {lines.map((l) => (
           <li key={l.key} className="flex items-center gap-3 py-3">
             <span className="min-w-0 flex-1">
