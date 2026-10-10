@@ -59,7 +59,7 @@ export function ItemSheet({
       {item.imageUrl && (
         <img
           src={item.imageUrl}
-          alt={item.name}
+          alt=""
           className="-mx-4 -mt-4 aspect-video w-[calc(100%+2rem)] max-w-none object-cover"
         />
       )}
