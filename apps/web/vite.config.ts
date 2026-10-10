@@ -9,9 +9,13 @@ export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   server: {
     port: 5173,
+    // Reachable from phones on the same Wi-Fi, so printed QR stickers can be scanned in dev.
+    host: true,
     proxy: {
       // ws: the realtime socket lives at /api/socket.io.
       '/api': { target: 'http://localhost:3000', ws: true },
+      // Stickers point at <this origin>/qr/, as nginx serves it in production.
+      '/qr': { target: 'http://localhost:5174', ws: true },
     },
   },
   test: {
