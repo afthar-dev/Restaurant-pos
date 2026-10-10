@@ -1,3 +1,4 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Outlet } from '@prisma/client';
 import { AuditService } from '../src/audit/audit.service';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -237,6 +238,62 @@ describe('KOTs and the kitchen', () => {
       expect(res.body.status).toBe('CANCELLED');
       expect(await ctx.prisma.kot.count({ where: { type: 'CANCEL' } })).toBe(2);
       expect(await ctx.prisma.auditEntry.count({ where: { action: 'order.void' } })).toBe(1);
+    });
+  });
+
+  describe('kitchen display of cancelled work', () => {
+    const watchKotUpdates = () => {
+      const seen: { kotId: string; status: string }[] = [];
+      ctx.app.get(EventEmitter2).on('kot.updated', (e: { kotId: string; status: string }) => {
+        seen.push(e);
+      });
+      return seen;
+    };
+
+    it('takes the original tickets off the kitchen screen when the order is voided', async () => {
+      const orderId = await orderWith([
+        { variantId: r.paneer.half.id, quantity: 1 },
+        { variantId: r.roti.regular.id, quantity: 2 },
+      ]);
+      const sent = (await sendKot(orderId).expect(201)).body.kots as { id: string }[];
+      expect((await kdsGet().expect(200)).body).toHaveLength(sent.length);
+      const seen = watchKotUpdates();
+
+      await ctx
+        .http()
+        .post(`/api/orders/${orderId}/void`)
+        .set(manager.auth)
+        .send({ reason: 'Customer walked out' })
+        .expect(201);
+
+      const list = (await kdsGet().expect(200)).body as { type: string }[];
+      expect(list).toHaveLength(2);
+      expect(list.every((k) => k.type === 'CANCEL')).toBe(true);
+      expect(seen.map((e) => e.kotId).sort()).toEqual(sent.map((k) => k.id).sort());
+      expect(seen.every((e) => e.status === 'SERVED')).toBe(true);
+    });
+
+    it('closes a ticket once every dish on it is cancelled, and keeps one with live dishes', async () => {
+      const orderId = await orderWith([
+        { variantId: r.paneer.half.id, quantity: 1 },
+        { variantId: r.roti.regular.id, quantity: 1 },
+      ]);
+      const sent = (await sendKot(orderId).expect(201)).body.kots as { id: string }[];
+      const order = (await ctx.http().get(`/api/orders/${orderId}`).set(manager.auth)).body;
+      const paneer = order.items.find((i: { itemName: string }) => i.itemName === 'Paneer Tikka');
+      const cancel = (itemId: string) =>
+        ctx
+          .http()
+          .post(`/api/orders/${orderId}/items/${itemId}/cancel`)
+          .set(manager.auth)
+          .send({ reason: 'Out of stock' });
+      await cancel(paneer.id).expect(201);
+
+      const types = (await kdsGet().expect(200)).body as { type: string; stationName: string }[];
+      // Paneer and roti went to different stations: the paneer ticket is gone, the roti one
+      // stays, and the cancel ticket for the paneer shows.
+      expect(types.map((k) => k.type).sort()).toEqual(['CANCEL', 'NEW']);
+      expect(sent.length).toBeGreaterThan(0);
     });
   });
 
