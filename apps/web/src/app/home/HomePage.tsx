@@ -48,7 +48,7 @@ function SalesStrip({
           ? [{ label: 'Unpaid', value: rupees(s.unpaid), tone: 'danger' as const }]
           : []),
         { label: 'Bills', value: String(s.bills) },
-        { label: 'Average bill', value: rupees(s.averageBill) },
+        { label: 'Average order', value: rupees(s.averageOrder) },
       ]}
     />
   );

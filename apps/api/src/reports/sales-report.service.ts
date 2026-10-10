@@ -125,6 +125,8 @@ export class SalesReportService {
       ]);
 
     const gst = await this.gst(dayIds);
+    const byType = await this.byType(dayIds);
+    const orders = byType.DINE_IN.orders + byType.PARCEL.orders;
     const sums = billTotals._sum;
     const bills = billTotals._count;
     const total = sums.total ?? 0;
@@ -192,9 +194,10 @@ export class SalesReportService {
         total,
         collected,
         unpaid: total - collected,
-        averageBill: bills > 0 ? Math.round(total / bills) : 0,
+        // Per order, not per bill: a table split into several bills is still one ticket.
+        averageOrder: orders > 0 ? Math.round(total / orders) : 0,
         payments,
-        byType: await this.byType(dayIds),
+        byType,
         expenses: { total: expenseTotal, byCategory: expenseRows },
         // What is left of sales once the GST collected and the expenses are taken off.
         net: total - (sums.cgst ?? 0) - (sums.sgst ?? 0) - expenseTotal,

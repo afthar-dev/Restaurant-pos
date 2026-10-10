@@ -33,7 +33,7 @@ const SALES = {
     sgst: 0,
     roundOff: 0,
     total: 1240000,
-    averageBill: 103333,
+    averageOrder: 103333,
     payments: { CASH: 0, UPI: 0, CARD: 0 },
     byType: { DINE_IN: { orders: 0, total: 0 }, PARCEL: { orders: 0, total: 0 } },
     expenses: { total: 0, byCategory: [] },

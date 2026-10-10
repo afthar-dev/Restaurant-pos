@@ -18,7 +18,7 @@ const SUMMARY: SalesReport['summary'] = {
   sgst: 0,
   roundOff: 0,
   total: 2_825_000,
-  averageBill: 0,
+  averageOrder: 0,
   payments: { CASH: 500_000, UPI: 1_000_000, CARD: 0 },
   byType: { DINE_IN: { orders: 0, total: 0 }, PARCEL: { orders: 0, total: 0 } },
   expenses: { total: 0, byCategory: [] },

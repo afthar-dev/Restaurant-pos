@@ -1,5 +1,11 @@
 import type { Outlet } from '@prisma/client';
-import { billFor as billForOn, parcelOrder, pay as payOn, type Line } from './billing-helpers';
+import {
+  billFor as billForOn,
+  parcelOrder,
+  pay as payOn,
+  servedOrder,
+  type Line,
+} from './billing-helpers';
 import { buildRestaurant, type Restaurant } from './fixtures';
 import {
   createOutlet,
@@ -124,7 +130,7 @@ describe('sales report', () => {
     expect(res.body.summary).toMatchObject({
       bills: 3,
       total,
-      averageBill: Math.round(total / 3),
+      averageOrder: Math.round(total / 3),
       payments: { CASH: first.total, UPI: upi.total, CARD: parcel.total },
       expenses: { total: 1000, byCategory: [{ name: 'Gas', amount: 1000 }] },
       // Sales without the GST that is owed on to the government, minus expenses.
@@ -276,6 +282,36 @@ describe('sales report', () => {
     expect(res.body.summary.bills).toBe(3);
   });
 
+  it('averages per order, so a table split into several bills is one ticket', async () => {
+    await openDay();
+    // One table of 2 paneer + 2 roti, billed as two bills.
+    const orderId = await servedOrder(ctx, r, waiter, [
+      { variantId: r.paneer.half.id, quantity: 2 },
+      { variantId: r.roti.regular.id, quantity: 2 },
+    ]);
+    const lines = (await ctx.http().get(`/api/orders/${orderId}`).set(cashier.auth).expect(200))
+      .body.items as { id: string; itemName: string; quantity: number }[];
+    const bills = [];
+    for (const line of lines) {
+      bills.push(
+        (
+          await ctx
+            .http()
+            .post(`/api/orders/${orderId}/bills`)
+            .set(cashier.auth)
+            .send({ lines: [{ orderItemId: line.id, quantity: line.quantity }] })
+            .expect(201)
+        ).body,
+      );
+    }
+    const solo = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }], r.t2.id);
+    const table = bills[0].total + bills[1].total;
+
+    const res = await report(istDate(0), istDate(0)).expect(200);
+    expect(res.body.summary.bills).toBe(3);
+    expect(res.body.summary.averageOrder).toBe(Math.round((table + solo.total) / 2));
+  });
+
   it('gives zeros for a range without business days', async () => {
     const res = await report('2020-01-01', '2020-01-31').expect(200);
     expect(res.body.days).toEqual([]);
@@ -283,7 +319,7 @@ describe('sales report', () => {
     expect(res.body.summary).toMatchObject({
       bills: 0,
       total: 0,
-      averageBill: 0,
+      averageOrder: 0,
       net: 0,
       payments: { CASH: 0, UPI: 0, CARD: 0 },
     });

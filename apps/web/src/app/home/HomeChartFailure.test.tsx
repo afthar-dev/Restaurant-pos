@@ -26,7 +26,7 @@ const EMPTY_WEEK = {
     sgst: 0,
     roundOff: 0,
     total: 0,
-    averageBill: 0,
+    averageOrder: 0,
     payments: { CASH: 0, UPI: 0, CARD: 0 },
     byType: { DINE_IN: { orders: 0, total: 0 }, PARCEL: { orders: 0, total: 0 } },
     expenses: { total: 0, byCategory: [] },

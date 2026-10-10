@@ -36,7 +36,7 @@ const REPORT: SalesReport = {
     sgst: 2787,
     roundOff: 0,
     total: 117050,
-    averageBill: 39017,
+    averageOrder: 39017,
     payments: { CASH: 3200, UPI: 37800, CARD: 76050 },
     byType: { DINE_IN: { orders: 2, total: 41000 }, PARCEL: { orders: 1, total: 76050 } },
     expenses: { total: 1000, byCategory: [{ name: 'Gas', amount: 1000 }] },
@@ -120,6 +120,15 @@ describe('ReportsPage', () => {
     expect(within(totals).getByText('After expenses')).toBeInTheDocument();
     expect(within(totals).getByText('Sales without GST, minus expenses')).toBeInTheDocument();
     expect(within(totals).queryByText('Net')).toBeNull();
+  });
+
+  it('averages per order, not per bill', async () => {
+    asOwner();
+    mockApi({ 'GET /api/reports/sales': () => json(REPORT) });
+    renderRoute('/reports');
+    const totals = await screen.findByRole('group', { name: 'Totals' }, { timeout: 15_000 });
+    expect(within(totals).getByText('Average order')).toBeInTheDocument();
+    expect(within(totals).queryByText('Average bill')).toBeNull();
   });
 
   it('breaks GST down by rate and shows No-GST sales as their own row', async () => {
