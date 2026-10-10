@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { useSession } from '@/shared/session/store';
 import { callsTo, json, mockApi, sessionBody, type Handler } from '@/test/mock-api';
 import { renderRoute, renderWithProviders } from '@/test/render';
+import { withDeviceTimeZone } from '@/test/timezone';
 import { renderKotTicket, type KotPrintPayload } from './templates/kotTicket';
 import { PrintWorker } from './PrintWorker';
 
@@ -30,6 +31,16 @@ const payload: KotPrintPayload = {
     },
   ],
 };
+
+describe('KOT time on a PC set to UTC', () => {
+  withDeviceTimeZone('UTC');
+
+  it('prints the India time', () => {
+    // 19:00 UTC is 12:30 am in India.
+    const html = renderKotTicket({ ...payload, createdAt: '2026-10-10T19:00:00.000Z' });
+    expect(html).toMatch(/12:30.?am/i);
+  });
+});
 
 describe('renderKotTicket', () => {
   it('prints the KOT number, table, dishes, add-ons and notes, escaping text', () => {

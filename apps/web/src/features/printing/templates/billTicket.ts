@@ -1,5 +1,6 @@
 import { formatPaise, type PaymentMode } from '@rpos/shared';
 import { escapeHtml } from '@/shared/lib/escape';
+import { PRINT_TIME_ZONE } from '@/shared/lib/when';
 
 /** Mirrors PrintService.buildBillPayload() in the API. */
 export interface BillPrintPayload {
@@ -79,6 +80,7 @@ export function renderBillTicket(p: BillPrintPayload): string {
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: PRINT_TIME_ZONE,
   });
   const where = p.tableName ? `Table ${e(p.tableName)}` : `Parcel #${p.tokenNo ?? '?'}`;
   const outlet = [

@@ -3,6 +3,7 @@ import { useSession } from '@/shared/session/store';
 import { printBill } from '@/features/billing/printBill';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
 import { renderWithProviders } from '@/test/render';
+import { withDeviceTimeZone } from '@/test/timezone';
 import { renderBillTicket, type BillPrintPayload } from './billTicket';
 import { PrintWorker } from '../PrintWorker';
 
@@ -140,6 +141,17 @@ describe('renderBillTicket', () => {
     expect(html).toContain('Parcel #7');
     expect(html).toContain('VOID');
     expect(html).toContain('58mm');
+  });
+});
+
+describe('bill date on a PC set to UTC', () => {
+  withDeviceTimeZone('UTC');
+
+  it('prints the India date and time, not the PC date', () => {
+    // 19:00 UTC on 10 Oct is 00:30 IST on 11 Oct.
+    const html = renderBillTicket({ ...billPayload, createdAt: '2026-10-10T19:00:00.000Z' });
+    expect(html).toMatch(/11 Oct 2026, 12:30.?am/i);
+    expect(html).not.toContain('10 Oct');
   });
 });
 

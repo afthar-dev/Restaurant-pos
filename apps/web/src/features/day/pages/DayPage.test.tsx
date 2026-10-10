@@ -5,6 +5,7 @@ import { useSession } from '@/shared/session/store';
 import { renderDayReport } from '../dayReport';
 import type { DayReport } from '../types';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
+import { withDeviceTimeZone } from '@/test/timezone';
 import { renderRoute } from '@/test/render';
 
 const MANAGER: Permission[] = ['day.openClose', 'reports.dayClose', 'bill.print'];
@@ -301,6 +302,22 @@ describe('Day close', () => {
     mockApi({});
     renderRoute('/day');
     expect(await screen.findByText('You do not have access to this screen.')).toBeInTheDocument();
+  });
+});
+
+describe('day report times on a PC set to UTC', () => {
+  withDeviceTimeZone('UTC');
+
+  it('prints opened and closed in India time', () => {
+    const base = report();
+    const html = renderDayReport(
+      report({
+        day: { ...base.day, openedAt: '2026-10-10T05:30:00Z', closedAt: '2026-10-10T19:00:00Z' },
+      }),
+      'Spice Garden',
+    );
+    expect(html).toMatch(/10 Oct 2026, 11:00.?am/i);
+    expect(html).toMatch(/11 Oct 2026, 12:30.?am/i);
   });
 });
 

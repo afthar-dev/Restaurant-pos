@@ -1,6 +1,7 @@
 import { formatPaise } from '@rpos/shared';
 import type { DayReport } from './types';
 import { escapeHtml } from '@/shared/lib/escape';
+import { PRINT_TIME_ZONE } from '@/shared/lib/when';
 
 const row = (label: string, value: string, strong = false) =>
   `<div class="row${strong ? ' strong' : ''}"><span>${label}</span><span>${value}</span></div>`;
@@ -14,7 +15,13 @@ export function renderDayReport(r: DayReport, outletName: string, paperWidthMm =
   const money = (paise: number) => e(formatPaise(paise));
   const when = (iso: string | null) =>
     iso
-      ? e(new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }))
+      ? e(
+          new Date(iso).toLocaleString('en-IN', {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+            timeZone: PRINT_TIME_ZONE,
+          }),
+        )
       : '—';
   const variance = r.cash.variance;
 
