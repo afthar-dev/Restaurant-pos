@@ -1,5 +1,13 @@
 import type { OrderType, PaymentMode } from '@rpos/shared';
 
+/** GST at one rate: CGST + SGST percent, the taxable value and the tax on it. */
+export interface GstRateRow {
+  ratePercent: number;
+  taxable: number;
+  cgst: number;
+  sgst: number;
+}
+
 /** Mirrors SalesReportService.sales() in apps/api/src/reports/sales-report.service.ts. */
 export interface SalesReport {
   range: { from: string; to: string };
@@ -19,7 +27,11 @@ export interface SalesReport {
     grossSubtotal: number;
     discounts: number;
     packaging: number;
+    /** Sales that carry GST. */
     taxable: number;
+    /** Sales with no GST (No-GST dishes). */
+    exempt: number;
+    gstBreakup: GstRateRow[];
     cgst: number;
     sgst: number;
     roundOff: number;

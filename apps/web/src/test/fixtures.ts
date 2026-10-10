@@ -187,6 +187,7 @@ export function bill(partial: Partial<Bill> = {}): Bill {
     discountReason: null,
     packaging: 0,
     taxable: 45000,
+    exempt: 0,
     cgst: 1125,
     sgst: 1125,
     taxBreakup: [{ cgstBp: 250, sgstBp: 250, taxable: 45000, cgst: 1125, sgst: 1125 }],

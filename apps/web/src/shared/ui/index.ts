@@ -8,6 +8,7 @@ export { Dialog } from './Dialog';
 export { EmptyState } from './EmptyState';
 export { ErrorNote } from './ErrorNote';
 export { FoodMark } from './FoodMark';
+export { GstTable, type GstRow } from './GstTable';
 export { Icon, ICON_SIZE, type IconSize } from './Icon';
 export { describeError, fieldErrors, type FieldErrors } from './errors';
 export { Field } from './Field';

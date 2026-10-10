@@ -53,7 +53,10 @@ export interface CalcResult {
   subtotal: number;
   billDiscount: number;
   packaging: number;
+  /** Sales that carry GST. */
   taxable: number;
+  /** Sales with no GST (No-GST dishes, or any line under a scheme that charges none). */
+  exempt: number;
   cgst: number;
   sgst: number;
   roundOff: number;
@@ -127,10 +130,12 @@ export function calculateBill(input: CalcInput): CalcResult {
     };
   });
 
-  const taxable = sum(lines.map((l) => l.taxable));
+  const isTaxed = (i: number) => taxed && input.lines[i]!.cgstBp + input.lines[i]!.sgstBp > 0;
+  const taxable = sum(lines.filter((_, i) => isTaxed(i)).map((l) => l.taxable));
+  const exempt = sum(lines.filter((_, i) => !isTaxed(i)).map((l) => l.taxable));
   const cgst = sum(lines.map((l) => l.cgst));
   const sgst = sum(lines.map((l) => l.sgst));
-  const raw = taxable + cgst + sgst;
+  const raw = taxable + exempt + cgst + sgst;
   const total = Math.round(raw / 100) * 100;
 
   const groups = new Map<string, TaxBreakupRow>();
@@ -159,6 +164,7 @@ export function calculateBill(input: CalcInput): CalcResult {
     billDiscount,
     packaging: sum(lines.map((l) => l.packaging)),
     taxable,
+    exempt,
     cgst,
     sgst,
     roundOff: total - raw,

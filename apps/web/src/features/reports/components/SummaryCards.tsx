@@ -1,5 +1,5 @@
 import { rupees } from '@/shared/lib/money';
-import { StatStrip } from '@/shared/ui';
+import { GstTable, StatStrip } from '@/shared/ui';
 import type { SalesReport } from '../types';
 
 /** One breakdown inside the shared surface, divided from its neighbours by hairlines. */
@@ -55,11 +55,15 @@ export function SummaryCards({ summary }: { summary: SalesReport['summary'] }) {
           title="Tax and discounts"
           rows={[
             ['Discounts', rupees(summary.discounts)],
+            ['Taxable', rupees(summary.taxable)],
             ['CGST', rupees(summary.cgst)],
             ['SGST', rupees(summary.sgst)],
           ]}
         />
       </div>
+      {(summary.gstBreakup.length > 0 || summary.exempt > 0) && (
+        <GstTable rates={summary.gstBreakup} exempt={summary.exempt} />
+      )}
       {summary.expenses.byCategory.length > 0 && (
         <div className="overflow-hidden rounded-lg border border-border">
           <Split

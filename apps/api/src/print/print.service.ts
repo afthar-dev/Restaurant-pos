@@ -5,6 +5,7 @@ import { ApiError } from '../common/api-error';
 import { notFound } from '../common/master-data';
 import type { AuthDevice } from '../common/request-context';
 import { taxBreakupOf } from '../billing/bill.views';
+import { gstLinesOf, gstSummary } from '../billing/gst-summary';
 import { MediaService } from '../media/media.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -174,6 +175,7 @@ export class PrintService {
     });
     if (!bill) return null;
     const paid = bill.payments.reduce((sum, p) => sum + p.amount, 0);
+    const gst = gstSummary(gstLinesOf(bill));
     const percent = (bp: number) => `${Number((bp / 100).toFixed(2))}%`;
     return {
       kind: 'BILL',
@@ -213,7 +215,8 @@ export class PrintService {
       billDiscount: bill.billDiscount,
       discountReason: bill.discountReason,
       packaging: bill.packaging,
-      taxable: bill.taxable,
+      taxable: gst.taxable,
+      exempt: gst.exempt,
       cgst: bill.cgst,
       sgst: bill.sgst,
       taxBreakup: taxBreakupOf(bill).map((row) => ({

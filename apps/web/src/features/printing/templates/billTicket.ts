@@ -42,6 +42,8 @@ export interface BillPrintPayload {
   discountReason: string | null;
   packaging: number;
   taxable: number;
+  /** Sales with no GST (No-GST dishes). */
+  exempt: number;
   cgst: number;
   sgst: number;
   taxBreakup: {
@@ -104,6 +106,7 @@ export function renderBillTicket(p: BillPrintPayload): string {
         `-${money(discount)}`,
       ),
     p.packaging > 0 && row('Packaging', money(p.packaging)),
+    p.exempt > 0 && row('No GST items', money(p.exempt)),
     ...p.taxBreakup.flatMap((t) => [
       row(`CGST ${e(t.cgstPercent)} on ${money(t.taxable)}`, money(t.cgst)),
       row(`SGST ${e(t.sgstPercent)} on ${money(t.taxable)}`, money(t.sgst)),

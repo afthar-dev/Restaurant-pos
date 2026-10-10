@@ -26,6 +26,8 @@ const REPORT: SalesReport = {
     discounts: 0,
     packaging: 0,
     taxable: 111476,
+    exempt: 0,
+    gstBreakup: [{ ratePercent: 5, taxable: 111476, cgst: 2787, sgst: 2787 }],
     cgst: 2787,
     sgst: 2787,
     roundOff: 0,
@@ -82,6 +84,33 @@ describe('ReportsPage', () => {
     expect(within(dishes).getByText('Tandoori Roti')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Search dishes'), { target: { value: 'roti' } });
     expect(within(dishes).queryByText('=Paneer Tikka (Half)')).toBeNull();
+  });
+
+  it('breaks GST down by rate and shows No-GST sales as their own row', async () => {
+    asOwner();
+    const summary = {
+      ...REPORT.summary,
+      taxable: 30000,
+      exempt: 3000,
+      gstBreakup: [
+        { ratePercent: 5, taxable: 12000, cgst: 300, sgst: 300 },
+        { ratePercent: 18, taxable: 18000, cgst: 1620, sgst: 1620 },
+      ],
+    };
+    mockApi({ 'GET /api/reports/sales': () => json({ ...REPORT, summary }) });
+    renderRoute('/reports');
+    const gst = await screen.findByRole('table', { name: 'GST by rate' }, { timeout: 15_000 });
+    expect(within(gst).getByRole('row', { name: /5%.*₹120.*₹3.*₹3/ })).toBeInTheDocument();
+    expect(within(gst).getByRole('row', { name: /18%.*₹180.*₹16.20.*₹16.20/ })).toBeInTheDocument();
+    expect(within(gst).getByRole('row', { name: /No GST sales.*₹30/ })).toBeInTheDocument();
+  });
+
+  it('leaves the No-GST row out when everything carried GST', async () => {
+    asOwner();
+    mockApi({ 'GET /api/reports/sales': () => json(REPORT) });
+    renderRoute('/reports');
+    const gst = await screen.findByRole('table', { name: 'GST by rate' }, { timeout: 15_000 });
+    expect(within(gst).queryByText('No GST sales')).toBeNull();
   });
 
   it('asks for another range with a custom from-to', async () => {

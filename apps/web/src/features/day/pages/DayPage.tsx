@@ -8,6 +8,7 @@ import {
   EmptyState,
   ErrorNote,
   Field,
+  GstTable,
   inputClass,
   PageHeader,
   PaymentIcon,
@@ -266,9 +267,13 @@ function ReportView({
           <Row label="Gross" value={rupees(sales.grossSubtotal)} />
           <Row label="Discounts" value={rupees(sales.discounts)} />
           <Row label="Packaging" value={rupees(sales.packaging)} />
+          <Row label="Taxable" value={rupees(sales.taxable)} />
           <Row label="CGST" value={rupees(sales.cgst)} />
           <Row label="SGST" value={rupees(sales.sgst)} />
           <Row label="Total" value={rupees(sales.total)} strong />
+          {(sales.gstBreakup.length > 0 || sales.exempt > 0) && (
+            <GstTable rates={sales.gstBreakup} exempt={sales.exempt} />
+          )}
         </Block>
         <Block title="Payments">
           <Row label={<PayLabel mode="CASH" />} value={rupees(report.payments.CASH)} />

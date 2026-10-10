@@ -42,6 +42,8 @@ const report = (partial: Partial<DayReport> = {}): DayReport => ({
     discounts: 0,
     packaging: 0,
     taxable: 39000,
+    exempt: 0,
+    gstBreakup: [{ ratePercent: 5, taxable: 39000, cgst: 975, sgst: 975 }],
     cgst: 975,
     sgst: 975,
     roundOff: 50,
@@ -241,6 +243,22 @@ describe('Day close', () => {
     ).toEqual({ reason: 'Missed a bill' });
   });
 
+  it('breaks GST down by rate on the day report, with No-GST sales apart', async () => {
+    as(OWNER, 'OWNER');
+    const base = report();
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json(days),
+      'GET /api/business-day/d2/report': () =>
+        json({ ...base, sales: { ...base.sales, exempt: 3000 } }),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
+    const gst = await screen.findByRole('table', { name: 'GST by rate' });
+    expect(within(gst).getByRole('row', { name: /5%.*₹390.*₹9.75.*₹9.75/ })).toBeInTheDocument();
+    expect(within(gst).getByRole('row', { name: /No GST sales.*₹30/ })).toBeInTheDocument();
+  });
+
   it('does not offer reopen to a manager', async () => {
     as(MANAGER);
     mockApi({
@@ -263,12 +281,24 @@ describe('Day close', () => {
 });
 
 describe('renderDayReport', () => {
+  it('prints GST by rate and the No-GST sales', () => {
+    const base = report();
+    const html = renderDayReport(
+      report({ sales: { ...base.sales, exempt: 3000 } }),
+      'Spice Garden',
+    );
+    expect(html).toContain('GST 5% on ₹390');
+    expect(html).toContain('No GST sales');
+    expect(html).toContain('₹30');
+  });
+
   it('prints the cash tally and escapes text', () => {
     const html = renderDayReport(
       report({ day: { ...report().day, closeNote: '<b>short</b>' } }),
       'Spice Garden',
     );
     expect(html).toContain('Expected in drawer');
+    expect(html).not.toContain('No GST sales');
     expect(html).toContain('Spice Garden');
     expect(html).toContain('&lt;b&gt;short');
     expect(html).not.toContain('<b>short');

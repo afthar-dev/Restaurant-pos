@@ -60,6 +60,8 @@ export interface Bill {
   discountReason: string | null;
   packaging: number;
   taxable: number;
+  /** Sales with no GST (No-GST dishes). */
+  exempt: number;
   cgst: number;
   sgst: number;
   taxBreakup: TaxRow[];

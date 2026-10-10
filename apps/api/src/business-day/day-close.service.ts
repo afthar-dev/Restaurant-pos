@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { CloseDayRequest } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
+import { gstLinesOf, gstSummary } from '../billing/gst-summary';
 import { ApiError } from '../common/api-error';
 import { notFound } from '../common/master-data';
 import type { AuthUser } from '../common/request-context';
@@ -249,6 +250,7 @@ export class DayCloseService {
       orderBy: { updatedAt: 'asc' },
     });
 
+    const gst = gstSummary(live.flatMap((b) => gstLinesOf(b)));
     const cashSales = payments.CASH;
     const spent = await expenseTotals(this.prisma, day.id);
     const expected = day.expectedCash ?? day.openingCash + cashSales - spent.cash;
@@ -267,7 +269,10 @@ export class DayCloseService {
         grossSubtotal: sum(live.map((b) => b.grossSubtotal)),
         discounts: sum(live.map((b) => b.itemDiscount + b.billDiscount)),
         packaging: sum(live.map((b) => b.packaging)),
-        taxable: sum(live.map((b) => b.taxable)),
+        // Sales that carry GST; No-GST sales are `exempt`.
+        taxable: gst.taxable,
+        exempt: gst.exempt,
+        gstBreakup: gst.rates,
         cgst: sum(live.map((b) => b.cgst)),
         sgst: sum(live.map((b) => b.sgst)),
         roundOff: sum(live.map((b) => b.roundOff)),

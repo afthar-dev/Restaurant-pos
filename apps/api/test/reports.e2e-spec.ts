@@ -1,5 +1,5 @@
 import type { Outlet } from '@prisma/client';
-import { billFor as billForOn, parcelOrder, pay as payOn } from './billing-helpers';
+import { billFor as billForOn, parcelOrder, pay as payOn, type Line } from './billing-helpers';
 import { buildRestaurant, type Restaurant } from './fixtures';
 import {
   createOutlet,
@@ -52,7 +52,7 @@ describe('sales report', () => {
       .set(manager.auth)
       .send({ countedCash: 0 })
       .expect(201);
-  const billFor = (lines: { variantId: string; quantity: number }[], tableId = r.t1.id) =>
+  const billFor = (lines: Line[], tableId = r.t1.id) =>
     billForOn(ctx, r, waiter, cashier, lines, tableId);
   const pay = (billId: string, body: object) => payOn(ctx, cashier, billId, body);
   const report = (from: string, to: string, who = owner) =>
@@ -141,6 +141,40 @@ describe('sales report', () => {
 
     const onlyToday = await report(istDate(0), istDate(0)).expect(200);
     expect(onlyToday.body.summary.bills).toBe(2);
+  });
+
+  it('splits taxable value by GST rate and keeps No-GST sales apart', async () => {
+    const gst18 = await ctx.prisma.taxRate.create({
+      data: { outletId: outlet.id, name: 'GST 18%', cgstBp: 900, sgstBp: 900 },
+    });
+    await ctx.prisma.item.updateMany({
+      where: { name: 'Tandoori Roti' },
+      data: { taxRateId: null },
+    });
+    await ctx.prisma.item.updateMany({
+      where: { name: 'Paneer Tikka' },
+      data: { taxRateId: gst18.id },
+    });
+    await openDay();
+    // ₹30 roti (No GST) + ₹180 paneer at 18% + ₹120 dosa at 5%
+    const bill = await billFor([
+      { variantId: r.roti.regular.id, quantity: 1 },
+      { variantId: r.paneer.half.id, quantity: 1 },
+      { variantId: r.dosa.regular.id, quantity: 1, addonIds: [r.chutney.coconut.id] },
+    ]);
+    await pay(bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+
+    const res = await report(istDate(0), istDate(0)).expect(200);
+    expect(res.body.summary).toMatchObject({
+      taxable: 30000,
+      exempt: 3000,
+      cgst: 1620 + 300,
+      sgst: 1620 + 300,
+      gstBreakup: [
+        { ratePercent: 5, taxable: 12000, cgst: 300, sgst: 300 },
+        { ratePercent: 18, taxable: 18000, cgst: 1620, sgst: 1620 },
+      ],
+    });
   });
 
   it('gives zeros for a range without business days', async () => {

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type BusinessDayStatus, type OrderType, type PaymentMode } from '@prisma/client';
 import type { ReportRange } from '@rpos/shared';
+import { gstSummary } from '../billing/gst-summary';
 import { PrismaService } from '../prisma/prisma.service';
 
 const TIME_ZONE = 'Asia/Kolkata';
@@ -38,7 +39,6 @@ export class SalesReportService {
             itemDiscount: true,
             billDiscount: true,
             packaging: true,
-            taxable: true,
             cgst: true,
             sgst: true,
             roundOff: true,
@@ -68,6 +68,7 @@ export class SalesReportService {
         }),
       ]);
 
+    const gst = await this.gst(dayIds);
     const sums = billTotals._sum;
     const bills = billTotals._count;
     const total = sums.total ?? 0;
@@ -116,7 +117,10 @@ export class SalesReportService {
         grossSubtotal: sums.grossSubtotal ?? 0,
         discounts: (sums.itemDiscount ?? 0) + (sums.billDiscount ?? 0),
         packaging: sums.packaging ?? 0,
-        taxable: sums.taxable ?? 0,
+        // Sales that carry GST; No-GST sales are `exempt`.
+        taxable: gst.taxable,
+        exempt: gst.exempt,
+        gstBreakup: gst.rates,
         cgst: sums.cgst ?? 0,
         sgst: sums.sgst ?? 0,
         roundOff: sums.roundOff ?? 0,
@@ -131,6 +135,22 @@ export class SalesReportService {
       categories: await this.categories(dayIds),
       hours: await this.hours(dayIds),
     };
+  }
+
+  /** Taxable value and GST per rate, from the bill lines (so bills made before the split read the same). */
+  private async gst(dayIds: string[]) {
+    if (dayIds.length === 0) return gstSummary([]);
+    const rows = await this.prisma.$queryRaw<
+      { cgstBp: number; sgstBp: number; taxable: number; cgst: number; sgst: number }[]
+    >`
+      SELECT CASE WHEN b.tax_scheme = 'REGULAR' THEN bi.cgst_bp ELSE 0 END AS "cgstBp",
+             CASE WHEN b.tax_scheme = 'REGULAR' THEN bi.sgst_bp ELSE 0 END AS "sgstBp",
+             SUM(bi.taxable)::float8 AS taxable, SUM(bi.cgst)::float8 AS cgst,
+             SUM(bi.sgst)::float8 AS sgst
+        FROM bill_items bi JOIN bills b ON b.id = bi.bill_id
+       WHERE b.business_day_id IN (${this.ids(dayIds)}) AND b.status <> 'VOID'
+       GROUP BY 1, 2`;
+    return gstSummary(rows);
   }
 
   private async byType(dayIds: string[]) {

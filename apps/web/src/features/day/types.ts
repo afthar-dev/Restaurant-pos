@@ -31,6 +31,14 @@ export interface DaySummary {
   total: number;
 }
 
+/** GST at one rate: CGST + SGST percent, the taxable value and the tax on it. */
+export interface GstRateRow {
+  ratePercent: number;
+  taxable: number;
+  cgst: number;
+  sgst: number;
+}
+
 /** Mirrors DayCloseService.report() in the API. */
 export interface DayReport {
   day: {
@@ -47,7 +55,11 @@ export interface DayReport {
     grossSubtotal: number;
     discounts: number;
     packaging: number;
+    /** Sales that carry GST. */
     taxable: number;
+    /** Sales with no GST (No-GST dishes). */
+    exempt: number;
+    gstBreakup: GstRateRow[];
     cgst: number;
     sgst: number;
     roundOff: number;

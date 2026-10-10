@@ -181,6 +181,8 @@ describe('day report printout', () => {
         discounts: 0,
         packaging: 0,
         taxable: 0,
+        exempt: 0,
+        gstBreakup: [],
         cgst: 0,
         sgst: 0,
         roundOff: 0,

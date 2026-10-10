@@ -55,6 +55,7 @@ export const billPayload: BillPrintPayload = {
   discountReason: 'Regular guest',
   packaging: 0,
   taxable: 40500,
+  exempt: 0,
   cgst: 1013,
   sgst: 1013,
   taxBreakup: [
@@ -100,6 +101,13 @@ describe('renderBillTicket', () => {
     }
     expect(html).not.toContain('<b>Tikka');
     expect(html).not.toContain('VOID');
+  });
+
+  it('shows No-GST sales apart from the taxed value, only when there are any', () => {
+    expect(renderBillTicket(billPayload)).not.toContain('No GST items');
+    const html = renderBillTicket({ ...billPayload, exempt: 6000 });
+    expect(html).toContain('No GST items');
+    expect(html).toContain('₹60.00');
   });
 
   it('puts the logo at the top in greyscale, with an address the print frame can load', () => {

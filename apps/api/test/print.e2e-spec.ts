@@ -354,6 +354,8 @@ describe('print jobs', () => {
           amount: 42000,
         },
       ],
+      taxable: 42000,
+      exempt: 0,
       taxBreakup: [{ ratePercent: '5%', taxable: 42000, cgst: 1050, sgst: 1050 }],
     });
 

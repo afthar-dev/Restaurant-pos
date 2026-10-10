@@ -41,6 +41,10 @@ ${section(
     row('Discounts', money(r.sales.discounts)),
     row('Packaging', money(r.sales.packaging)),
     row('Taxable', money(r.sales.taxable)),
+    r.sales.exempt > 0 ? row('No GST sales', money(r.sales.exempt)) : '',
+    ...r.sales.gstBreakup.map((g) =>
+      row(`GST ${g.ratePercent}% on ${money(g.taxable)}`, money(g.cgst + g.sgst)),
+    ),
     row('CGST', money(r.sales.cgst)),
     row('SGST', money(r.sales.sgst)),
     row('Round off', money(r.sales.roundOff)),
