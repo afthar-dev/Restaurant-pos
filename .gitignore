@@ -17,3 +17,6 @@ backups/
 apps/api/uploads/
 # Same folder when the API is started from the repo root
 /uploads/
+
+# graphify knowledge graph (local, rebuilt on demand)
+graphify-out/
