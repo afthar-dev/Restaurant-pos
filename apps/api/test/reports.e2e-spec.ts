@@ -275,6 +275,44 @@ describe('sales report', () => {
     expect(res.body.summary.bills).toBe(1);
   });
 
+  it('keeps a renamed dish in one row, under its current name', async () => {
+    await openDay();
+    const before = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }], r.t1.id);
+    await pay(before.id, { mode: 'CASH', amount: before.total }).expect(201);
+    await ctx.prisma.item.updateMany({
+      where: { name: 'Tandoori Roti' },
+      data: { name: 'Tandoori Roti (Butter)' },
+    });
+    const after = await billFor([{ variantId: r.roti.regular.id, quantity: 2 }], r.t2.id);
+    await pay(after.id, { mode: 'CASH', amount: after.total }).expect(201);
+
+    const res = await report(istDate(0), istDate(0)).expect(200);
+    expect(res.body.items).toEqual([
+      expect.objectContaining({ itemName: 'Tandoori Roti (Butter)', quantity: 3 }),
+    ]);
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+    const dayReport = await ctx
+      .http()
+      .get(`/api/business-day/${day.id}/report`)
+      .set(manager.auth)
+      .expect(200);
+    expect(dayReport.body.topItems).toEqual([
+      expect.objectContaining({ itemName: 'Tandoori Roti (Butter)', quantity: 3 }),
+    ]);
+  });
+
+  it('keeps the name on the bill for a dish that has been archived', async () => {
+    await openDay();
+    const bill = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }]);
+    await pay(bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+    await ctx.prisma.item.updateMany({
+      where: { name: 'Tandoori Roti' },
+      data: { name: 'Roti (old)', archivedAt: new Date() },
+    });
+    const res = await report(istDate(0), istDate(0)).expect(200);
+    expect(res.body.items).toEqual([expect.objectContaining({ itemName: 'Tandoori Roti' })]);
+  });
+
   it('refuses a bad or too long range, and is for the owner only', async () => {
     const long = await report('2026-01-01', '2026-06-30').expect(400);
     expect(long.body.message).toMatch(/92 days/);

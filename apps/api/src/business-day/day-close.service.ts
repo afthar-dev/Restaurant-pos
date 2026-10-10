@@ -222,7 +222,11 @@ export class DayCloseService {
     if (!day) throw notFound('Business day');
     const bills = await this.prisma.bill.findMany({
       where: { businessDayId: day.id },
-      include: { items: true, payments: true, order: { select: { type: true } } },
+      include: {
+        items: { include: { orderItem: { select: { itemId: true, variantId: true } } } },
+        payments: true,
+        order: { select: { type: true } },
+      },
       orderBy: { billNo: 'asc' },
     });
     const live = bills.filter((b) => b.status !== 'VOID');
@@ -269,18 +273,32 @@ export class DayCloseService {
       };
     }
 
+    // One row per dish and portion, under its name today (an archived one keeps the name on
+    // its latest bill, which comes last as the bills are in the order they were made).
+    const lines = live.flatMap((b) => b.items);
+    const [dishes, portions] = await Promise.all([
+      this.prisma.item.findMany({
+        where: { id: { in: lines.map((l) => l.orderItem.itemId) } },
+        select: { id: true, name: true, archivedAt: true },
+      }),
+      this.prisma.itemVariant.findMany({
+        where: { id: { in: lines.map((l) => l.orderItem.variantId) } },
+        select: { id: true, name: true, archivedAt: true },
+      }),
+    ]);
+    const dishOf = new Map(dishes.map((d) => [d.id, d]));
+    const portionOf = new Map(portions.map((v) => [v.id, v]));
     const items = new Map<
       string,
       { itemName: string; variantName: string; quantity: number; amount: number }
     >();
-    for (const line of live.flatMap((b) => b.items)) {
-      const key = `${line.itemName}\u0000${line.variantName}`;
-      const row = items.get(key) ?? {
-        itemName: line.itemName,
-        variantName: line.variantName,
-        quantity: 0,
-        amount: 0,
-      };
+    for (const line of lines) {
+      const dish = dishOf.get(line.orderItem.itemId);
+      const portion = portionOf.get(line.orderItem.variantId);
+      const key = `${line.orderItem.itemId}\u0000${line.orderItem.variantId}`;
+      const row = items.get(key) ?? { itemName: '', variantName: '', quantity: 0, amount: 0 };
+      row.itemName = dish && !dish.archivedAt ? dish.name : line.itemName;
+      row.variantName = portion && !portion.archivedAt ? portion.name : line.variantName;
       row.quantity += line.quantity;
       row.amount += line.lineTotal;
       items.set(key, row);

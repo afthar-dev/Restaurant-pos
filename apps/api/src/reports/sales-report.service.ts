@@ -207,17 +207,27 @@ export class SalesReportService {
        ORDER BY 1`;
   }
 
-  /** Every dish sold, by amount (after item discounts, before the bill discount). */
+  /**
+   * Every dish sold, by amount (after item discounts, before the bill discount). One row per
+   * dish and portion, under its name today; an archived one keeps the name on its latest bill.
+   */
   private async items(dayIds: string[]) {
     if (dayIds.length === 0) return [];
     return this.prisma.$queryRaw<
       { itemName: string; variantName: string; quantity: number; amount: number }[]
     >`
-      SELECT bi.item_name AS "itemName", bi.variant_name AS "variantName",
+      SELECT COALESCE(CASE WHEN i.archived_at IS NULL THEN i.name END,
+                      (array_agg(bi.item_name ORDER BY b.created_at DESC, bi.id))[1]) AS "itemName",
+             COALESCE(CASE WHEN v.archived_at IS NULL THEN v.name END,
+                      (array_agg(bi.variant_name ORDER BY b.created_at DESC, bi.id))[1]) AS "variantName",
              SUM(bi.quantity)::float8 AS quantity, SUM(bi.line_total)::float8 AS amount
-        FROM bill_items bi JOIN bills b ON b.id = bi.bill_id
+        FROM bill_items bi
+        JOIN bills b ON b.id = bi.bill_id
+        JOIN order_items oi ON oi.id = bi.order_item_id
+        LEFT JOIN items i ON i.id = oi.item_id
+        LEFT JOIN item_variants v ON v.id = oi.variant_id
        WHERE b.business_day_id IN (${this.ids(dayIds)}) AND b.status <> 'VOID'
-       GROUP BY bi.item_name, bi.variant_name
+       GROUP BY oi.item_id, oi.variant_id, i.name, i.archived_at, v.name, v.archived_at
        ORDER BY amount DESC, quantity DESC, "itemName"`;
   }
 
