@@ -2,13 +2,8 @@ import { CalendarCheck, CalendarClock, CalendarX } from 'lucide-react';
 import { Link } from 'react-router';
 import { useBusinessDay } from '@/features/day';
 import { useCan } from '@/shared/session/store';
+import { dayAndTime, time } from '@/shared/lib/when';
 import { Badge } from '@/shared/ui';
-
-const time = (iso: string) =>
-  new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
-
-const dayAndTime = (iso: string) =>
-  `${new Date(iso).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}, ${time(iso)}`;
 
 /** No restaurant service runs this long: a day open longer was not closed last night. */
 export const STALE_DAY_HOURS = 20;

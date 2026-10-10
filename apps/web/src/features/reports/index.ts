@@ -3,6 +3,7 @@ import { lazy } from 'react';
 export const ReportsPage = lazy(() =>
   import('./pages/ReportsPage').then((m) => ({ default: m.ReportsPage })),
 );
-export { useSalesReport } from './queries';
+export { useDaySalesReport, useSalesReport } from './queries';
 export { presetRange } from './ranges';
+export type { SalesReport } from './types';
 export { WeekTrend } from './components/WeekTrend';

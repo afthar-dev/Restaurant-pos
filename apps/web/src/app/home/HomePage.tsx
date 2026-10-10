@@ -2,10 +2,17 @@ import { ArrowRight, BellRing, CalendarX, Package, UtensilsCrossed } from 'lucid
 import { Link } from 'react-router';
 import { useBusinessDay, useCloseCheck } from '@/features/day';
 import { useQrPending } from '@/features/orders';
-import { presetRange, useSalesReport, WeekTrend } from '@/features/reports';
+import {
+  presetRange,
+  useDaySalesReport,
+  useSalesReport,
+  WeekTrend,
+  type SalesReport,
+} from '@/features/reports';
 import { SetupCard } from '@/features/setup';
 import { useStockItems } from '@/features/stock';
 import { rupees } from '@/shared/lib/money';
+import { dayAndTime } from '@/shared/lib/when';
 import { useCan, useSession } from '@/shared/session/store';
 import {
   Badge,
@@ -20,8 +27,54 @@ import {
 } from '@/shared/ui';
 import { visibleNav } from '../navigation';
 
-/** Owner: today's sales from the sales report. */
-function SalesToday() {
+/** Sales, collected, unpaid, bills and average for one report. */
+function SalesStrip({
+  label,
+  report,
+  since,
+}: {
+  label: string;
+  report: SalesReport;
+  since?: string;
+}) {
+  const s = report.summary;
+  return (
+    <StatStrip
+      label={label}
+      items={[
+        { label: 'Sales', value: rupees(s.total), hint: since },
+        { label: 'Collected', value: rupees(s.collected) },
+        ...(s.unpaid > 0
+          ? [{ label: 'Unpaid', value: rupees(s.unpaid), tone: 'danger' as const }]
+          : []),
+        { label: 'Bills', value: String(s.bills) },
+        { label: 'Average bill', value: rupees(s.averageBill) },
+      ]}
+    />
+  );
+}
+
+/** The open business day, by id: it stays one day when service runs past midnight. */
+function OpenDaySales({ dayId, openedAt }: { dayId: string; openedAt: string }) {
+  const report = useDaySalesReport(dayId);
+  if (report.isError) {
+    return (
+      <ErrorNote message={describeError(report.error)} onRetry={() => void report.refetch()} />
+    );
+  }
+  return report.data ? (
+    <SalesStrip
+      label="This business day"
+      report={report.data}
+      since={`Since ${dayAndTime(openedAt)}`}
+    />
+  ) : (
+    <Skeleton className="h-24" />
+  );
+}
+
+/** With no day open, the sales of today's date. */
+function TodaySales() {
   // Worked out on each render, so a screen left open overnight moves to the new day.
   const report = useSalesReport(presetRange('today'));
   if (report.isError) {
@@ -29,19 +82,19 @@ function SalesToday() {
       <ErrorNote message={describeError(report.error)} onRetry={() => void report.refetch()} />
     );
   }
-  const s = report.data?.summary;
-  return s ? (
-    <StatStrip
-      label="Today"
-      items={[
-        { label: 'Sales today', value: rupees(s.total) },
-        { label: 'Bills', value: String(s.bills) },
-        { label: 'Average bill', value: rupees(s.averageBill) },
-      ]}
-    />
+  return report.data ? (
+    <SalesStrip label="Today" report={report.data} />
   ) : (
     <Skeleton className="h-24" />
   );
+}
+
+/** Owner: sales of the business day that is open now, or of today's date when none is. */
+function SalesToday() {
+  const day = useBusinessDay();
+  if (!day.data) return <Skeleton className="h-24" />;
+  const open = day.data.day;
+  return open ? <OpenDaySales dayId={open.id} openedAt={open.openedAt} /> : <TodaySales />;
 }
 
 /** Manager: what still blocks closing, and the cash the drawer should hold. */

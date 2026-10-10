@@ -206,6 +206,42 @@ describe('sales report', () => {
     });
   });
 
+  it('reports one business day by id, whatever date it was opened on', async () => {
+    await openDay();
+    const bill = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }]);
+    await pay(bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+    // The day was opened yesterday evening and is still running.
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+    await ctx.prisma.businessDay.update({
+      where: { id: day.id },
+      data: { openedAt: new Date(Date.now() - 86_400_000) },
+    });
+
+    const today = await report(istDate(0), istDate(0)).expect(200);
+    expect(today.body.summary.bills).toBe(0);
+    const byId = await ctx
+      .http()
+      .get(`/api/reports/sales?businessDayId=${day.id}`)
+      .set(owner.auth)
+      .expect(200);
+    expect(byId.body.days).toHaveLength(1);
+    expect(byId.body.days[0]).toMatchObject({ dayId: day.id, date: istDate(1), status: 'OPEN' });
+    expect(byId.body.summary).toMatchObject({ bills: 1, total: bill.total });
+    expect(byId.body.range).toEqual({ from: istDate(1), to: istDate(1) });
+
+    await ctx
+      .http()
+      .get('/api/reports/sales?businessDayId=00000000-0000-4000-8000-000000000000')
+      .set(owner.auth)
+      .expect(404);
+    await ctx.http().get('/api/reports/sales?businessDayId=nope').set(owner.auth).expect(400);
+    await ctx
+      .http()
+      .get(`/api/reports/sales?businessDayId=${day.id}`)
+      .set(manager.auth)
+      .expect(403);
+  });
+
   it('gives zeros for a range without business days', async () => {
     const res = await report('2020-01-01', '2020-01-31').expect(200);
     expect(res.body.days).toEqual([]);

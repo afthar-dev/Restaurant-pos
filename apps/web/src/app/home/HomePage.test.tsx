@@ -25,8 +25,8 @@ const SALES = {
     discounts: 0,
     packaging: 0,
     taxable: 0,
-    collected: 0,
-    unpaid: 0,
+    collected: 1000000,
+    unpaid: 240000,
     exempt: 0,
     gstBreakup: [],
     cgst: 0,
@@ -82,6 +82,40 @@ describe('HomePage', () => {
     expect(screen.getByText('₹1,022')).toBeInTheDocument();
     expect(await screen.findByText('Onion')).toBeInTheDocument();
     await expectNoAxeViolations();
+  });
+
+  it('shows the open business day’s sales by day id, with when it opened', async () => {
+    useSession.getState().setSession(sessionBody('OWNER', OWNER, 'Asha'));
+    const mock = mockApi({
+      'GET /api/business-day/current': () => json(DAY_OPEN),
+      'GET /api/reports/sales': () => json(SALES),
+      'GET /api/business-day/close-check': () => json(CLOSE_CHECK),
+    });
+    renderRoute('/');
+    const card = await screen.findByRole('group', { name: 'This business day' });
+    expect(within(card).getByText('Since Wed, 7 Oct, 9:00 am')).toBeInTheDocument();
+    expect(within(card).getByText('₹12,400')).toBeInTheDocument();
+    // What was billed is not all collected yet.
+    expect(within(card).getByText('Collected')).toBeInTheDocument();
+    expect(within(card).getByText('₹10,000')).toBeInTheDocument();
+    expect(within(card).getByText('Unpaid')).toBeInTheDocument();
+    expect(within(card).getByText('₹2,400')).toBeInTheDocument();
+    const urls = callsTo(mock, 'GET', '/api/reports/sales').map(([u]) => String(u));
+    expect(urls).toContain('/api/reports/sales?businessDayId=d1');
+  });
+
+  it('shows today’s date range when no business day is open', async () => {
+    useSession.getState().setSession(sessionBody('OWNER', OWNER, 'Asha'));
+    const mock = mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/reports/sales': () => json({ ...SALES, summary: { ...SALES.summary, unpaid: 0 } }),
+    });
+    renderRoute('/');
+    const card = await screen.findByRole('group', { name: 'Today' });
+    expect(within(card).queryByText('Unpaid')).toBeNull();
+    const urls = callsTo(mock, 'GET', '/api/reports/sales').map(([u]) => String(u));
+    expect(urls.some((u) => /from=\d{4}-\d{2}-\d{2}&to=/.test(u))).toBe(true);
+    expect(urls.some((u) => u.includes('businessDayId'))).toBe(false);
   });
 
   it('never asks the server for owner-only numbers on a cashier’s home', async () => {

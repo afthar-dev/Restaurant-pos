@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type BusinessDayStatus, type OrderType, type PaymentMode } from '@prisma/client';
 import type { ReportRange } from '@rpos/shared';
+import { notFound } from '../common/master-data';
 import { gstSummary } from '../billing/gst-summary';
 import { PrismaService } from '../prisma/prisma.service';
 
 const TIME_ZONE = 'Asia/Kolkata';
+
+type DayRow = { id: string; date: string; status: BusinessDayStatus };
 
 type Modes = Record<PaymentMode, number>;
 const noModes = (): Modes => ({ CASH: 0, UPI: 0, CARD: 0 });
@@ -18,14 +21,26 @@ export class SalesReportService {
   constructor(private readonly prisma: PrismaService) {}
 
   async sales(outletId: string, range: ReportRange) {
-    const days = await this.prisma.$queryRaw<
-      { id: string; date: string; status: BusinessDayStatus }[]
-    >`
+    const days = await this.prisma.$queryRaw<DayRow[]>`
       SELECT id, to_char(opened_at AT TIME ZONE ${TIME_ZONE}, 'YYYY-MM-DD') AS date, status
         FROM business_days
        WHERE outlet_id = ${outletId}::uuid
          AND (opened_at AT TIME ZONE ${TIME_ZONE})::date BETWEEN ${range.from}::date AND ${range.to}::date
        ORDER BY opened_at`;
+    return this.summarise(range, days);
+  }
+
+  /** One business day, by id: its figures stay together when it runs past midnight. */
+  async salesOfDay(outletId: string, businessDayId: string) {
+    const days = await this.prisma.$queryRaw<DayRow[]>`
+      SELECT id, to_char(opened_at AT TIME ZONE ${TIME_ZONE}, 'YYYY-MM-DD') AS date, status
+        FROM business_days
+       WHERE outlet_id = ${outletId}::uuid AND id = ${businessDayId}::uuid`;
+    if (days.length === 0) throw notFound('Business day');
+    return this.summarise({ from: days[0]!.date, to: days[0]!.date }, days);
+  }
+
+  private async summarise(range: ReportRange, days: DayRow[]) {
     const dayIds = days.map((d) => d.id);
     const live = { businessDayId: { in: dayIds }, status: { not: 'VOID' as const } };
 
