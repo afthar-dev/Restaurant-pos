@@ -340,6 +340,35 @@ describe('ordering from the table', () => {
     ).toHaveLength(0);
   });
 
+  it('shows the restaurant logo in the header when there is one', async () => {
+    api({
+      'POST /api/qr/sessions': () =>
+        json(
+          {
+            token: 'session-1',
+            table: { name: 'T1' },
+            outlet: { name: 'Spice Garden', logoUrl: '/api/media/logo.webp' },
+          },
+          201,
+        ),
+    });
+    render(<App search={`?t=${CODE}`} />);
+    const header = (await screen.findByRole('heading', { level: 1, name: 'Table T1' })).closest(
+      'header',
+    )!;
+    expect(header.querySelector('img')).toHaveAttribute('src', '/api/media/logo.webp');
+  });
+
+  it('shows the icon instead when there is no logo', async () => {
+    api();
+    render(<App search={`?t=${CODE}`} />);
+    const header = (await screen.findByRole('heading', { level: 1, name: 'Table T1' })).closest(
+      'header',
+    )!;
+    expect(header.querySelector('img')).toBeNull();
+    expect(header.querySelector('svg.lucide-utensils-crossed')).not.toBeNull();
+  });
+
   it('opens the menu for the table that was scanned', async () => {
     const mock = api();
     render(<App search={`?t=${CODE}`} />);

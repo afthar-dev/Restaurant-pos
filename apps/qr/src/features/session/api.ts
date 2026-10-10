@@ -6,7 +6,12 @@ export async function startSession(code: string): Promise<StoredSession> {
   const started = await qrFetch<{
     token: string;
     table: { name: string };
-    outlet: { name: string };
+    outlet: { name: string; logoUrl?: string | null };
   }>('/api/qr/sessions', { method: 'POST', body: { code } });
-  return { token: started.token, table: started.table.name, outlet: started.outlet.name };
+  return {
+    token: started.token,
+    table: started.table.name,
+    outlet: started.outlet.name,
+    logoUrl: started.outlet.logoUrl ?? null,
+  };
 }

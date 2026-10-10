@@ -1,8 +1,9 @@
-import { PanelLeftClose, PanelLeftOpen, UtensilsCrossed } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Link, NavLink, useLocation } from 'react-router';
 import { cn } from '@/shared/lib/cn';
 import { Tooltip } from '@/shared/ui';
 import { isActive, type NavEntry, type NavGroup } from '../navigation';
+import { BrandMark } from './BrandMark';
 
 const GROUPS: NavGroup[] = ['Service', 'Back office', 'Setup'];
 
@@ -10,11 +11,13 @@ const GROUPS: NavGroup[] = ['Service', 'Back office', 'Setup'];
 export function Sidebar({
   entries,
   outletName,
+  logoUrl,
   collapsed,
   onToggle,
 }: {
   entries: NavEntry[];
   outletName: string;
+  logoUrl: string | null;
   collapsed: boolean;
   onToggle: () => void;
 }) {
@@ -31,9 +34,7 @@ export function Sidebar({
         className="flex min-h-16 items-center gap-3 border-b border-border px-4"
         aria-label={`${outletName}, home`}
       >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-700 text-white">
-          <UtensilsCrossed aria-hidden="true" className="size-5" />
-        </span>
+        <BrandMark logoUrl={logoUrl} className="size-9" />
         {!collapsed && (
           <span className="truncate text-base font-semibold text-text">{outletName}</span>
         )}

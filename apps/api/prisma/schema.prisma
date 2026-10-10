@@ -64,6 +64,9 @@ model Outlet {
   parcelPaymentTiming     ParcelPaymentTiming @default(PAY_FIRST) @map("parcel_payment_timing")
   /// Paise added once to each parcel order's bill.
   billPackagingCharge     Int                 @default(0) @map("bill_packaging_charge")
+  /// The restaurant logo: staff header, printed bills, QR menu.
+  logoId                  String?             @map("logo_id") @db.Uuid
+  logo                    Media?              @relation("OutletLogo", fields: [logoId], references: [id], onDelete: SetNull)
   createdAt               DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt               DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -79,7 +82,7 @@ model Outlet {
   items             Item[]
   addonGroups       AddonGroup[]
   businessDays      BusinessDay[]
-  media             Media[]
+  media             Media[]           @relation("OutletMedia")
   orders            Order[]
   bills             Bill[]
   qrSessions        QrSession[]
@@ -1055,8 +1058,9 @@ model Media {
   /// Object name in Cloudflare R2 or file name in the local folder: "<uuid>.webp".
   key       String   @unique
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  outlet    Outlet   @relation(fields: [outletId], references: [id])
+  outlet    Outlet   @relation("OutletMedia", fields: [outletId], references: [id])
   items     Item[]
+  logoOf    Outlet[] @relation("OutletLogo")
 
   @@map("media")
 }

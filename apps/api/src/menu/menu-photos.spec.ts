@@ -1,4 +1,5 @@
 import type { AuthUser } from '../common/request-context';
+import { MediaService } from '../media/media.service';
 import { MenuService } from './menu.service';
 
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
@@ -25,7 +26,7 @@ describe('MenuService.setItemImage', () => {
       prisma as never,
       { record: jest.fn() } as never,
       {} as never,
-      storage,
+      new MediaService(prisma as never, storage),
     );
 
     await expect(service.setItemImage(actor, 'i1', JPEG)).rejects.toThrow('database down');

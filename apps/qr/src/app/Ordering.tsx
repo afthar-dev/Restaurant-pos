@@ -45,12 +45,19 @@ export function Ordering({ session }: { session: StoredSession }) {
   return (
     <main className={shell}>
       <header className="flex items-center gap-3">
-        <span
-          aria-hidden="true"
-          className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary-700 text-white"
-        >
-          <UtensilsCrossed className="size-6" />
-        </span>
+        {session.logoUrl ? (
+          <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-white">
+            {/* The restaurant name is right beside it. */}
+            <img src={session.logoUrl} alt="" className="max-h-full max-w-full object-contain" />
+          </span>
+        ) : (
+          <span
+            aria-hidden="true"
+            className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary-700 text-white"
+          >
+            <UtensilsCrossed className="size-6" />
+          </span>
+        )}
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-muted">{session.outlet}</p>
           <h1 className="text-2xl font-bold tracking-tight">Table {session.table}</h1>

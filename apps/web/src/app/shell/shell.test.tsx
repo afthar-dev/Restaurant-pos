@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, within, waitFor } from '@testing-library/react';
 import type { Permission } from '@rpos/shared';
 import { describe, expect, it } from 'vitest';
 import { useSession } from '@/shared/session/store';
@@ -67,6 +67,20 @@ describe('app shell header', () => {
     )[0]!;
     expect(pill.closest('[data-tone]')).toHaveAttribute('data-tone', 'warning');
     expect(screen.getAllByRole('link', { name: 'Close it' })[0]).toHaveAttribute('href', '/day');
+  });
+
+  it('shows the restaurant logo in place of the icon when there is one', async () => {
+    useSession.getState().setSession(sessionBody('CASHIER', ['bill.print']));
+    mockApi({
+      'GET /api/business-day/current': () => json(DAY_OPEN),
+      'GET /api/outlet': () => json({ name: 'Spice Garden', logoUrl: '/api/media/logo.webp' }),
+    });
+    renderRoute('/expenses');
+    const home = (await screen.findAllByRole('link', { name: 'Spice Garden, home' }))[0]!;
+    await waitFor(() =>
+      expect(home.querySelector('img')).toHaveAttribute('src', '/api/media/logo.webp'),
+    );
+    expect(home.querySelector('svg.lucide-utensils-crossed')).toBeNull();
   });
 
   it('tells a manager the day is not open and links to open it', async () => {

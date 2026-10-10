@@ -1,4 +1,4 @@
-import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Category, ItemVariant, Prisma } from '@prisma/client';
 import {
@@ -11,8 +11,7 @@ import {
 } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
 import { ApiError } from '../common/api-error';
-import { detectImageType, MAX_IMAGE_BYTES } from '../media/media';
-import { imageKey, MEDIA_STORAGE, type MediaStorage } from '../media/storage';
+import { MediaService } from '../media/media.service';
 import {
   inUse,
   invalidReference,
@@ -63,13 +62,11 @@ export class MenuService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly events: EventEmitter2,
-    @Inject(MEDIA_STORAGE) private readonly storage: MediaStorage,
+    private readonly media: MediaService,
   ) {}
 
-  private readonly logger = new Logger(MenuService.name);
-
   /** Public address of a photo in R2 or the local folder. */
-  private readonly photoUrl = (key: string) => this.storage.publicUrl(key);
+  private readonly photoUrl = (key: string) => this.media.urlFor(key);
 
   async menu(outletId: string) {
     const categories = await this.prisma.category.findMany({
@@ -401,7 +398,7 @@ export class MenuService {
       this.prisma.item.update({ where: { id }, data: { archivedAt: new Date(), imageId: null } }),
       ...(item.image ? [this.prisma.media.delete({ where: { id: item.image.id } })] : []),
     ]);
-    if (item.image) await this.dropFile(item.image.key);
+    if (item.image) await this.media.discard(item.image.key);
     await this.record(actor, 'menu.item.archive', 'item', id, { name: item.name }, undefined);
     return { id, archived: true };
   }
@@ -416,36 +413,16 @@ export class MenuService {
       include: { image: true },
     });
     if (!item) throw notFound('Item');
-    if (bytes && bytes.length > MAX_IMAGE_BYTES) {
-      throw new ApiError(
-        HttpStatus.PAYLOAD_TOO_LARGE,
-        'FILE_TOO_LARGE',
-        'The photo is too big. Use one under 1 MB.',
-      );
-    }
-    const mimeType = bytes ? detectImageType(bytes) : null;
-    if (!bytes || !mimeType) {
-      throw new ApiError(HttpStatus.BAD_REQUEST, 'VALIDATION', 'Use a JPEG, PNG or WebP photo.');
-    }
-    const key = imageKey(mimeType);
-    await this.storage.put(key, bytes, mimeType);
-    try {
-      await this.prisma.$transaction(async (tx) => {
-        const media = await tx.media.create({
-          data: { outletId: actor.outletId, key, mimeType, byteSize: bytes.length },
-        });
-        await tx.item.update({ where: { id }, data: { imageId: media.id } });
-        if (item.image) await tx.media.delete({ where: { id: item.image.id } });
-      });
-    } catch (error) {
-      await this.dropFile(key);
-      throw error;
-    }
-    if (item.image) await this.dropFile(item.image.key);
+    await this.media.replace({
+      outletId: actor.outletId,
+      bytes,
+      link: (tx, mediaId) => tx.item.update({ where: { id }, data: { imageId: mediaId } }),
+      old: item.image,
+    });
     await this.record(actor, 'menu.item.image', 'item', id, undefined, {
       item: item.name,
       action: 'set',
-      bytes: bytes.length,
+      bytes: bytes!.length,
     });
     return this.loadItem(id);
   }
@@ -457,26 +434,16 @@ export class MenuService {
     });
     if (!item) throw notFound('Item');
     if (item.image) {
-      await this.prisma.$transaction([
-        this.prisma.item.update({ where: { id }, data: { imageId: null } }),
-        this.prisma.media.delete({ where: { id: item.image.id } }),
-      ]);
-      await this.dropFile(item.image.key);
+      await this.media.remove({
+        old: item.image,
+        unlink: (tx) => tx.item.update({ where: { id }, data: { imageId: null } }),
+      });
       await this.record(actor, 'menu.item.image', 'item', id, undefined, {
         item: item.name,
         action: 'remove',
       });
     }
     return this.loadItem(id);
-  }
-
-  /** Removes a photo file nobody points at any more; a failure is logged, not shown. */
-  private async dropFile(key: string) {
-    try {
-      await this.storage.delete(key);
-    } catch (error) {
-      this.logger.warn(`Could not delete photo ${key}: ${String(error)}`);
-    }
   }
 
   async setItemAvailability(outletId: string, id: string, isAvailable: boolean) {

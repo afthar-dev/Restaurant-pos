@@ -52,7 +52,7 @@ describe('QR ordering', () => {
       expect(res.body).toEqual({
         token: expect.any(String),
         table: { name: 'T1' },
-        outlet: { name: outlet.name },
+        outlet: { name: outlet.name, logoUrl: null },
       });
       const stored = await ctx.prisma.qrSession.findFirstOrThrow();
       expect(stored.tokenHash).not.toBe(res.body.token);

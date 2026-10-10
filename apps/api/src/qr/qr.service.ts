@@ -9,6 +9,7 @@ import type { QrContext } from '../common/request-context';
 import { MenuService } from '../menu/menu.service';
 import { OrdersService } from '../orders/orders.service';
 import { ACTIVE_STATUSES, tableHolder } from '../orders/table-holder';
+import { MediaService } from '../media/media.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { submissionView, type QrLine, type QrSubmissionView } from './qr.views';
 
@@ -63,13 +64,14 @@ export class QrService {
     private readonly orders: OrdersService,
     private readonly days: BusinessDayService,
     private readonly events: EventEmitter2,
+    private readonly media: MediaService,
   ) {}
 
   /** A phone scanned a table sticker: open a session for that table. */
   async startSession(code: string) {
     const table = await this.prisma.diningTable.findUnique({
       where: { qrToken: code },
-      include: { outlet: { select: { name: true } } },
+      include: { outlet: { select: { name: true, logo: { select: { key: true } } } } },
     });
     if (!table || table.archivedAt) {
       throw new ApiError(
@@ -87,7 +89,12 @@ export class QrService {
         expiresAt: new Date(Date.now() + SESSION_HOURS * 3_600_000),
       },
     });
-    return { token, table: { name: table.name }, outlet: { name: table.outlet.name } };
+    const logo = table.outlet.logo;
+    return {
+      token,
+      table: { name: table.name },
+      outlet: { name: table.outlet.name, logoUrl: logo ? this.media.urlFor(logo.key) : null },
+    };
   }
 
   /**

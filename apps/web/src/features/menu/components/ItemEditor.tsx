@@ -18,7 +18,7 @@ import {
 } from '@/shared/ui';
 import type { TaxRate } from '@/features/tax';
 import { useItemPhoto, useSaveItem } from '../mutations';
-import { shrinkPhoto } from '../photo';
+import { shrinkPhoto } from '@/shared/lib/photo';
 import { FOOD_LABEL, type MenuAddonGroup, type MenuCategory, type MenuItem } from '../types';
 
 interface VariantRow {
