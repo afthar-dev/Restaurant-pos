@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { callsTo, json, mockApi } from '@/test/mock';
 
@@ -114,6 +114,8 @@ async function addPaneerWithCheese() {
   fireEvent.click(within(sheet).getByRole('button', { name: 'One more' }));
   fireEvent.click(within(sheet).getByRole('button', { name: /^Add item · ₹420/ }));
 }
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('browsing the menu', () => {
   const open = async () => {
@@ -475,6 +477,22 @@ describe('ordering from the table', () => {
       lines: [{ variantId: 'paneer-h', quantity: 2, addonIds: ['cheese'] }],
       note: 'less spicy',
     });
+    expect(await screen.findByText('Waiting for the staff to confirm')).toBeInTheDocument();
+  });
+
+  it('places an order on a plain-http page where crypto.randomUUID is missing', async () => {
+    vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) });
+    const mock = api({ 'POST /api/qr/orders': () => json(waiting(), 201) });
+    render(<App search={`?t=${CODE}`} />);
+    await addPaneerWithCheese();
+    fireEvent.click(await screen.findByRole('button', { name: /^View order, 2 items, ₹420/ }));
+    const cart = await screen.findByRole('dialog', { name: 'Your order' });
+    fireEvent.click(within(cart).getByRole('button', { name: 'Place order' }));
+    await expect.poll(() => callsTo(mock, 'POST', '/api/qr/orders').length).toBe(1);
+    const sent = callsTo(mock, 'POST', '/api/qr/orders');
+    expect(new Headers(sent[0]?.[1]?.headers).get('Idempotency-Key')).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
     expect(await screen.findByText('Waiting for the staff to confirm')).toBeInTheDocument();
   });
 
