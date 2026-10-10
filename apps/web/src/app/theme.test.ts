@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
  * and background pairs the screens use stay readable in the light and the dark appearance.
  */
 // Vitest runs from apps/web; jsdom gives import.meta.url a non-file scheme.
-const css = readFileSync(join(process.cwd(), 'src/app/index.css'), 'utf8');
+const css = readFileSync(join(process.cwd(), '../../packages/shared/theme/tokens.css'), 'utf8');
 const tw = readFileSync(
   createRequire(join(process.cwd(), 'package.json')).resolve('tailwindcss/theme.css'),
   'utf8',
