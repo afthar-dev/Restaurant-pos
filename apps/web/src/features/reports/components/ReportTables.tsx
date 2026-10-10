@@ -28,8 +28,22 @@ function Table({ label, head, children }: { label: string; head: string[]; child
 
 /** One row per business day in the range. */
 export function DaysTable({ days }: { days: SalesReport['days'] }) {
+  // Only when some day has unpaid bills; otherwise Sales equals Cash + UPI + Card.
+  const unpaid = days.some((d) => d.unpaid > 0);
   return (
-    <Table label="Days" head={['Date', 'Bills', 'Sales', 'Cash', 'UPI', 'Card', 'Expenses']}>
+    <Table
+      label="Days"
+      head={[
+        'Date',
+        'Bills',
+        'Sales',
+        'Cash',
+        'UPI',
+        'Card',
+        ...(unpaid ? ['Unpaid'] : []),
+        'Expenses',
+      ]}
+    >
       {days.map((d) => (
         <tr key={d.dayId}>
           <td className={th}>
@@ -41,6 +55,7 @@ export function DaysTable({ days }: { days: SalesReport['days'] }) {
           <td className={num}>{rupees(d.cash)}</td>
           <td className={num}>{rupees(d.upi)}</td>
           <td className={num}>{rupees(d.card)}</td>
+          {unpaid && <td className={num}>{d.unpaid > 0 ? rupees(d.unpaid) : '—'}</td>}
           <td className={num}>{rupees(d.expenses)}</td>
         </tr>
       ))}

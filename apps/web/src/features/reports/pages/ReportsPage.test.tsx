@@ -17,6 +17,8 @@ const REPORT: SalesReport = {
       cash: 3200,
       upi: 37800,
       card: 76050,
+      collected: 117050,
+      unpaid: 0,
       expenses: 1000,
     },
   ],
@@ -26,6 +28,8 @@ const REPORT: SalesReport = {
     discounts: 0,
     packaging: 0,
     taxable: 111476,
+    collected: 117050,
+    unpaid: 0,
     exempt: 0,
     gstBreakup: [{ ratePercent: 5, taxable: 111476, cgst: 2787, sgst: 2787 }],
     cgst: 2787,
@@ -74,7 +78,7 @@ describe('ReportsPage', () => {
     renderRoute('/reports');
     expect(
       // The page and its chart library load lazily; give the first render time on a busy machine.
-      await screen.findByText('₹1,170.50', { selector: 'dd' }, { timeout: 15_000 }),
+      (await screen.findAllByText('₹1,170.50', { selector: 'dd' }, { timeout: 15_000 }))[0],
     ).toBeInTheDocument();
     expect(screen.getByText('₹1,160.50')).toBeInTheDocument();
     const url = String(callsTo(mock, 'GET', '/api/reports/sales')[0]?.[0]);
@@ -84,6 +88,28 @@ describe('ReportsPage', () => {
     expect(within(dishes).getByText('Tandoori Roti')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Search dishes'), { target: { value: 'roti' } });
     expect(within(dishes).queryByText('=Paneer Tikka (Half)')).toBeNull();
+  });
+
+  it('shows collected beside sales, and unpaid only when something is unpaid', async () => {
+    asOwner();
+    mockApi({ 'GET /api/reports/sales': () => json(REPORT) });
+    renderRoute('/reports');
+    const totals = await screen.findByRole('group', { name: 'Totals' }, { timeout: 15_000 });
+    expect(within(totals).getByText('Collected')).toBeInTheDocument();
+    expect(within(totals).queryByText('Unpaid')).toBeNull();
+  });
+
+  it('shows unpaid bills as their own figure and a days column', async () => {
+    asOwner();
+    const summary = { ...REPORT.summary, collected: 100000, unpaid: 17050 };
+    const day = { ...REPORT.days[0]!, collected: 100000, unpaid: 17050 };
+    mockApi({ 'GET /api/reports/sales': () => json({ ...REPORT, summary, days: [day] }) });
+    renderRoute('/reports');
+    const totals = await screen.findByRole('group', { name: 'Totals' }, { timeout: 15_000 });
+    expect(within(totals).getByText('Unpaid')).toBeInTheDocument();
+    expect(within(totals).getByText('₹170.50')).toBeInTheDocument();
+    const days = screen.getByRole('table', { name: 'Days' });
+    expect(within(days).getByRole('columnheader', { name: 'Unpaid' })).toBeInTheDocument();
   });
 
   it('breaks GST down by rate and shows No-GST sales as their own row', async () => {

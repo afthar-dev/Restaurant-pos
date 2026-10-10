@@ -10,6 +10,8 @@ const SUMMARY: SalesReport['summary'] = {
   discounts: 0,
   packaging: 0,
   taxable: 0,
+  collected: 0,
+  unpaid: 0,
   exempt: 0,
   gstBreakup: [],
   cgst: 0,
@@ -32,6 +34,8 @@ const day = (dayId: string, date: string, total: number, bills: number) => ({
   cash: 0,
   upi: 0,
   card: 0,
+  collected: 0,
+  unpaid: 0,
   expenses: 0,
 });
 

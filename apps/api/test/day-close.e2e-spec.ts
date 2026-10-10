@@ -218,6 +218,30 @@ describe('closing the business day', () => {
     });
   });
 
+  it('shows collected and unpaid beside sales on the day report and the day list', async () => {
+    const paid = await billFor(roti(), r.t1.id);
+    await pay(paid.id, { mode: 'CASH', amount: paid.total }).expect(201);
+    const unpaid = await billFor([{ variantId: r.paneer.half.id, quantity: 1 }], r.t2.id);
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+
+    const report = await ctx
+      .http()
+      .get(`/api/business-day/${day.id}/report`)
+      .set(manager.auth)
+      .expect(200);
+    expect(report.body.sales).toMatchObject({
+      total: paid.total + unpaid.total,
+      collected: paid.total,
+      unpaid: unpaid.total,
+    });
+    const list = await ctx.http().get('/api/business-day').set(manager.auth).expect(200);
+    expect(list.body[0]).toMatchObject({
+      total: paid.total + unpaid.total,
+      collected: paid.total,
+      unpaid: unpaid.total,
+    });
+  });
+
   it('reads the report of any past day', async () => {
     await close({ countedCash: 99000 }).expect(201);
     const [day] = (await ctx.http().get('/api/business-day').set(manager.auth).expect(200)).body;

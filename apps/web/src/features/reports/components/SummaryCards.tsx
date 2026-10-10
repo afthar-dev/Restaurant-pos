@@ -24,7 +24,11 @@ export function SummaryCards({ summary }: { summary: SalesReport['summary'] }) {
       <StatStrip
         label="Totals"
         items={[
-          { label: 'Sales', value: rupees(summary.total) },
+          { label: 'Sales', value: rupees(summary.total), hint: 'Billed, not counting voids' },
+          { label: 'Collected', value: rupees(summary.collected), hint: 'Paid so far' },
+          ...(summary.unpaid > 0
+            ? [{ label: 'Unpaid', value: rupees(summary.unpaid), hint: 'Billed, not paid yet' }]
+            : []),
           { label: 'Bills', value: String(summary.bills) },
           { label: 'Average bill', value: rupees(summary.averageBill) },
           { label: 'Expenses', value: rupees(summary.expenses.total) },

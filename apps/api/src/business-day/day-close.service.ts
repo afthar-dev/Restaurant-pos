@@ -178,6 +178,12 @@ export class DayCloseService {
       _sum: { total: true },
     });
     const totalOf = new Map(totals.map((t) => [t.businessDayId, t._sum.total ?? 0]));
+    const paid = await this.prisma.payment.groupBy({
+      by: ['businessDayId'],
+      where: { businessDayId: { in: days.map((d) => d.id) }, bill: { status: { not: 'VOID' } } },
+      _sum: { amount: true },
+    });
+    const collectedOf = new Map(paid.map((p) => [p.businessDayId, p._sum.amount ?? 0]));
     return days.map((d) => ({
       id: d.id,
       status: d.status,
@@ -188,6 +194,9 @@ export class DayCloseService {
       countedCash: d.countedCash,
       variance: d.variance,
       total: totalOf.get(d.id) ?? 0,
+      // Sales are billed; collected is what has been paid on those bills.
+      collected: collectedOf.get(d.id) ?? 0,
+      unpaid: (totalOf.get(d.id) ?? 0) - (collectedOf.get(d.id) ?? 0),
     }));
   }
 
@@ -251,6 +260,8 @@ export class DayCloseService {
     });
 
     const gst = gstSummary(live.flatMap((b) => gstLinesOf(b)));
+    const collected = payments.CASH + payments.UPI + payments.CARD;
+    const billed = sum(live.map((b) => b.total));
     const cashSales = payments.CASH;
     const spent = await expenseTotals(this.prisma, day.id);
     const expected = day.expectedCash ?? day.openingCash + cashSales - spent.cash;
@@ -276,7 +287,10 @@ export class DayCloseService {
         cgst: sum(live.map((b) => b.cgst)),
         sgst: sum(live.map((b) => b.sgst)),
         roundOff: sum(live.map((b) => b.roundOff)),
-        total: sum(live.map((b) => b.total)),
+        total: billed,
+        // Sales are billed; collected is what has been paid on those bills.
+        collected,
+        unpaid: billed - collected,
       },
       payments,
       byType,

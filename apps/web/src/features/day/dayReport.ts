@@ -49,6 +49,8 @@ ${section(
     row('SGST', money(r.sales.sgst)),
     row('Round off', money(r.sales.roundOff)),
     row('Total', money(r.sales.total), true),
+    row('Collected', money(r.sales.collected)),
+    r.sales.unpaid > 0 ? row('Unpaid', money(r.sales.unpaid)) : '',
   ].join(''),
 )}
 ${section(

@@ -11,6 +11,8 @@ const day = (dayId: string, date: string, total: number, bills: number) => ({
   cash: 0,
   upi: 0,
   card: 0,
+  collected: 0,
+  unpaid: 0,
   expenses: 0,
 });
 

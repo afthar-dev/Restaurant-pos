@@ -42,6 +42,8 @@ const report = (partial: Partial<DayReport> = {}): DayReport => ({
     discounts: 0,
     packaging: 0,
     taxable: 39000,
+    collected: 41000,
+    unpaid: 0,
     exempt: 0,
     gstBreakup: [{ ratePercent: 5, taxable: 39000, cgst: 975, sgst: 975 }],
     cgst: 975,
@@ -78,6 +80,8 @@ const days = [
     countedCash: 103000,
     variance: -200,
     total: 41000,
+    collected: 41000,
+    unpaid: 0,
   },
 ];
 
@@ -231,7 +235,8 @@ describe('Day close', () => {
     renderRoute('/day');
     fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
     const shown = await screen.findByRole('region', { name: 'Day report' });
-    expect(within(shown).getByText('₹410')).toBeInTheDocument();
+    // Sales total and, all of it paid, collected.
+    expect(within(shown).getAllByText('₹410')).toHaveLength(2);
     fireEvent.click(within(shown).getByRole('button', { name: 'Reopen day' }));
     fireEvent.change(within(shown).getByLabelText('Why reopen?'), {
       target: { value: 'Missed a bill' },
@@ -259,6 +264,25 @@ describe('Day close', () => {
     expect(within(gst).getByRole('row', { name: /No GST sales.*₹30/ })).toBeInTheDocument();
   });
 
+  it('shows collected beside sales, and unpaid when bills are unpaid', async () => {
+    as(OWNER, 'OWNER');
+    const base = report();
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json([{ ...days[0]!, collected: 30000, unpaid: 11000 }]),
+      'GET /api/business-day/d2/report': () =>
+        json({ ...base, sales: { ...base.sales, collected: 30000, unpaid: 11000 } }),
+    });
+    renderRoute('/day');
+    const row = await screen.findByRole('button', { name: /^6 Oct/ });
+    expect(row).toHaveTextContent('Unpaid ₹110');
+    fireEvent.click(row);
+    const shown = await screen.findByRole('region', { name: 'Day report' });
+    expect(within(shown).getByText('Collected')).toBeInTheDocument();
+    expect(within(shown).getByText('Unpaid')).toBeInTheDocument();
+    expect(within(shown).getByText('₹110')).toBeInTheDocument();
+  });
+
   it('does not offer reopen to a manager', async () => {
     as(MANAGER);
     mockApi({
@@ -281,6 +305,17 @@ describe('Day close', () => {
 });
 
 describe('renderDayReport', () => {
+  it('prints collected and unpaid under the total', () => {
+    const base = report();
+    const html = renderDayReport(
+      report({ sales: { ...base.sales, collected: 30000, unpaid: 11000 } }),
+      'Spice Garden',
+    );
+    expect(html).toContain('Collected');
+    expect(html).toContain('Unpaid');
+    expect(renderDayReport(report(), 'Spice Garden')).not.toContain('Unpaid');
+  });
+
   it('prints GST by rate and the No-GST sales', () => {
     const base = report();
     const html = renderDayReport(

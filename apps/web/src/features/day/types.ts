@@ -29,6 +29,9 @@ export interface DaySummary {
   countedCash: number | null;
   variance: number | null;
   total: number;
+  /** Paid on the day's bills; `total - collected` is unpaid. */
+  collected: number;
+  unpaid: number;
 }
 
 /** GST at one rate: CGST + SGST percent, the taxable value and the tax on it. */
@@ -64,6 +67,10 @@ export interface DayReport {
     sgst: number;
     roundOff: number;
     total: number;
+    /** Paid on those bills (the payment modes added up). */
+    collected: number;
+    /** Billed but not yet paid: `total - collected`. */
+    unpaid: number;
   };
   payments: Record<PaymentMode, number>;
   byType: Record<OrderType, { orders: number; total: number }>;

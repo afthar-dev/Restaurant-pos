@@ -20,6 +20,9 @@ export interface SalesReport {
     cash: number;
     upi: number;
     card: number;
+    /** Paid on those bills; `total - collected` is unpaid. */
+    collected: number;
+    unpaid: number;
     expenses: number;
   }[];
   summary: {
@@ -36,6 +39,10 @@ export interface SalesReport {
     sgst: number;
     roundOff: number;
     total: number;
+    /** Paid on those bills (the payment modes added up). */
+    collected: number;
+    /** Billed but not yet paid: `total - collected`. */
+    unpaid: number;
     averageBill: number;
     payments: Record<PaymentMode, number>;
     byType: Record<OrderType, { orders: number; total: number }>;

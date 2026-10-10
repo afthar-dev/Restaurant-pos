@@ -177,6 +177,35 @@ describe('sales report', () => {
     });
   });
 
+  it('shows what was collected and what is still unpaid next to sales', async () => {
+    await openDay();
+    const paid = await billFor([{ variantId: r.paneer.half.id, quantity: 1 }]);
+    await pay(paid.id, { mode: 'UPI', amount: paid.total }).expect(201);
+    const part = await billFor([{ variantId: r.paneer.half.id, quantity: 2 }], r.t2.id);
+    await pay(part.id, { mode: 'CASH', amount: 10000 }).expect(201);
+    // A voided bill is neither sales nor unpaid.
+    const voided = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }], r.t1.id);
+    await ctx
+      .http()
+      .post(`/api/bills/${voided.id}/void`)
+      .set(manager.auth)
+      .send({ reason: 'Wrong table' })
+      .expect(201);
+
+    const res = await report(istDate(0), istDate(0)).expect(200);
+    const total = paid.total + part.total;
+    expect(res.body.summary).toMatchObject({
+      total,
+      collected: paid.total + 10000,
+      unpaid: part.total - 10000,
+    });
+    expect(res.body.days[0]).toMatchObject({
+      total,
+      collected: paid.total + 10000,
+      unpaid: part.total - 10000,
+    });
+  });
+
   it('gives zeros for a range without business days', async () => {
     const res = await report('2020-01-01', '2020-01-31').expect(200);
     expect(res.body.days).toEqual([]);

@@ -271,6 +271,8 @@ function ReportView({
           <Row label="CGST" value={rupees(sales.cgst)} />
           <Row label="SGST" value={rupees(sales.sgst)} />
           <Row label="Total" value={rupees(sales.total)} strong />
+          <Row label="Collected" value={rupees(sales.collected)} />
+          {sales.unpaid > 0 && <Row label="Unpaid" value={rupees(sales.unpaid)} />}
           {(sales.gstBreakup.length > 0 || sales.exempt > 0) && (
             <GstTable rates={sales.gstBreakup} exempt={sales.exempt} />
           )}
@@ -415,7 +417,10 @@ function PastDays({
               className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 text-left text-sm"
               onClick={() => onSelect(d, index === 0)}
             >
-              <span>{`${shortDate(d.openedAt)} · ${rupees(d.total)}`}</span>
+              <span>
+                {`${shortDate(d.openedAt)} · ${rupees(d.total)}`}
+                {d.unpaid > 0 && ` · Unpaid ${rupees(d.unpaid)}`}
+              </span>
               <span className={d.variance ? 'text-red-700' : 'text-subtle'}>
                 {d.status === 'OPEN'
                   ? 'Open'

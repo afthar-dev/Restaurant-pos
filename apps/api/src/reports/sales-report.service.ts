@@ -83,6 +83,8 @@ export class SalesReportService {
       dayPayments.set(p.businessDayId, modes);
     }
 
+    const collected = payments.CASH + payments.UPI + payments.CARD;
+
     const categoryNames = await this.prisma.expenseCategory.findMany({
       where: { id: { in: expensesByCategory.map((e) => e.categoryId) } },
       select: { id: true, name: true },
@@ -100,12 +102,17 @@ export class SalesReportService {
       days: days.map((d) => {
         const modes = dayPayments.get(d.id) ?? noModes();
         const billRow = billsByDay.find((b) => b.businessDayId === d.id);
+        const dayTotal = billRow?._sum.total ?? 0;
+        const collected = modes.CASH + modes.UPI + modes.CARD;
         return {
           dayId: d.id,
           date: d.date,
           status: d.status,
           bills: billRow?._count ?? 0,
-          total: billRow?._sum.total ?? 0,
+          total: dayTotal,
+          // Sales are billed; collected is what has been paid on those bills.
+          collected,
+          unpaid: dayTotal - collected,
           cash: modes.CASH,
           upi: modes.UPI,
           card: modes.CARD,
@@ -125,6 +132,8 @@ export class SalesReportService {
         sgst: sums.sgst ?? 0,
         roundOff: sums.roundOff ?? 0,
         total,
+        collected,
+        unpaid: total - collected,
         averageBill: bills > 0 ? Math.round(total / bills) : 0,
         payments,
         byType: await this.byType(dayIds),
