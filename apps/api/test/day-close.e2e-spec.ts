@@ -327,6 +327,29 @@ describe('closing the business day', () => {
     expect(res.body.reopened).toBeNull();
   });
 
+  it('lists bills in the order they were made, though the number restarts on 1 April', async () => {
+    const late = await billFor(roti(), r.t1.id);
+    const early = await billFor(roti(), r.t2.id);
+    // Made on 31 March as 4501, and just after midnight as number 1 of the new year.
+    await ctx.prisma.bill.update({ where: { id: late.id }, data: { billNo: 4501 } });
+    await ctx.prisma.bill.update({ where: { id: early.id }, data: { billNo: 1 } });
+    for (const bill of [late, early]) {
+      await ctx
+        .http()
+        .post(`/api/bills/${bill.id}/void`)
+        .set(manager.auth)
+        .send({ reason: 'Test' })
+        .expect(201);
+    }
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+    const res = await ctx
+      .http()
+      .get(`/api/business-day/${day.id}/report`)
+      .set(manager.auth)
+      .expect(200);
+    expect(res.body.voids.map((v: { billNo: number }) => v.billNo)).toEqual([4501, 1]);
+  });
+
   it('splits the day report taxable value by GST rate and shows No-GST sales apart', async () => {
     const gst18 = await ctx.prisma.taxRate.create({
       data: { outletId: outlet.id, name: 'GST 18%', cgstBp: 900, sgstBp: 900 },

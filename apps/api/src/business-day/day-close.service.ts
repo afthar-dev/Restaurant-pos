@@ -227,7 +227,7 @@ export class DayCloseService {
         payments: true,
         order: { select: { type: true } },
       },
-      orderBy: { billNo: 'asc' },
+      orderBy: [{ createdAt: 'asc' }, { billNo: 'asc' }],
     });
     const live = bills.filter((b) => b.status !== 'VOID');
     const voided = bills.filter((b) => b.status === 'VOID');
@@ -436,7 +436,7 @@ export class DayCloseService {
     const bills = await db.bill.findMany({
       where: { businessDayId: dayId, status: 'OPEN' },
       include: { payments: { select: { amount: true } } },
-      orderBy: { billNo: 'asc' },
+      orderBy: [{ createdAt: 'asc' }, { billNo: 'asc' }],
     });
     return {
       orders: orders.map((o) => ({
