@@ -347,6 +347,35 @@ describe('KOTs and the kitchen', () => {
       expect((await kdsGet()).body).toEqual([]);
     });
 
+    it('counts the kitchen tickets of each running order, for the owner’s home', async () => {
+      const orderId = await orderWith([{ variantId: r.roti.regular.id, quantity: 1 }]);
+      const owner = await signIn(ctx, outlet.id, 'OWNER', 'Asha');
+      const kitchenOf = async () =>
+        (await ctx.http().get('/api/orders?status=active').set(owner.auth).expect(200)).body.find(
+          (o: { id: string }) => o.id === orderId,
+        ).kitchen;
+      expect(await kitchenOf()).toEqual({ cooking: 0, ready: 0 });
+
+      await sendKot(orderId).expect(201);
+      expect(await kitchenOf()).toEqual({ cooking: 1, ready: 0 });
+
+      const kotId = (await kdsGet()).body[0].id as string;
+      const patch = (status: string) =>
+        ctx
+          .http()
+          .patch(`/api/kds/kots/${kotId}`)
+          .set('Cookie', `rpos_dt=${kds.cookie}`)
+          .send({ status })
+          .expect(200);
+      await patch('PREPARING');
+      expect(await kitchenOf()).toEqual({ cooking: 1, ready: 0 });
+      await patch('READY');
+      expect(await kitchenOf()).toEqual({ cooking: 0, ready: 1 });
+
+      await ctx.http().post(`/api/kots/${kotId}/served`).set(waiter.auth).expect(201);
+      expect(await kitchenOf()).toEqual({ cooking: 0, ready: 0 });
+    });
+
     it('filters by station', async () => {
       const orderId = await orderWith([
         { variantId: r.paneer.half.id, quantity: 1 },

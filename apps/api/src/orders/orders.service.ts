@@ -149,7 +149,15 @@ export class OrdersService {
   async active(outletId: string) {
     const orders = await this.prisma.order.findMany({
       where: { outletId, status: { in: [...ACTIVE_STATUSES] }, businessDay: { status: 'OPEN' } },
-      include: { table: { select: { name: true } }, items: true },
+      include: {
+        table: { select: { name: true } },
+        items: true,
+        // Open tickets only; served and cancellation tickets are not on the stove.
+        kots: {
+          where: { type: 'NEW', status: { in: ['NEW', 'PREPARING', 'READY'] } },
+          select: { status: true },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
     return orders.map((o) => ({
@@ -166,6 +174,11 @@ export class OrdersService {
         .reduce((n, i) => n + i.quantity, 0),
       subtotal: orderSubtotal(o.items),
       createdAt: o.createdAt,
+      /** Kitchen tickets still open: waiting or cooking, and ready to serve. */
+      kitchen: {
+        cooking: o.kots.filter((k) => k.status !== 'READY').length,
+        ready: o.kots.filter((k) => k.status === 'READY').length,
+      },
     }));
   }
 
