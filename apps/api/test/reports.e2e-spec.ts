@@ -127,8 +127,10 @@ describe('sales report', () => {
       averageBill: Math.round(total / 3),
       payments: { CASH: first.total, UPI: upi.total, CARD: parcel.total },
       expenses: { total: 1000, byCategory: [{ name: 'Gas', amount: 1000 }] },
-      net: total - 1000,
+      // Sales without the GST that is owed on to the government, minus expenses.
+      net: total - res.body.summary.cgst - res.body.summary.sgst - 1000,
     });
+    expect(res.body.summary.cgst).toBeGreaterThan(0);
     expect(res.body.summary.byType.DINE_IN).toEqual({ orders: 2, total: first.total + upi.total });
     expect(res.body.summary.byType.PARCEL).toEqual({ orders: 1, total: parcel.total });
     expect(res.body.items[0]).toMatchObject({ itemName: 'Paneer Tikka', quantity: 2 });

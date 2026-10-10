@@ -112,6 +112,16 @@ describe('ReportsPage', () => {
     expect(within(days).getByRole('columnheader', { name: 'Unpaid' })).toBeInTheDocument();
   });
 
+  it('calls sales minus GST and expenses "After expenses", not profit or net', async () => {
+    asOwner();
+    mockApi({ 'GET /api/reports/sales': () => json(REPORT) });
+    renderRoute('/reports');
+    const totals = await screen.findByRole('group', { name: 'Totals' }, { timeout: 15_000 });
+    expect(within(totals).getByText('After expenses')).toBeInTheDocument();
+    expect(within(totals).getByText('Sales without GST, minus expenses')).toBeInTheDocument();
+    expect(within(totals).queryByText('Net')).toBeNull();
+  });
+
   it('breaks GST down by rate and shows No-GST sales as their own row', async () => {
     asOwner();
     const summary = {

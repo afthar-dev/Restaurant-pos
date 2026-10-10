@@ -153,7 +153,8 @@ export class SalesReportService {
         payments,
         byType: await this.byType(dayIds),
         expenses: { total: expenseTotal, byCategory: expenseRows },
-        net: total - expenseTotal,
+        // What is left of sales once the GST collected and the expenses are taken off.
+        net: total - (sums.cgst ?? 0) - (sums.sgst ?? 0) - expenseTotal,
       },
       items: await this.items(dayIds),
       categories: await this.categories(dayIds),

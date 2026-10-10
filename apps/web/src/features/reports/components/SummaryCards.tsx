@@ -33,7 +33,8 @@ export function SummaryCards({ summary }: { summary: SalesReport['summary'] }) {
           { label: 'Average bill', value: rupees(summary.averageBill) },
           { label: 'Expenses', value: rupees(summary.expenses.total) },
           {
-            label: 'Net',
+            label: 'After expenses',
+            hint: 'Sales without GST, minus expenses',
             value: `${summary.net < 0 ? '−' : ''}${rupees(Math.abs(summary.net))}`,
             tone: summary.net < 0 ? 'danger' : undefined,
           },
