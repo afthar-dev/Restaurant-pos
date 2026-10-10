@@ -1,5 +1,5 @@
 import { BookOpen, Minus, Plus, Search, X } from 'lucide-react';
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { MAX_QUANTITY, useCart, type CartLine } from '@/features/cart';
 import { rupees } from '@/shared/lib/money';
 import { FOOD_LABEL, FoodMark, Sheet } from '@/shared/ui';
@@ -45,39 +45,65 @@ function AddControl({
   const mine = lines.filter((l) => variantIds.has(l.variantId));
   const count = mine.reduce((n, l) => n + l.quantity, 0);
   const plain = isPlain(item);
+  // ADD and the counter replace each other; keep keyboard focus on whichever is now shown.
+  const keepFocus = useRef(false);
+  const addRef = useRef<HTMLButtonElement>(null);
+  const moreRef = useRef<HTMLButtonElement>(null);
+  const empty = count === 0;
+  useEffect(() => {
+    if (!keepFocus.current) return;
+    keepFocus.current = false;
+    (empty ? addRef : moreRef).current?.focus();
+  }, [empty]);
+  const willSwap = () => {
+    keepFocus.current = true;
+  };
 
   const box =
-    'flex h-10 w-28 items-center justify-center rounded-lg border border-primary-300 bg-surface text-primary-800 shadow-card';
-  if (count === 0) {
+    'flex h-11 w-28 items-center justify-center rounded-lg border border-primary-300 bg-surface text-primary-800 shadow-card';
+  if (empty) {
     return (
       <button
+        ref={addRef}
         type="button"
         aria-label={`Add ${item.name}`}
         className={`${box} text-sm font-bold tracking-wide`}
-        onClick={() => (plain ? add(plainLine(item)) : onPick(item))}
+        onClick={() => {
+          if (plain) {
+            willSwap();
+            add(plainLine(item));
+          } else onPick(item);
+        }}
       >
         ADD
       </button>
     );
   }
   return (
-    <div className={`${box} justify-between overflow-hidden`}>
+    <div
+      role="group"
+      aria-label={`${item.name}, ${count} in order`}
+      className={`${box} justify-between overflow-hidden`}
+    >
       <button
         type="button"
         aria-label={`One less ${item.name}`}
-        className="flex h-full w-10 items-center justify-center"
-        onClick={() =>
+        className="flex h-full w-11 items-center justify-center"
+        onClick={() => {
           // With several different choices in the cart, the order page says which to change.
-          mine.length === 1 ? setQuantity(mine[0]!.key, mine[0]!.quantity - 1) : onOpenCart()
-        }
+          if (mine.length !== 1) return onOpenCart();
+          if (count === 1) willSwap();
+          setQuantity(mine[0]!.key, mine[0]!.quantity - 1);
+        }}
       >
         <Minus aria-hidden="true" className="size-4" />
       </button>
       <span className="text-sm font-bold tabular-nums">{count}</span>
       <button
+        ref={moreRef}
         type="button"
         aria-label={`One more ${item.name}`}
-        className="flex h-full w-10 items-center justify-center disabled:opacity-40"
+        className="flex h-full w-11 items-center justify-center disabled:opacity-40"
         disabled={plain && count >= MAX_QUANTITY}
         onClick={() => (plain ? add(plainLine(item)) : onPick(item))}
       >
@@ -241,7 +267,7 @@ export function Menu({
           aria-labelledby={`${id}-${c.id}`}
           className="scroll-mt-32 border-t-8 border-surface-2 pt-4 first:border-t-0"
         >
-          <h2 id={`${id}-${c.id}`} className="text-lg font-bold">
+          <h2 id={`${id}-${c.id}`} tabIndex={-1} className="text-lg font-bold outline-none">
             {c.name}
             <span className="ml-2 text-sm font-normal text-muted">{`${c.items.length}`}</span>
           </h2>
@@ -267,11 +293,13 @@ export function Menu({
                     // Clear filters so the chosen section is on the page to scroll to.
                     setQuery('');
                     setVegOnly(false);
-                    requestAnimationFrame(() =>
+                    requestAnimationFrame(() => {
                       document
                         .getElementById(sectionId(c.id))
-                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-                    );
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      // Keyboard and screen-reader users land on the section they chose.
+                      document.getElementById(`${id}-${c.id}`)?.focus({ preventScroll: true });
+                    });
                   }}
                 >
                   <span>{c.name}</span>

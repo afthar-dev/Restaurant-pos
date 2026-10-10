@@ -1,7 +1,13 @@
 import { X } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 
-/** A bottom sheet over the page, named for screen readers. */
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])';
+
+/**
+ * A bottom sheet over the page, named for screen readers. Focus moves into it, Tab stays in
+ * it, Escape closes it, and focus goes back to whatever opened it.
+ */
 export function Sheet({
   label,
   onClose,
@@ -11,13 +17,49 @@ export function Sheet({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    panel.current?.focus();
+    return () => {
+      // Back to the opener, unless whoever closed the sheet already moved focus on purpose.
+      if (opener?.isConnected && document.activeElement === document.body) opener.focus();
+    };
+  }, []);
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+    if (event.key !== 'Tab' || !panel.current) return;
+    const items = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
+    if (items.length === 0) return;
+    const first = items[0]!;
+    const last = items[items.length - 1]!;
+    if (
+      event.shiftKey &&
+      (document.activeElement === first || document.activeElement === panel.current)
+    ) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-40 flex items-end bg-black/50" onClick={onClose}>
       <div
+        ref={panel}
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        className="relative mx-auto flex max-h-[90dvh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-t-2xl bg-surface p-4"
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
+        className="relative mx-auto flex max-h-[90dvh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-t-2xl bg-surface p-4 outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <button

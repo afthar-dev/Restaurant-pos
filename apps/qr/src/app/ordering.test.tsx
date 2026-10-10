@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { App } from './App';
 import { callsTo, json, mockApi } from '@/test/mock';
 
@@ -150,12 +150,74 @@ describe('browsing the menu', () => {
     expect(screen.getByRole('button', { name: /^Tandoori Roti/ })).toBeInTheDocument();
   });
 
-  it('jumps to a category from the Menu button', async () => {
+  it('jumps to a category from the Menu button, clearing filters and moving focus there', async () => {
     await open();
+    const scrolled = vi.spyOn(Element.prototype, 'scrollIntoView');
+    fireEvent.click(screen.getByRole('switch', { name: 'Veg only' }));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search dishes' }), {
+      target: { value: 'paneer' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
     const list = await screen.findByRole('dialog', { name: 'Menu' });
     fireEvent.click(within(list).getByRole('button', { name: /^Breads/ }));
     expect(screen.queryByRole('dialog', { name: 'Menu' })).toBeNull();
+    expect(screen.getByRole('searchbox', { name: 'Search dishes' })).toHaveValue('');
+    expect(screen.getByRole('switch', { name: 'Veg only' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    const breads = screen.getByRole('heading', { level: 2, name: /^Breads/ });
+    await waitFor(() => expect(breads).toHaveFocus());
+    expect(scrolled).toHaveBeenCalled();
+    scrolled.mockRestore();
+  });
+
+  it('keeps keyboard focus in an open sheet, closes on Escape and returns focus', async () => {
+    await open();
+    const trigger = screen.getByRole('button', { name: 'Menu' });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const sheet = await screen.findByRole('dialog', { name: 'Menu' });
+    await waitFor(() => expect(sheet.contains(document.activeElement)).toBe(true));
+    fireEvent.keyDown(sheet, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Menu' })).toBeNull();
+    expect(trigger).toHaveFocus();
+  });
+
+  it('keeps focus on the dish when ADD turns into a counter, and names the count', async () => {
+    await open();
+    screen.getByRole('button', { name: 'Add Tandoori Roti' }).focus();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Tandoori Roti' }));
+    const more = screen.getByRole('button', { name: 'One more Tandoori Roti' });
+    await waitFor(() => expect(more).toHaveFocus());
+    expect(screen.getByRole('group', { name: 'Tandoori Roti, 1 in order' })).toBeInTheDocument();
+    expect(more).toHaveClass('w-11');
+    fireEvent.click(screen.getByRole('button', { name: 'One less Tandoori Roti' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Add Tandoori Roti' })).toHaveFocus(),
+    );
+  });
+
+  it('adds a plain dish from its row and from its sheet into the same line', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Tandoori Roti' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Tandoori Roti/ }));
+    const sheet = await screen.findByRole('dialog', { name: 'Tandoori Roti' });
+    fireEvent.click(within(sheet).getByRole('button', { name: /^Add item/ }));
+    expect(screen.getByRole('group', { name: 'Tandoori Roti, 2 in order' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^View order/ }));
+    const cart = await screen.findByRole('dialog', { name: 'Your order' });
+    expect(within(cart).getAllByRole('listitem')).toHaveLength(1);
+  });
+
+  it('opens the order when − could mean more than one choice of the dish', async () => {
+    await open();
+    await addPaneerWithCheese();
+    fireEvent.click(screen.getByRole('button', { name: /^Paneer Tikka/ }));
+    const sheet = await screen.findByRole('dialog', { name: 'Paneer Tikka' });
+    fireEvent.click(within(sheet).getByRole('button', { name: /^Add item/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'One less Paneer Tikka' }));
+    expect(await screen.findByRole('dialog', { name: 'Your order' })).toBeInTheDocument();
   });
 
   it('adds a plain dish with ADD and turns it into a counter', async () => {
