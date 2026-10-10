@@ -303,12 +303,12 @@ describe('ordering from the table', () => {
     await addPaneerWithCheese();
     fireEvent.click(await screen.findByRole('button', { name: /^View order, 2 items, ₹420/ }));
     const cart = await screen.findByRole('dialog', { name: 'Your order' });
-    fireEvent.change(within(cart).getByLabelText('Note for the kitchen (optional)'), {
+    fireEvent.change(within(cart).getByLabelText('Cooking instructions (optional)'), {
       target: { value: 'less spicy' },
     });
-    fireEvent.click(within(cart).getByRole('button', { name: 'Send to the staff' }));
+    fireEvent.click(within(cart).getByRole('button', { name: 'Place order' }));
     expect(await within(cart).findByRole('alert')).toBeInTheDocument();
-    fireEvent.click(within(cart).getByRole('button', { name: 'Send to the staff' }));
+    fireEvent.click(within(cart).getByRole('button', { name: 'Place order' }));
     await expect.poll(() => callsTo(mock, 'POST', '/api/qr/orders').length).toBe(2);
     const sent = callsTo(mock, 'POST', '/api/qr/orders');
     const key = (i: number) => new Headers(sent[i]?.[1]?.headers).get('Idempotency-Key');
@@ -319,6 +319,17 @@ describe('ordering from the table', () => {
       note: 'less spicy',
     });
     expect(await screen.findByText('Waiting for the staff to confirm')).toBeInTheDocument();
+  });
+
+  it('shows each line total, the item total and that GST comes on the bill', async () => {
+    api();
+    render(<App search={`?t=${CODE}`} />);
+    await addPaneerWithCheese();
+    fireEvent.click(await screen.findByRole('button', { name: /^View order, 2 items, ₹420/ }));
+    const cart = await screen.findByRole('dialog', { name: 'Your order' });
+    expect(within(cart).getByText('Item total').parentElement).toHaveTextContent('₹420');
+    expect(within(cart).getByText('GST is added on the final bill.')).toBeInTheDocument();
+    expect(within(cart).getAllByText('₹420')).not.toHaveLength(0);
   });
 
   it('shows when the staff accepted the order', async () => {
