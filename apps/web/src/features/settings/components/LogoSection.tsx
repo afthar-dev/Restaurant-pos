@@ -20,7 +20,7 @@ export function LogoSection({ outlet }: { outlet: OutletSettings }) {
     setProblem(null);
     try {
       // Logos are small: 512 px keeps them sharp on a bill and quick on a phone.
-      logo.mutate(await shrinkPhoto(file, 512));
+      logo.mutate(await shrinkPhoto(file, 512, { transparent: true }));
     } catch (error) {
       setProblem(describeError(error));
     }

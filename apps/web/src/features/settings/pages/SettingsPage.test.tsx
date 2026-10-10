@@ -43,7 +43,9 @@ describe('SettingsPage', () => {
       target: { files: [new File(['x'], 'logo.png', { type: 'image/png' })] },
     });
     await expect.poll(() => callsTo(mock, 'PUT', '/api/outlet/logo').length).toBe(1);
-    expect(vi.mocked(shrinkPhoto)).toHaveBeenCalledWith(expect.any(File), 512);
+    expect(vi.mocked(shrinkPhoto)).toHaveBeenCalledWith(expect.any(File), 512, {
+      transparent: true,
+    });
     expect(callsTo(mock, 'PUT', '/api/outlet/logo')[0]?.[1]?.body).toBeInstanceOf(FormData);
     expect(await screen.findByRole('img', { name: 'Restaurant logo' })).toHaveAttribute(
       'src',

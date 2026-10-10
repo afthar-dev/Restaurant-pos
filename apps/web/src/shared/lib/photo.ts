@@ -11,10 +11,15 @@ function encode(canvas: HTMLCanvasElement, type: string, quality: number) {
 }
 
 /**
- * A phone photo made small enough to upload quickly: longest side 1024 px (or `maxSide`), WebP (JPEG where the
- * browser cannot write WebP). Rejects with a plain message if the file is not a readable image.
+ * A phone photo made small enough to upload quickly: longest side 1024 px (or `maxSide`),
+ * WebP. Where the browser cannot write WebP: JPEG on white, or PNG with `transparent` (logos).
+ * Rejects with a plain message if the file is not a readable image.
  */
-export async function shrinkPhoto(file: File, maxSide = MAX_SIDE): Promise<Blob> {
+export async function shrinkPhoto(
+  file: File,
+  maxSide = MAX_SIDE,
+  { transparent = false }: { transparent?: boolean } = {},
+): Promise<Blob> {
   let bitmap: ImageBitmap;
   try {
     // Phone photos carry their rotation in EXIF; older browsers ignore it unless asked.
@@ -32,7 +37,22 @@ export async function shrinkPhoto(file: File, maxSide = MAX_SIDE): Promise<Blob>
   bitmap.close();
   const webp = await encode(canvas, 'image/webp', 0.8);
   if (webp && webp.type === 'image/webp' && webp.size > 0) return webp;
-  const jpeg = await encode(canvas, 'image/jpeg', 0.85);
+  // No WebP encoder (Safari, iPad). A logo keeps its transparency as PNG; a photo becomes a
+  // JPEG, which has no transparency, so it goes on white first (clear pixels would turn black).
+  if (transparent) {
+    const png = await encode(canvas, 'image/png', 1);
+    if (!png) throw new Error('Could not read this photo.');
+    return png;
+  }
+  const flat = document.createElement('canvas');
+  flat.width = width;
+  flat.height = height;
+  const flatContext = flat.getContext('2d');
+  if (!flatContext) throw new Error('Could not read this photo.');
+  flatContext.fillStyle = '#ffffff';
+  flatContext.fillRect(0, 0, width, height);
+  flatContext.drawImage(canvas, 0, 0);
+  const jpeg = await encode(flat, 'image/jpeg', 0.85);
   if (!jpeg) throw new Error('Could not read this photo.');
   return jpeg;
 }
