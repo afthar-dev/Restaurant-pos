@@ -181,6 +181,13 @@ describe('browsing the menu', () => {
 });
 
 describe('ordering from the table', () => {
+  it('shows a menu-shaped placeholder while the menu loads', async () => {
+    api({ 'GET /api/qr/menu': () => new Promise<Response>(() => undefined) });
+    render(<App search={`?t=${CODE}`} />);
+    const loading = await screen.findByRole('status', { name: 'Loading the menu' });
+    expect(loading.querySelectorAll('[data-skeleton="dish"]')).toHaveLength(4);
+  });
+
   it('shows dish photos in the list and the dish sheet', async () => {
     const PHOTO = 'https://photos.example.in/paneer.webp';
     const withPhoto = {
@@ -271,6 +278,12 @@ describe('ordering from the table', () => {
         ),
     });
     render(<App search={`?t=${CODE}`} />);
+    expect(
+      await screen.findByText('This QR code is not in use. Please call the waiter.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1 }).closest('main')?.querySelector('svg'),
+    ).not.toBeNull();
     expect(
       await screen.findByText('This QR code is not in use. Please call the waiter.'),
     ).toBeInTheDocument();

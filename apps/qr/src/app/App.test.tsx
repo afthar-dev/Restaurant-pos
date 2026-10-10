@@ -16,7 +16,7 @@ describe('QR App', () => {
 
   it('opens the table menu when a token is present', () => {
     render(<App search="?t=abc123" />);
-    expect(screen.getByText('Opening the menu…')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Loading the menu' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Scan to order' })).toBeNull();
   });
 });

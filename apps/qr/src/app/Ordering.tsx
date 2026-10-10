@@ -1,7 +1,7 @@
 import { ChevronRight, UtensilsCrossed } from 'lucide-react';
 import { useState } from 'react';
 import { Cart, cartTotals, useCart, type CartLine } from '@/features/cart';
-import { ItemSheet, Menu, useMenu, type MenuItem } from '@/features/menu';
+import { ItemSheet, Menu, MenuSkeleton, useMenu, type MenuItem } from '@/features/menu';
 import { Requests, useMyRequests, useSubmitOrder } from '@/features/requests';
 import type { StoredSession } from '@/features/session';
 import { isSessionEnded, QrApiError } from '@/shared/api/http';
@@ -73,7 +73,7 @@ export function Ordering({ session }: { session: StoredSession }) {
       {menu.data ? (
         <Menu menu={menu.data} onPick={setPicking} onOpenCart={() => setCartOpen(true)} />
       ) : (
-        !problem && <p>Loading the menu…</p>
+        !problem && <MenuSkeleton />
       )}
       {picking && <ItemSheet item={picking} onAdd={add} onClose={() => setPicking(null)} />}
       {dishes > 0 && (

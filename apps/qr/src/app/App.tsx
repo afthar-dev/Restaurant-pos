@@ -3,7 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSession, useStartSession } from '@/features/session';
 import { QrApiError } from '@/shared/api/http';
 import { createQueryClient } from '@/shared/api/queryClient';
-import { button } from '@/shared/ui';
+import { MenuSkeleton } from '@/features/menu';
+import { button, Notice } from '@/shared/ui';
+import { CircleAlert, QrCode, RotateCcw } from 'lucide-react';
 import { Ordering } from './Ordering';
 import { shell } from './shell';
 
@@ -21,8 +23,9 @@ export function App({ search }: { search: string }) {
         <TableScreen code={code} />
       ) : (
         <main className={shell}>
-          <h1 className="text-2xl font-semibold">Scan to order</h1>
-          <p className="text-muted">Scan the QR code on your table to see the menu.</p>
+          <Notice icon={QrCode} title="Scan to order">
+            Scan the QR code on your table to see the menu.
+          </Notice>
         </main>
       )}
     </QueryClientProvider>
@@ -57,32 +60,44 @@ function TableScreen({ code }: { code: string }) {
     const unknown = start.error instanceof QrApiError && start.error.code === 'QR_UNKNOWN';
     return (
       <main className={shell}>
-        <h1 className="text-2xl font-semibold">Sorry</h1>
-        <p className="text-muted">{start.error.message || 'Please call the waiter.'}</p>
-        {!unknown && (
-          <button
-            type="button"
-            className={`${button} bg-primary-700 text-white`}
-            onClick={() => begin(false)}
-          >
-            Try again
-          </button>
-        )}
+        <Notice
+          icon={CircleAlert}
+          title="Sorry"
+          action={
+            !unknown && (
+              <button
+                type="button"
+                className={`${button} w-full bg-primary-700 text-white`}
+                onClick={() => begin(false)}
+              >
+                Try again
+              </button>
+            )
+          }
+        >
+          {start.error.message || 'Please call the waiter.'}
+        </Notice>
       </main>
     );
   }
   if (ended) {
     return (
       <main className={shell}>
-        <h1 className="text-2xl font-semibold">Welcome back</h1>
-        <p className="text-muted">Your table was closed. Scan the table QR again.</p>
-        <button
-          type="button"
-          className={`${button} bg-primary-700 text-white`}
-          onClick={() => begin(true)}
+        <Notice
+          icon={RotateCcw}
+          title="Welcome back"
+          action={
+            <button
+              type="button"
+              className={`${button} w-full bg-primary-700 text-white`}
+              onClick={() => begin(true)}
+            >
+              Start again
+            </button>
+          }
         >
-          Start again
-        </button>
+          Your table was closed. Scan the table QR again.
+        </Notice>
       </main>
     );
   }
@@ -92,7 +107,7 @@ function TableScreen({ code }: { code: string }) {
 function Opening() {
   return (
     <main className={shell}>
-      <p className="text-muted">Opening the menu…</p>
+      <MenuSkeleton />
     </main>
   );
 }
