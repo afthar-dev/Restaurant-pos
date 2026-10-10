@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { updateOutlet } from './api';
+import { removeLogo, updateOutlet, uploadLogo } from './api';
 import { settingsKeys } from './keys';
 import type { OutletSettings } from './types';
 
@@ -11,6 +11,18 @@ export function useUpdateOutlet(onSaved: () => void) {
     onSuccess: (updated) => {
       client.setQueryData(settingsKeys.outlet, updated);
       onSaved();
+    },
+  });
+}
+
+/** Uploads (an already shrunk) logo, or removes it with `null`; the cache takes the answer. */
+export function useLogo(onDone: (settings: OutletSettings) => void) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (image: Blob | null) => (image ? uploadLogo(image) : removeLogo()),
+    onSuccess: (updated) => {
+      client.setQueryData(settingsKeys.outlet, updated);
+      onDone(updated);
     },
   });
 }

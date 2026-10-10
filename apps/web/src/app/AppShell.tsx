@@ -13,6 +13,7 @@ import { visibleNav } from './navigation';
 import { BottomNav } from './shell/BottomNav';
 import { DayStatusPill } from './shell/DayStatusPill';
 import { StatusButton } from './shell/StatusButton';
+import { BrandMark } from './shell/BrandMark';
 import { Sidebar } from './shell/Sidebar';
 import { UserMenu } from './shell/UserMenu';
 import { LoadingScreen } from '@/shared/ui';
@@ -53,6 +54,7 @@ function AppLayout() {
       <Sidebar
         entries={entries}
         outletName={outletName}
+        logoUrl={outlet.data?.logoUrl ?? null}
         collapsed={collapsed}
         onToggle={() => {
           writeCollapsed(!collapsed);
@@ -66,9 +68,7 @@ function AppLayout() {
             className="flex min-w-0 items-center gap-2 lg:hidden"
             aria-label={`${outletName}, home`}
           >
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary-700 text-white">
-              <UtensilsCrossed aria-hidden="true" className="size-4" />
-            </span>
+            <BrandMark logoUrl={outlet.data?.logoUrl} className="size-8" />
             <span className="min-w-0 max-w-40 truncate font-semibold">{outletName}</span>
           </Link>
           <div className="hidden lg:block">

@@ -19,6 +19,7 @@ import {
   PageHeader,
   primaryButton,
 } from '@/shared/ui';
+import { LogoSection } from '../components/LogoSection';
 import { useUpdateOutlet } from '../mutations';
 import { useOutlet } from '../queries';
 import type { OutletSettings } from '../types';
@@ -253,6 +254,7 @@ export function SettingsPage() {
       />
       {outlet.isPending && <LoadingScreen />}
       <ErrorNote message={outlet.isError ? describeError(outlet.error) : null} />
+      {outlet.data && <LogoSection outlet={outlet.data} />}
       {outlet.data && <SettingsForm saved={outlet.data} />}
     </section>
   );

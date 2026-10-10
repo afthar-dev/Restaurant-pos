@@ -14,4 +14,6 @@ export interface OutletSettings {
   waiterCanCollectPayment: boolean;
   parcelPaymentTiming: ParcelPaymentTiming;
   billPackagingCharge: number;
+  /** Shown in the staff header, on printed bills and on the QR menu. */
+  logoUrl: string | null;
 }

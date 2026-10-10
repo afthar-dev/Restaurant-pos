@@ -17,6 +17,7 @@ export const billPayload: BillPrintPayload = {
     fssaiNumber: '12345678901234',
     billHeader: 'Pure veg',
     billFooter: 'Thank you, visit again',
+    logoUrl: null,
   },
   billNo: 12,
   financialYear: '2026-27',
@@ -99,6 +100,18 @@ describe('renderBillTicket', () => {
     }
     expect(html).not.toContain('<b>Tikka');
     expect(html).not.toContain('VOID');
+  });
+
+  it('puts the logo at the top in greyscale, with an address the print frame can load', () => {
+    const html = renderBillTicket({
+      ...billPayload,
+      outlet: { ...billPayload.outlet, logoUrl: '/api/media/abc.png' },
+    });
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const logo = doc.querySelector('img.logo');
+    expect(logo?.getAttribute('src')).toBe(`${window.location.origin}/api/media/abc.png`);
+    expect(html).toMatch(/.logo {[^}]*grayscale/);
+    expect(renderBillTicket(billPayload)).not.toContain('<img');
   });
 
   it('prints a bill of supply without tax lines, a parcel token and a void stamp', () => {

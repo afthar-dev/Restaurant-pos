@@ -13,6 +13,8 @@ export interface BillPrintPayload {
     fssaiNumber: string | null;
     billHeader: string | null;
     billFooter: string | null;
+    /** Restaurant logo; a relative /api/media path when photos are stored on the server. */
+    logoUrl: string | null;
   };
   billNo: number;
   financialYear: string;
@@ -63,6 +65,9 @@ const row = (label: string, amount: string, strong = false) =>
   `<div class="row${strong ? ' strong' : ''}"><span>${label}</span><span>${amount}</span></div>`;
 
 /** A self-contained HTML page for one customer bill on a 58 or 80 mm roll. */
+/** The print frame is a separate document: give it a full address for server-stored images. */
+const absolute = (url: string) => new URL(url, window.location.origin).toString();
+
 export function renderBillTicket(p: BillPrintPayload): string {
   const e = escapeHtml;
   const money = (paise: number) => e(formatPaise(paise));
@@ -121,8 +126,10 @@ body { width: ${p.paperWidthMm - 4}mm; margin: 0; font-family: ui-monospace, Con
 .line { margin-bottom: 2px; }
 .void { font-size: 22px; font-weight: 700; border: 3px solid #000; text-align: center; margin: 4px 0; }
 hr { border: 0; border-top: 1px dashed #000; margin: 5px 0; }
+.logo { display: block; margin: 0 auto 4px; max-height: 18mm; max-width: 60%; filter: grayscale(1); }
 </style></head><body>
 ${p.status === 'VOID' ? '<div class="void">VOID</div>' : ''}
+${p.outlet.logoUrl ? `<img class="logo" src="${e(absolute(p.outlet.logoUrl))}" alt="">` : ''}
 <div class="center name">${e(p.outlet.name)}</div>
 ${outlet}
 <div class="center title">${e(p.title)}</div>

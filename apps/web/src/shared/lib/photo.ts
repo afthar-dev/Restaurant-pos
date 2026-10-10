@@ -11,10 +11,10 @@ function encode(canvas: HTMLCanvasElement, type: string, quality: number) {
 }
 
 /**
- * A phone photo made small enough to upload quickly: longest side 1024 px, WebP (JPEG where the
+ * A phone photo made small enough to upload quickly: longest side 1024 px (or `maxSide`), WebP (JPEG where the
  * browser cannot write WebP). Rejects with a plain message if the file is not a readable image.
  */
-export async function shrinkPhoto(file: File): Promise<Blob> {
+export async function shrinkPhoto(file: File, maxSide = MAX_SIDE): Promise<Blob> {
   let bitmap: ImageBitmap;
   try {
     // Phone photos carry their rotation in EXIF; older browsers ignore it unless asked.
@@ -22,7 +22,7 @@ export async function shrinkPhoto(file: File): Promise<Blob> {
   } catch {
     throw new Error('Could not read this photo.');
   }
-  const { width, height } = fitWithin(bitmap.width, bitmap.height, MAX_SIDE);
+  const { width, height } = fitWithin(bitmap.width, bitmap.height, maxSide);
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
