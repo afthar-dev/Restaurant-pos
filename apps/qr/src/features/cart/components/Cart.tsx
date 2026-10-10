@@ -92,9 +92,6 @@ export function Cart({
         <Send aria-hidden="true" className="size-4" />
         {busy ? 'Sending…' : 'Send to the staff'}
       </button>
-      <button type="button" className={`${button} border border-border-strong`} onClick={onClose}>
-        Close
-      </button>
     </Sheet>
   );
 }

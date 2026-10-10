@@ -112,7 +112,7 @@ async function addPaneerWithCheese() {
   const sheet = await screen.findByRole('dialog', { name: 'Paneer Tikka' });
   fireEvent.click(within(sheet).getByLabelText('Cheese +₹30'));
   fireEvent.click(within(sheet).getByRole('button', { name: 'One more' }));
-  fireEvent.click(within(sheet).getByRole('button', { name: /^Add · ₹420/ }));
+  fireEvent.click(within(sheet).getByRole('button', { name: /^Add item · ₹420/ }));
 }
 
 describe('browsing the menu', () => {
@@ -281,9 +281,13 @@ describe('ordering from the table', () => {
     render(<App search={`?t=${CODE}`} />);
     fireEvent.click(await screen.findByRole('button', { name: /^Masala Dosa/ }));
     const sheet = await screen.findByRole('dialog', { name: 'Masala Dosa' });
-    expect(within(sheet).getByRole('button', { name: /^Add/ })).toBeDisabled();
+    expect(within(sheet).getByText('Required')).toBeInTheDocument();
+    const add = within(sheet).getByRole('button', { name: /^Add item/ });
+    expect(add).toBeDisabled();
+    // The add bar stays on screen however long the list of choices is.
+    expect(add.closest('[data-sheet-footer]')).toHaveClass('sticky');
     fireEvent.click(within(sheet).getByLabelText('Coconut'));
-    expect(within(sheet).getByRole('button', { name: /^Add/ })).toBeEnabled();
+    expect(within(sheet).getByRole('button', { name: /^Add item/ })).toBeEnabled();
   });
 
   it('sends the cart once, keeping the request id when the network fails', async () => {
