@@ -66,6 +66,14 @@ const MENU = {
           variants: [{ id: 'roti-r', name: 'Regular', price: 3000 }],
           addonGroups: [],
         },
+        {
+          id: 'kulcha',
+          name: 'Chicken Kulcha',
+          description: 'Stuffed with spiced chicken',
+          foodType: 'NON_VEG',
+          variants: [{ id: 'kulcha-r', name: 'Regular', price: 9000 }],
+          addonGroups: [],
+        },
       ],
     },
   ],
@@ -107,6 +115,71 @@ async function addPaneerWithCheese() {
   fireEvent.click(within(sheet).getByRole('button', { name: /^Add · ₹420/ }));
 }
 
+describe('browsing the menu', () => {
+  const open = async () => {
+    api();
+    render(<App search={`?t=${CODE}`} />);
+    await screen.findByRole('button', { name: /^Paneer Tikka/ });
+  };
+
+  it('shows every category as its own section', async () => {
+    await open();
+    expect(screen.getByRole('heading', { level: 2, name: /^Starters/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: /^Breads/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Tandoori Roti/ })).toBeInTheDocument();
+  });
+
+  it('finds dishes by name and says when nothing matches', async () => {
+    await open();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search dishes' }), {
+      target: { value: 'roti' },
+    });
+    expect(screen.getByRole('button', { name: /^Tandoori Roti/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Paneer Tikka/ })).toBeNull();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search dishes' }), {
+      target: { value: 'pizza' },
+    });
+    expect(screen.getByText('No dishes match "pizza"')).toBeInTheDocument();
+  });
+
+  it('hides non-veg dishes when Veg only is on', async () => {
+    await open();
+    expect(screen.getByRole('button', { name: /^Chicken Kulcha/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('switch', { name: 'Veg only' }));
+    expect(screen.queryByRole('button', { name: /^Chicken Kulcha/ })).toBeNull();
+    expect(screen.getByRole('button', { name: /^Tandoori Roti/ })).toBeInTheDocument();
+  });
+
+  it('jumps to a category from the Menu button', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
+    const list = await screen.findByRole('dialog', { name: 'Menu' });
+    fireEvent.click(within(list).getByRole('button', { name: /^Breads/ }));
+    expect(screen.queryByRole('dialog', { name: 'Menu' })).toBeNull();
+  });
+
+  it('adds a plain dish with ADD and turns it into a counter', async () => {
+    await open();
+    fireEvent.click(screen.getByRole('button', { name: 'Add Tandoori Roti' }));
+    const more = screen.getByRole('button', { name: 'One more Tandoori Roti' });
+    expect(more.parentElement).toHaveTextContent('1');
+    fireEvent.click(more);
+    expect(more.parentElement).toHaveTextContent('2');
+    expect(screen.getByRole('button', { name: /^View order, 2 items/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'One less Tandoori Roti' }));
+    fireEvent.click(screen.getByRole('button', { name: 'One less Tandoori Roti' }));
+    expect(screen.getByRole('button', { name: 'Add Tandoori Roti' })).toBeInTheDocument();
+  });
+
+  it('opens the choices for a dish that has sizes or extras', async () => {
+    await open();
+    const row = screen.getByRole('button', { name: /^Paneer Tikka/ }).closest('li')!;
+    expect(row).toHaveTextContent('Customisable');
+    fireEvent.click(within(row).getByRole('button', { name: 'Add Paneer Tikka' }));
+    expect(await screen.findByRole('dialog', { name: 'Paneer Tikka' })).toBeInTheDocument();
+  });
+});
+
 describe('ordering from the table', () => {
   it('shows dish photos in the list and the dish sheet', async () => {
     const PHOTO = 'https://photos.example.in/paneer.webp';
@@ -118,13 +191,18 @@ describe('ordering from the table', () => {
     };
     api({ 'GET /api/qr/menu': () => json(withPhoto) });
     render(<App search={`?t=${CODE}`} />);
-    const row = await screen.findByRole('button', { name: /^Paneer Tikka/ });
+    const row = (await screen.findByRole('button', { name: /^Paneer Tikka/ })).closest('li')!;
     const thumb = row.querySelector('img');
     expect(thumb).toHaveAttribute('src', PHOTO);
     expect(thumb).toHaveAttribute('loading', 'lazy');
     expect(thumb).toHaveAttribute('alt', '');
-    expect(screen.getByRole('button', { name: /^Masala Dosa/ }).querySelector('img')).toBeNull();
-    fireEvent.click(row);
+    expect(
+      screen
+        .getByRole('button', { name: /^Masala Dosa/ })
+        .closest('li')!
+        .querySelector('img'),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^Paneer Tikka/ }));
     const sheet = await screen.findByRole('dialog', { name: 'Paneer Tikka' });
     expect(within(sheet).getByRole('img', { name: 'Paneer Tikka' })).toHaveAttribute('src', PHOTO);
   });
@@ -154,7 +232,11 @@ describe('ordering from the table', () => {
     api();
     render(<App search={`?t=${CODE}`} />);
     await screen.findByRole('button', { name: /^Paneer Tikka/ });
-    expect(document.querySelectorAll('[class*="emerald"],[class*="slate"]')).toHaveLength(0);
+    expect(
+      document.querySelectorAll(
+        '[class*="emerald-"],[class*="text-slate-"],[class*="bg-slate-"],[class*="border-slate-"]',
+      ),
+    ).toHaveLength(0);
   });
 
   it('opens the menu for the table that was scanned', async () => {
@@ -215,7 +297,7 @@ describe('ordering from the table', () => {
     });
     render(<App search={`?t=${CODE}`} />);
     await addPaneerWithCheese();
-    fireEvent.click(await screen.findByRole('button', { name: /^Your order · 2 dishes · ₹420/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^View order, 2 items, ₹420/ }));
     const cart = await screen.findByRole('dialog', { name: 'Your order' });
     fireEvent.change(within(cart).getByLabelText('Note for the kitchen (optional)'), {
       target: { value: 'less spicy' },

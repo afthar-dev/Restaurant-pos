@@ -90,13 +90,13 @@ describe('weak connections', () => {
     });
     render(<App search={`?t=${CODE}`} />);
     await add(/^Tandoori Roti/);
-    fireEvent.click(await screen.findByRole('button', { name: /^Your order/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^View order/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Send to the staff' }));
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     // The diner checks the menu again and adds a naan before retrying.
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     await add(/^Butter Naan/);
-    fireEvent.click(screen.getByRole('button', { name: /^Your order/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^View order/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Send to the staff' }));
     await expect.poll(() => callsTo(mock, 'POST', '/api/qr/orders').length).toBe(2);
     const keys = callsTo(mock, 'POST', '/api/qr/orders').map(([, init]) =>

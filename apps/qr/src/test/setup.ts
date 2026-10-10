@@ -15,6 +15,9 @@ beforeEach(() => {
   useCart.getState().clear();
 });
 
+// jsdom has no layout: scrolling to a menu section is a no-op in tests.
+Element.prototype.scrollIntoView ??= () => undefined;
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
