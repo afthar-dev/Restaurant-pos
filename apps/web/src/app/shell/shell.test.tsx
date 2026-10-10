@@ -83,6 +83,20 @@ describe('app shell header', () => {
     expect(home.querySelector('svg.lucide-utensils-crossed')).toBeNull();
   });
 
+  it('falls back to the icon when the logo fails to load', async () => {
+    useSession.getState().setSession(sessionBody('CASHIER', ['bill.print']));
+    mockApi({
+      'GET /api/business-day/current': () => json(DAY_OPEN),
+      'GET /api/outlet': () => json({ name: 'Spice Garden', logoUrl: '/api/media/old.webp' }),
+    });
+    renderRoute('/expenses');
+    const home = (await screen.findAllByRole('link', { name: 'Spice Garden, home' }))[0]!;
+    await waitFor(() => expect(home.querySelector('img')).not.toBeNull());
+    fireEvent.error(home.querySelector('img')!);
+    expect(home.querySelector('img')).toBeNull();
+    expect(home.querySelector('svg.lucide-utensils-crossed')).not.toBeNull();
+  });
+
   it('tells a manager the day is not open and links to open it', async () => {
     useSession
       .getState()

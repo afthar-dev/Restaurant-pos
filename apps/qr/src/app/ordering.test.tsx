@@ -359,6 +359,27 @@ describe('ordering from the table', () => {
     expect(header.querySelector('img')).toHaveAttribute('src', '/api/media/logo.webp');
   });
 
+  it('falls back to the icon when the logo fails to load', async () => {
+    api({
+      'POST /api/qr/sessions': () =>
+        json(
+          {
+            token: 'session-1',
+            table: { name: 'T1' },
+            outlet: { name: 'Spice Garden', logoUrl: '/api/media/old-logo.webp' },
+          },
+          201,
+        ),
+    });
+    render(<App search={`?t=${CODE}`} />);
+    const header = (await screen.findByRole('heading', { level: 1, name: 'Table T1' })).closest(
+      'header',
+    )!;
+    fireEvent.error(header.querySelector('img')!);
+    expect(header.querySelector('img')).toBeNull();
+    expect(header.querySelector('svg.lucide-utensils-crossed')).not.toBeNull();
+  });
+
   it('shows the icon instead when there is no logo', async () => {
     api();
     render(<App search={`?t=${CODE}`} />);
