@@ -48,7 +48,8 @@ export function LogoSection({ outlet }: { outlet: OutletSettings }) {
             <h3 className="font-semibold">Logo</h3>
             <p className="text-sm text-muted">
               Shown in the app header, on printed bills and on the customer QR menu. A square logo
-              or a PNG with a transparent background works best.
+              or a PNG with a transparent background works best. A white logo on a transparent
+              background will not show on the white tile; use a dark or coloured version.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
