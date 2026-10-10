@@ -252,7 +252,7 @@ export class BillsService {
 
   /**
    * Voids an open or paid bill (manager, or cashier with override). The number is kept, its
-   * payments stay on record but no longer count, and the order reopens for re-billing.
+   * payments are refunded and no longer count as sales, and the order reopens for re-billing.
    * `actor` is the approving manager; `requester` the signed-in user.
    */
   async void(
@@ -296,9 +296,16 @@ export class BillsService {
         }
       }
       const paid = await tx.payment.aggregate({ where: { billId }, _sum: { amount: true } });
+      const voidedAt = new Date();
       await tx.bill.update({
         where: { id: billId },
-        data: { status: 'VOID', voidReason: reason, voidedById: actor.id, voidedAt: new Date() },
+        data: { status: 'VOID', voidReason: reason, voidedById: actor.id, voidedAt },
+      });
+      // The customer gets the money back: refunded on the day of the void, which is this
+      // open day (a bill can only be voided on its own day).
+      await tx.payment.updateMany({
+        where: { billId },
+        data: { refundedAt: voidedAt, refundedById: actor.id, refundBusinessDayId: day.id },
       });
       if (order.status === 'BILLED' || order.status === 'CLOSED') {
         await tx.order.update({ where: { id: orderId }, data: { status: 'OPEN', closedAt: null } });
@@ -317,7 +324,11 @@ export class BillsService {
             total: bill.total,
             paid: paid._sum.amount ?? 0,
           },
-          after: { status: 'VOID', requestedBy: requester.id },
+          after: {
+            status: 'VOID',
+            requestedBy: requester.id,
+            refunded: paid._sum.amount ?? 0,
+          },
         },
         tx,
       );

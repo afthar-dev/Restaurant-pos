@@ -122,6 +122,7 @@ model User {
   kotsCreated      Kot[]             @relation("KotCreatedBy")
   billsCreated     Bill[]            @relation("BillCreatedBy")
   paymentsReceived Payment[]         @relation("PaymentReceivedBy")
+  paymentsRefunded Payment[]         @relation("PaymentRefundedBy")
   daysClosed       BusinessDay[]     @relation("DayClosedBy")
   qrDecisions      QrSubmission[]    @relation("QrDecidedBy")
   expensesCreated  Expense[]         @relation("ExpenseCreatedBy")
@@ -528,6 +529,7 @@ model BusinessDay {
   kots      Kot[]
   bills     Bill[]
   payments  Payment[]
+  refunds   Payment[]  @relation("PaymentRefundDay")
   expenses  Expense[]
   purchases Purchase[]
 
@@ -818,25 +820,32 @@ model BillItem {
 }
 
 model Payment {
-  id            String      @id @default(uuid()) @db.Uuid
-  outletId      String      @map("outlet_id") @db.Uuid
-  billId        String      @map("bill_id") @db.Uuid
-  businessDayId String      @map("business_day_id") @db.Uuid
-  mode          PaymentMode
-  amount        Int
-  tendered      Int?
-  change        Int?
-  reference     String?
-  receivedById  String      @map("received_by_id") @db.Uuid
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                  String      @id @default(uuid()) @db.Uuid
+  outletId            String      @map("outlet_id") @db.Uuid
+  billId              String      @map("bill_id") @db.Uuid
+  businessDayId       String      @map("business_day_id") @db.Uuid
+  mode                PaymentMode
+  amount              Int
+  tendered            Int?
+  change              Int?
+  reference           String?
+  receivedById        String      @map("received_by_id") @db.Uuid
+  /// Set when the bill is voided: the money went back to the customer, on that business day.
+  refundedAt          DateTime?   @map("refunded_at") @db.Timestamptz(3)
+  refundedById        String?     @map("refunded_by_id") @db.Uuid
+  refundBusinessDayId String?     @map("refund_business_day_id") @db.Uuid
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  bill        Bill        @relation(fields: [billId], references: [id])
-  businessDay BusinessDay @relation(fields: [businessDayId], references: [id])
-  receivedBy  User        @relation("PaymentReceivedBy", fields: [receivedById], references: [id])
+  bill        Bill         @relation(fields: [billId], references: [id])
+  businessDay BusinessDay  @relation(fields: [businessDayId], references: [id])
+  receivedBy  User         @relation("PaymentReceivedBy", fields: [receivedById], references: [id])
+  refundedBy  User?        @relation("PaymentRefundedBy", fields: [refundedById], references: [id], onDelete: SetNull)
+  refundDay   BusinessDay? @relation("PaymentRefundDay", fields: [refundBusinessDayId], references: [id])
 
   @@index([billId])
   @@index([businessDayId, mode])
+  @@index([refundBusinessDayId])
   @@map("payments")
 }
 

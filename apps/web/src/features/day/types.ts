@@ -16,7 +16,14 @@ export interface DayBlockers {
 export interface CloseCheck {
   day: { id: string; openingCash: number };
   blockers: DayBlockers;
-  cash: { opening: number; cashSales: number; cashExpenses: number; expected: number };
+  cash: {
+    opening: number;
+    cashSales: number;
+    /** Cash handed back by voiding paid bills. */
+    cashRefunds: number;
+    cashExpenses: number;
+    expected: number;
+  };
 }
 
 export interface DaySummary {
@@ -72,7 +79,16 @@ export interface DayReport {
     /** Billed but not yet paid: `total - collected`. */
     unpaid: number;
   };
+  /** Received on the day, including bills voided since; refunds are listed apart. */
   payments: Record<PaymentMode, number>;
+  /** Money handed back on this day by voiding paid bills. */
+  refunds: {
+    total: number;
+    CASH: number;
+    UPI: number;
+    CARD: number;
+    bills: { billNo: number; amount: number; modes: PaymentMode[]; by: string | null }[];
+  };
   byType: Record<OrderType, { orders: number; total: number }>;
   topItems: { itemName: string; variantName: string; quantity: number; amount: number }[];
   voids: { billNo: number; total: number; reason: string | null; by: string | null }[];
@@ -82,6 +98,7 @@ export interface DayReport {
   cash: {
     opening: number;
     cashSales: number;
+    cashRefunds: number;
     cashExpenses: number;
     expected: number;
     counted: number | null;

@@ -6,6 +6,8 @@ import { PRINT_TIME_ZONE } from '@/shared/lib/when';
 const row = (label: string, value: string, strong = false) =>
   `<div class="row${strong ? ' strong' : ''}"><span>${label}</span><span>${value}</span></div>`;
 
+const MODE_NAME = { CASH: 'Cash', UPI: 'UPI', CARD: 'Card' } as const;
+
 const section = (title: string, body: string) =>
   body ? `<hr><div class="head">${title}</div>${body}` : '';
 
@@ -69,6 +71,20 @@ ${section(
   ].join(''),
 )}
 ${section(
+  'Refunds',
+  r.refunds.total > 0
+    ? [
+        row('Total refunded', money(r.refunds.total), true),
+        r.refunds.CASH > 0 ? row('Cash', money(r.refunds.CASH)) : '',
+        r.refunds.UPI > 0 ? row('UPI', money(r.refunds.UPI)) : '',
+        r.refunds.CARD > 0 ? row('Card', money(r.refunds.CARD)) : '',
+        ...r.refunds.bills.map((b) =>
+          row(`Bill ${b.billNo} · ${b.modes.map((m) => MODE_NAME[m]).join(', ')}`, money(b.amount)),
+        ),
+      ].join('')
+    : '',
+)}
+${section(
   'Orders',
   [
     row(`Dine-in (${r.byType.DINE_IN.orders})`, money(r.byType.DINE_IN.total)),
@@ -110,6 +126,7 @@ ${section(
   [
     row('Opening', money(r.cash.opening)),
     row('Cash sales', money(r.cash.cashSales)),
+    r.cash.cashRefunds > 0 ? row('Cash refunded', money(r.cash.cashRefunds)) : '',
     row('Cash expenses', money(r.cash.cashExpenses)),
     row('Expected in drawer', money(r.cash.expected), true),
     r.cash.counted !== null ? row('Counted', money(r.cash.counted)) : '',

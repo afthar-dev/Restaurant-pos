@@ -1,5 +1,6 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import type { PaymentMode } from '@prisma/client';
 import type { CloseDayRequest } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
 import { gstLinesOf, gstSummary } from '../billing/gst-summary';
@@ -11,7 +12,10 @@ import { ACTIVE_STATUSES } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { BusinessDayService, dayNotOpen } from './business-day.service';
 
-type Db = Pick<PrismaService, 'bill' | 'order' | 'orderItem' | 'businessDay' | 'user' | 'expense'>;
+type Db = Pick<
+  PrismaService,
+  'bill' | 'order' | 'orderItem' | 'businessDay' | 'user' | 'expense' | 'payment'
+>;
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
 
@@ -31,6 +35,7 @@ export class DayCloseService {
     if (!day) throw dayNotOpen();
     const blockers = await this.blockers(this.prisma, day.id);
     const cashSales = await this.cashSales(this.prisma, day.id);
+    const cashRefunds = await this.cashRefunds(this.prisma, day.id);
     const spent = await cashExpenses(this.prisma, day.id);
     return {
       day: { id: day.id, openingCash: day.openingCash },
@@ -38,8 +43,9 @@ export class DayCloseService {
       cash: {
         opening: day.openingCash,
         cashSales,
+        cashRefunds,
         cashExpenses: spent,
-        expected: day.openingCash + cashSales - spent,
+        expected: day.openingCash + cashSales - cashRefunds - spent,
       },
     };
   }
@@ -63,9 +69,12 @@ export class DayCloseService {
           { blockers },
         );
       }
-      // Expected cash = opening + cash payments − cash expenses (spec §5.5.4).
+      // Expected cash = opening + cash payments − cash refunded − cash expenses (spec §5.5.4).
       const expected =
-        day.openingCash + (await this.cashSales(tx, day.id)) - (await cashExpenses(tx, day.id));
+        day.openingCash +
+        (await this.cashSales(tx, day.id)) -
+        (await this.cashRefunds(tx, day.id)) -
+        (await cashExpenses(tx, day.id));
       const variance = request.countedCash - expected;
       await tx.businessDay.update({
         where: { id: day.id },
@@ -218,8 +227,37 @@ export class DayCloseService {
     const live = bills.filter((b) => b.status !== 'VOID');
     const voided = bills.filter((b) => b.status === 'VOID');
 
+    // Payments are shown as received on the day, including those on bills voided since;
+    // the refunds are listed apart, on the day the void happened.
     const payments = { CASH: 0, UPI: 0, CARD: 0 };
-    for (const p of live.flatMap((b) => b.payments)) payments[p.mode] += p.amount;
+    for (const b of bills) {
+      for (const p of b.payments) {
+        if (b.status !== 'VOID' || p.refundedAt) payments[p.mode] += p.amount;
+      }
+    }
+    const refundRows = await this.prisma.payment.findMany({
+      where: { refundBusinessDayId: day.id },
+      include: { bill: { select: { billNo: true } }, refundedBy: { select: { name: true } } },
+      orderBy: { refundedAt: 'asc' },
+    });
+    const refunds = { total: 0, CASH: 0, UPI: 0, CARD: 0 };
+    const refundedBills = new Map<
+      string,
+      { billNo: number; amount: number; modes: PaymentMode[]; by: string | null }
+    >();
+    for (const p of refundRows) {
+      refunds.total += p.amount;
+      refunds[p.mode] += p.amount;
+      const row = refundedBills.get(p.billId) ?? {
+        billNo: p.bill.billNo,
+        amount: 0,
+        modes: [],
+        by: p.refundedBy?.name ?? null,
+      };
+      row.amount += p.amount;
+      if (!row.modes.includes(p.mode)) row.modes.push(p.mode);
+      refundedBills.set(p.billId, row);
+    }
 
     const byType = { DINE_IN: { orders: 0, total: 0 }, PARCEL: { orders: 0, total: 0 } };
     for (const type of ['DINE_IN', 'PARCEL'] as const) {
@@ -264,11 +302,12 @@ export class DayCloseService {
     });
 
     const gst = gstSummary(live.flatMap((b) => gstLinesOf(b)));
-    const collected = payments.CASH + payments.UPI + payments.CARD;
+    // What is kept: received on the day less what was refunded on it.
+    const collected = payments.CASH + payments.UPI + payments.CARD - refunds.total;
     const billed = sum(live.map((b) => b.total));
     const cashSales = payments.CASH;
     const spent = await expenseTotals(this.prisma, day.id);
-    const expected = day.expectedCash ?? day.openingCash + cashSales - spent.cash;
+    const expected = day.expectedCash ?? day.openingCash + cashSales - refunds.CASH - spent.cash;
     return {
       day: {
         id: day.id,
@@ -297,6 +336,7 @@ export class DayCloseService {
         unpaid: billed - collected,
       },
       payments,
+      refunds: { ...refunds, bills: [...refundedBills.values()] },
       byType,
       topItems,
       voids: voided.map((b) => ({
@@ -321,6 +361,7 @@ export class DayCloseService {
       cash: {
         opening: day.openingCash,
         cashSales,
+        cashRefunds: refunds.CASH,
         cashExpenses: spent.cash,
         expected,
         counted: day.countedCash,
@@ -355,12 +396,28 @@ export class DayCloseService {
     };
   }
 
-  /** Cash received on the day's live bills. */
-  private async cashSales(db: Pick<Db, 'bill'>, dayId: string): Promise<number> {
-    const bills = await db.bill.findMany({
-      where: { businessDayId: dayId, status: { not: 'VOID' } },
-      select: { payments: { where: { mode: 'CASH' }, select: { amount: true } } },
+  /**
+   * Cash received on the day: payments on live bills, and on bills voided since (those come
+   * back off as refunds). A legacy void bill with no refund record is not counted.
+   */
+  private async cashSales(db: Pick<Db, 'payment'>, dayId: string): Promise<number> {
+    const total = await db.payment.aggregate({
+      where: {
+        businessDayId: dayId,
+        mode: 'CASH',
+        OR: [{ bill: { status: { not: 'VOID' } } }, { refundedAt: { not: null } }],
+      },
+      _sum: { amount: true },
     });
-    return sum(bills.flatMap((b) => b.payments.map((p) => p.amount)));
+    return total._sum.amount ?? 0;
+  }
+
+  /** Cash handed back on the day, by voiding paid bills. */
+  private async cashRefunds(db: Pick<Db, 'payment'>, dayId: string): Promise<number> {
+    const total = await db.payment.aggregate({
+      where: { refundBusinessDayId: dayId, mode: 'CASH' },
+      _sum: { amount: true },
+    });
+    return total._sum.amount ?? 0;
   }
 }

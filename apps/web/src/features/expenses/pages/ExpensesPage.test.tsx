@@ -191,6 +191,7 @@ describe('day report printout', () => {
         total: 0,
       },
       payments: { CASH: 0, UPI: 0, CARD: 0 },
+      refunds: { total: 0, CASH: 0, UPI: 0, CARD: 0, bills: [] },
       byType: { DINE_IN: { orders: 0, total: 0 }, PARCEL: { orders: 0, total: 0 } },
       topItems: [],
       voids: [],
@@ -200,6 +201,7 @@ describe('day report printout', () => {
       cash: {
         opening: 0,
         cashSales: 0,
+        cashRefunds: 0,
         cashExpenses: 95000,
         expected: -95000,
         counted: null,

@@ -178,6 +178,7 @@ function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
       <Block title="Cash in the drawer">
         <Row label="Opening" value={rupees(cash.opening)} />
         <Row label="Cash sales" value={rupees(cash.cashSales)} />
+        {cash.cashRefunds > 0 && <Row label="Cash refunded" value={rupees(cash.cashRefunds)} />}
         <Row label="Cash expenses" value={rupees(cash.cashExpenses)} />
         <Row label="Expected in drawer" value={rupees(cash.expected)} strong />
       </Block>
@@ -291,6 +292,7 @@ function ReportView({
         <Block title="Cash">
           <Row label="Opening" value={rupees(cash.opening)} />
           <Row label="Cash sales" value={rupees(cash.cashSales)} />
+          {cash.cashRefunds > 0 && <Row label="Cash refunded" value={rupees(cash.cashRefunds)} />}
           <Row label="Cash expenses" value={rupees(cash.cashExpenses)} />
           <Row label="Expected in drawer" value={rupees(cash.expected)} strong />
           {cash.counted !== null && <Row label="Counted" value={rupees(cash.counted)} />}
@@ -320,6 +322,27 @@ function ReportView({
             </div>
           ))}
         </Block>
+        {report.refunds.total > 0 && (
+          <Block title="Refunds">
+            <Row label="Total refunded" value={rupees(report.refunds.total)} strong />
+            {(['CASH', 'UPI', 'CARD'] as const)
+              .filter((mode) => report.refunds[mode] > 0)
+              .map((mode) => (
+                <Row
+                  key={mode}
+                  label={<PayLabel mode={mode} />}
+                  value={rupees(report.refunds[mode])}
+                />
+              ))}
+            {report.refunds.bills.map((b) => (
+              <Row
+                key={b.billNo}
+                label={`Bill ${b.billNo} · ${b.modes.map((m) => PAY_LABEL[m]).join(', ')}${b.by ? ` · ${b.by}` : ''}`}
+                value={rupees(b.amount)}
+              />
+            ))}
+          </Block>
+        )}
         {report.voids.length > 0 && (
           <Block title="Voided bills">
             {report.voids.map((v) => (

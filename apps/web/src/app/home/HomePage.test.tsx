@@ -50,7 +50,7 @@ const CLOSE_CHECK = {
     orders: [{ id: 'o1', label: 'T1', status: 'OPEN' }],
     bills: [{ id: 'b1', billNo: 4, due: 5000 }],
   },
-  cash: { opening: 100000, cashSales: 3200, cashExpenses: 1000, expected: 102200 },
+  cash: { opening: 100000, cashSales: 3200, cashRefunds: 0, cashExpenses: 1000, expected: 102200 },
 };
 
 const OWNER: Permission[] = [
