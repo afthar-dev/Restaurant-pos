@@ -2,6 +2,8 @@ export interface StoredSession {
   token: string;
   table: string;
   outlet: string;
+  /** The restaurant logo, if it has one (absent in sessions saved before logos existed). */
+  logoUrl?: string | null;
 }
 
 const keyFor = (code: string) => `rpos.qr.${code}`;
