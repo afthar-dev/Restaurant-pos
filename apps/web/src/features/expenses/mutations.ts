@@ -1,3 +1,4 @@
+import { newId } from '@rpos/shared';
 import { useRef } from 'react';
 import { dayKeys } from '@/features/day';
 import { useInvalidatingMutation } from '@/shared/api/useInvalidatingMutation';
@@ -16,7 +17,7 @@ export function useAddExpense(onAdded: () => void) {
   const key = useRef<string | null>(null);
   const mutation = useInvalidatingMutation({
     mutationFn: (body: NewExpense) => {
-      key.current ??= crypto.randomUUID();
+      key.current ??= newId();
       return addExpense(key.current, body);
     },
     invalidates: affected,

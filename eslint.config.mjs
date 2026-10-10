@@ -119,6 +119,16 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-hooks/exhaustive-deps': 'error',
+      // randomUUID is missing on plain-http LAN pages (not a secure context).
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'crypto',
+          property: 'randomUUID',
+          message:
+            'Use newId() from @rpos/shared: crypto.randomUUID is missing on plain-http LAN pages.',
+        },
+      ],
     },
   },
   ...boundaries('apps/web/src', 'apiFetch'),

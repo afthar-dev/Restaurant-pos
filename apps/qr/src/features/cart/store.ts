@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { newId } from '@/shared/lib/id';
 import type { CartLine } from './types';
 
 /** Most of one dish a diner can order at once. */
@@ -46,7 +47,7 @@ export const useCart = create<CartState>()((set, get) => ({
   takeRequestId: () => {
     const existing = get().requestId;
     if (existing) return existing;
-    const requestId = crypto.randomUUID();
+    const requestId = newId();
     set({ requestId });
     return requestId;
   },

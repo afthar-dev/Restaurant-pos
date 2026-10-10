@@ -4,6 +4,7 @@ import {
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
+import { newId } from '@rpos/shared';
 import { useRef } from 'react';
 import {
   addItems,
@@ -140,7 +141,7 @@ export function useSendKot(orderId: string) {
   const sending = useRef(false);
   const mutation = useMutation({
     mutationFn: () => {
-      key.current ??= crypto.randomUUID();
+      key.current ??= newId();
       return sendKot(orderId, key.current);
     },
     onSuccess: () => {
