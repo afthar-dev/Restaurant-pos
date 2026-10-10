@@ -247,7 +247,11 @@ export class DayCloseService {
       items.set(key, row);
     }
     const topItems = [...items.values()]
-      .sort((a, b) => b.quantity - a.quantity || b.amount - a.amount)
+      // By amount, as on the sales report, then by quantity.
+      .sort(
+        (a, b) =>
+          b.amount - a.amount || b.quantity - a.quantity || a.itemName.localeCompare(b.itemName),
+      )
       .slice(0, 10);
 
     const voiders = await this.prisma.user.findMany({

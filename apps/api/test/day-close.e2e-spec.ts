@@ -242,6 +242,20 @@ describe('closing the business day', () => {
     });
   });
 
+  it('ranks the top items on the day report by amount, like the sales report', async () => {
+    // 3 rotis = ₹90 (most sold) against 1 paneer = ₹180 (earns more).
+    const bill = await billFor([
+      { variantId: r.roti.regular.id, quantity: 3 },
+      { variantId: r.paneer.half.id, quantity: 1 },
+    ]);
+    await pay(bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+    const res = await close({ countedCash: 100000 + bill.total }).expect(201);
+    expect(res.body.topItems.map((i: { itemName: string }) => i.itemName)).toEqual([
+      'Paneer Tikka',
+      'Tandoori Roti',
+    ]);
+  });
+
   it('reads the report of any past day', async () => {
     await close({ countedCash: 99000 }).expect(201);
     const [day] = (await ctx.http().get('/api/business-day').set(manager.auth).expect(200)).body;
