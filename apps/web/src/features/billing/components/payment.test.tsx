@@ -1,6 +1,6 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { Permission } from '@rpos/shared';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useNotifications } from '@/features/notifications';
 import { useSession } from '@/shared/session/store';
 import { bill, line, order } from '@/test/fixtures';
@@ -24,6 +24,8 @@ const keyOf = (mock: ReturnType<typeof mockApi>, index: number) =>
     'Idempotency-Key',
   );
 
+afterEach(() => vi.unstubAllGlobals());
+
 describe('PaymentSheet', () => {
   it('takes cash and shows the change', async () => {
     asCashier();
@@ -38,6 +40,22 @@ describe('PaymentSheet', () => {
     await expect.poll(() => onPaid.mock.calls.length).toBe(1);
     expect(body(mock)).toEqual({ mode: 'CASH', amount: 47300, tendered: 50000 });
     expect(keyOf(mock, 0)).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('takes cash on a plain-http page where crypto.randomUUID is missing', async () => {
+    vi.stubGlobal('crypto', { getRandomValues: crypto.getRandomValues.bind(crypto) });
+    asCashier();
+    const mock = mockApi({
+      'POST /api/bills/b1/payments': () => json(bill({ status: 'PAID', paid: 47300, due: 0 }), 201),
+    });
+    const onPaid = vi.fn();
+    renderWithProviders(<PaymentSheet bill={bill()} onPaid={onPaid} onClose={() => undefined} />);
+    fireEvent.change(screen.getByLabelText('Cash received (₹)'), { target: { value: '500' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Record payment' }));
+    await expect.poll(() => onPaid.mock.calls.length).toBe(1);
+    expect(keyOf(mock, 0)).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
   });
 
   it('does not record short cash', async () => {

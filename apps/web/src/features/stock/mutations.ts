@@ -1,3 +1,4 @@
+import { newId } from '@rpos/shared';
 import { useRef } from 'react';
 import { dayKeys } from '@/features/day';
 import { expenseKeys } from '@/features/expenses';
@@ -53,7 +54,7 @@ export function useCreatePurchase(onSaved: () => void) {
   const key = useRef<string | null>(null);
   const mutation = useInvalidatingMutation({
     mutationFn: (body: NewPurchase) => {
-      key.current ??= crypto.randomUUID();
+      key.current ??= newId();
       return createPurchase(key.current, body);
     },
     invalidates: purchaseAffects,

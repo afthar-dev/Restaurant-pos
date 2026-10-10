@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { newId } from '@rpos/shared';
 import { useRef } from 'react';
 import { type Order, orderKeys, sendKot, useRefreshOrder } from '@/features/orders';
 import { ApiError } from '@/shared/api/http';
@@ -28,7 +29,7 @@ export function useCreateBill(
     mutationFn: async (lines?: BillLineChoice[]) => {
       let sentNow = false;
       if (newLines.length > 0) {
-        sendKey.current ??= crypto.randomUUID();
+        sendKey.current ??= newId();
         await sendKot(order.id, sendKey.current);
         sendKey.current = null;
         sentNow = true;
@@ -65,7 +66,7 @@ export function useAddPayment(bill: Bill, onRecorded: (updated: Bill) => void) {
   const sending = useRef(false);
   const mutation = useMutation({
     mutationFn: (body: PaymentInput) => {
-      requestId.current ??= crypto.randomUUID();
+      requestId.current ??= newId();
       return addPayment(bill.id, requestId.current, body);
     },
     // Hook level, so the order still learns about the payment if the sheet closed meanwhile.
