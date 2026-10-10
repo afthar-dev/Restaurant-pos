@@ -28,18 +28,18 @@ export function Cart({
         <ShoppingBag aria-hidden="true" className="size-5" />
         Your order
       </h2>
-      <ul className="flex flex-col divide-y divide-slate-100">
+      <ul className="flex flex-col divide-y divide-border">
         {lines.map((l) => (
           <li key={l.key} className="flex items-center justify-between gap-2 py-2">
             <span>
               {l.label}
-              {l.note && <span className="block text-sm italic text-slate-500">“{l.note}”</span>}
+              {l.note && <span className="block text-sm italic text-muted">“{l.note}”</span>}
             </span>
             <span className="flex items-center gap-1">
               <button
                 type="button"
                 aria-label={`One less ${l.label}`}
-                className={`${button} inline-flex w-11 items-center justify-center border border-slate-300 px-0`}
+                className={`${button} inline-flex w-11 items-center justify-center border border-border-strong px-0`}
                 onClick={() => onQuantity(l.key, l.quantity - 1)}
               >
                 <Minus aria-hidden="true" className="size-5" />
@@ -48,7 +48,7 @@ export function Cart({
               <button
                 type="button"
                 aria-label={`One more ${l.label}`}
-                className={`${button} inline-flex w-11 items-center justify-center border border-slate-300 px-0`}
+                className={`${button} inline-flex w-11 items-center justify-center border border-border-strong px-0`}
                 disabled={l.quantity >= 20}
                 onClick={() => onQuantity(l.key, l.quantity + 1)}
               >
@@ -62,7 +62,7 @@ export function Cart({
         <span>Total</span>
         <span className="tabular-nums">{rupees(total)}</span>
       </p>
-      <p className="-mt-3 text-sm text-slate-500">
+      <p className="-mt-3 text-sm text-muted">
         Approximate, before tax. The bill has the final amount.
       </p>
       <label className="flex flex-col gap-1">
@@ -71,7 +71,7 @@ export function Cart({
           Note for the kitchen (optional)
         </span>
         <input
-          className="min-h-12 rounded-xl border border-slate-300 px-3"
+          className="min-h-12 rounded-xl border border-border-strong px-3"
           maxLength={140}
           placeholder="Allergies, less spicy…"
           value={note}
@@ -85,14 +85,14 @@ export function Cart({
       )}
       <button
         type="button"
-        className={`${button} inline-flex items-center justify-center gap-2 bg-emerald-700 text-white`}
+        className={`${button} inline-flex items-center justify-center gap-2 bg-primary-700 text-white`}
         disabled={busy || lines.length === 0}
         onClick={() => onSend(note.trim())}
       >
         <Send aria-hidden="true" className="size-4" />
         {busy ? 'Sending…' : 'Send to the staff'}
       </button>
-      <button type="button" className={`${button} border border-slate-300`} onClick={onClose}>
+      <button type="button" className={`${button} border border-border-strong`} onClick={onClose}>
         Close
       </button>
     </Sheet>

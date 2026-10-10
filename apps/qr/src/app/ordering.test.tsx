@@ -150,6 +150,13 @@ describe('ordering from the table', () => {
     ).not.toBeNull();
   });
 
+  it('uses the restaurant brand colours, not hard-coded greens and greys', async () => {
+    api();
+    render(<App search={`?t=${CODE}`} />);
+    await screen.findByRole('button', { name: /^Paneer Tikka/ });
+    expect(document.querySelectorAll('[class*="emerald"],[class*="slate"]')).toHaveLength(0);
+  });
+
   it('opens the menu for the table that was scanned', async () => {
     const mock = api();
     render(<App search={`?t=${CODE}`} />);

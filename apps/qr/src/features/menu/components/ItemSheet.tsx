@@ -65,7 +65,7 @@ export function ItemSheet({
         <FoodMark type={item.foodType} />
         {item.name}
       </h2>
-      {item.description && <p className="text-slate-600">{item.description}</p>}
+      {item.description && <p className="text-muted">{item.description}</p>}
 
       {item.variants.length > 1 && (
         <fieldset className="flex flex-col gap-2">
@@ -110,7 +110,7 @@ export function ItemSheet({
       <label className="flex flex-col gap-1">
         <span className="font-semibold">Note (optional)</span>
         <input
-          className="min-h-12 rounded-xl border border-slate-300 px-3"
+          className="min-h-12 rounded-xl border border-border-strong px-3"
           maxLength={140}
           value={note}
           onChange={(e) => setNote(e.target.value)}
@@ -121,7 +121,7 @@ export function ItemSheet({
         <button
           type="button"
           aria-label="One less"
-          className={`${button} inline-flex size-12 items-center justify-center border border-slate-300 px-0`}
+          className={`${button} inline-flex size-12 items-center justify-center border border-border-strong px-0`}
           disabled={quantity <= 1}
           onClick={() => setQuantity((q) => q - 1)}
         >
@@ -131,7 +131,7 @@ export function ItemSheet({
         <button
           type="button"
           aria-label="One more"
-          className={`${button} inline-flex size-12 items-center justify-center border border-slate-300 px-0`}
+          className={`${button} inline-flex size-12 items-center justify-center border border-border-strong px-0`}
           disabled={quantity >= 20}
           onClick={() => setQuantity((q) => q + 1)}
         >
@@ -139,7 +139,7 @@ export function ItemSheet({
         </button>
         <button
           type="button"
-          className={`${button} flex-1 bg-emerald-700 text-white`}
+          className={`${button} flex-1 bg-primary-700 text-white`}
           disabled={!ready}
           onClick={add}
         >

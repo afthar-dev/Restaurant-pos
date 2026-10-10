@@ -22,7 +22,7 @@ export function App({ search }: { search: string }) {
       ) : (
         <main className={shell}>
           <h1 className="text-2xl font-semibold">Scan to order</h1>
-          <p className="text-slate-600">Scan the QR code on your table to see the menu.</p>
+          <p className="text-muted">Scan the QR code on your table to see the menu.</p>
         </main>
       )}
     </QueryClientProvider>
@@ -58,11 +58,11 @@ function TableScreen({ code }: { code: string }) {
     return (
       <main className={shell}>
         <h1 className="text-2xl font-semibold">Sorry</h1>
-        <p className="text-slate-700">{start.error.message || 'Please call the waiter.'}</p>
+        <p className="text-muted">{start.error.message || 'Please call the waiter.'}</p>
         {!unknown && (
           <button
             type="button"
-            className={`${button} bg-emerald-700 text-white`}
+            className={`${button} bg-primary-700 text-white`}
             onClick={() => begin(false)}
           >
             Try again
@@ -75,10 +75,10 @@ function TableScreen({ code }: { code: string }) {
     return (
       <main className={shell}>
         <h1 className="text-2xl font-semibold">Welcome back</h1>
-        <p className="text-slate-700">Your table was closed. Scan the table QR again.</p>
+        <p className="text-muted">Your table was closed. Scan the table QR again.</p>
         <button
           type="button"
-          className={`${button} bg-emerald-700 text-white`}
+          className={`${button} bg-primary-700 text-white`}
           onClick={() => begin(true)}
         >
           Start again
@@ -92,7 +92,7 @@ function TableScreen({ code }: { code: string }) {
 function Opening() {
   return (
     <main className={shell}>
-      <p className="text-slate-600">Opening the menu…</p>
+      <p className="text-muted">Opening the menu…</p>
     </main>
   );
 }

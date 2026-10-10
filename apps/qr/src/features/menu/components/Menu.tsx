@@ -15,7 +15,7 @@ export function Menu({ menu, onPick }: { menu: MenuData; onPick: (item: MenuItem
   const active = menu.categories.find((c) => c.id === categoryId) ?? menu.categories[0];
 
   if (menu.categories.length === 0) {
-    return <p className="text-slate-600">Nothing can be ordered right now.</p>;
+    return <p className="text-muted">Nothing can be ordered right now.</p>;
   }
   return (
     <div className="flex flex-col gap-3">
@@ -27,7 +27,7 @@ export function Menu({ menu, onPick }: { menu: MenuData; onPick: (item: MenuItem
             role="tab"
             aria-selected={c.id === active?.id}
             className={`min-h-11 shrink-0 rounded-full px-4 font-medium ${
-              c.id === active?.id ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-800'
+              c.id === active?.id ? 'bg-primary-700 text-white' : 'bg-surface-2 text-text'
             }`}
             onClick={() => setCategoryId(c.id)}
           >
@@ -35,7 +35,7 @@ export function Menu({ menu, onPick }: { menu: MenuData; onPick: (item: MenuItem
           </button>
         ))}
       </div>
-      <ul className="flex flex-col divide-y divide-slate-100">
+      <ul className="flex flex-col divide-y divide-border">
         {active?.items.map((item) => (
           <li key={item.id}>
             <button
@@ -49,12 +49,12 @@ export function Menu({ menu, onPick }: { menu: MenuData; onPick: (item: MenuItem
                 <span>
                   <span className="block text-base font-medium">{item.name}</span>
                   {item.description && (
-                    <span className="block text-sm text-slate-500">{item.description}</span>
+                    <span className="block text-sm text-muted">{item.description}</span>
                   )}
                 </span>
               </span>
               <span className="flex shrink-0 items-center gap-3">
-                <span className="text-sm tabular-nums text-slate-700">{fromPrice(item)}</span>
+                <span className="text-sm tabular-nums text-muted">{fromPrice(item)}</span>
                 {item.imageUrl && (
                   // The row already names the dish, so the photo needs no text of its own.
                   <img

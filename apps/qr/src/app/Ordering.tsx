@@ -42,7 +42,7 @@ export function Ordering({ session }: { session: StoredSession }) {
   return (
     <main className={shell}>
       <header>
-        <p className="text-sm text-slate-500">{session.outlet}</p>
+        <p className="text-sm text-muted">{session.outlet}</p>
         <h1 className="text-2xl font-semibold">Table {session.table}</h1>
       </header>
       <Requests requests={requests.data ?? []} />
@@ -51,7 +51,7 @@ export function Ordering({ session }: { session: StoredSession }) {
           <p>{problem}</p>
           <button
             type="button"
-            className={`${button} border border-red-300 bg-white`}
+            className={`${button} border border-red-300 bg-surface`}
             onClick={() => void menu.refetch()}
           >
             Try again
@@ -68,7 +68,7 @@ export function Ordering({ session }: { session: StoredSession }) {
         <div className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md p-3">
           <button
             type="button"
-            className={`${button} w-full bg-emerald-700 text-white shadow-lg`}
+            className={`${button} w-full bg-primary-700 text-white shadow-lg`}
             onClick={() => setCartOpen(true)}
           >
             {`Your order · ${dishes} ${dishes === 1 ? 'dish' : 'dishes'} · ${rupees(total)} approx.`}

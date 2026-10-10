@@ -11,7 +11,7 @@ const STATE_ICON: Record<OrderRequest['status'], LucideIcon> = {
 
 const TONE: Record<OrderRequest['status'], string> = {
   PENDING: 'border-amber-300 bg-amber-50 text-amber-950',
-  APPROVED: 'border-emerald-300 bg-emerald-50 text-emerald-950',
+  APPROVED: 'border-green-300 bg-green-50 text-green-900',
   REJECTED: 'border-red-300 bg-red-50 text-red-900',
 };
 
