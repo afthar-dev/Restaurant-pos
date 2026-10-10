@@ -5,6 +5,7 @@ import { ApiError } from '../common/api-error';
 import { notFound } from '../common/master-data';
 import type { AuthDevice } from '../common/request-context';
 import { taxBreakupOf } from '../billing/bill.views';
+import { MediaService } from '../media/media.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export const MAX_PRINT_ATTEMPTS = 3;
@@ -32,6 +33,7 @@ export class PrintService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventEmitter2,
+    private readonly media: MediaService,
   ) {}
 
   @OnEvent('kot.created', { promisify: true })
@@ -157,7 +159,7 @@ export class PrintService {
         items: { orderBy: { sortOrder: 'asc' } },
         payments: { orderBy: { createdAt: 'asc' } },
         createdBy: { select: { name: true } },
-        outlet: true,
+        outlet: { include: { logo: { select: { key: true } } } },
         order: {
           select: {
             type: true,
@@ -184,6 +186,7 @@ export class PrintService {
         fssaiNumber: bill.outlet.fssaiNumber,
         billHeader: bill.outlet.billHeader,
         billFooter: bill.outlet.billFooter,
+        logoUrl: bill.outlet.logo ? this.media.urlFor(bill.outlet.logo.key) : null,
       },
       billNo: bill.billNo,
       financialYear: bill.financialYear,

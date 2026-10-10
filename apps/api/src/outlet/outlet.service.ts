@@ -1,15 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import type { Outlet } from '@prisma/client';
+import type { Media, Outlet } from '@prisma/client';
 import type { OutletSettingsUpdate } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../common/request-context';
+import { MediaService } from '../media/media.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 type SettingKey = keyof OutletSettingsUpdate;
 
-function toSettings(outlet: Outlet) {
+function toSettings(outlet: Outlet & { logo: Media | null }, urlFor: (key: string) => string) {
   return {
     id: outlet.id,
+    logoUrl: outlet.logo ? urlFor(outlet.logo.key) : null,
     name: outlet.name,
     gstin: outlet.gstin,
     taxScheme: outlet.taxScheme,
@@ -32,10 +34,58 @@ export class OutletService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly media: MediaService,
   ) {}
 
+  private readonly view = (outlet: Outlet & { logo: Media | null }) =>
+    toSettings(outlet, (key) => this.media.urlFor(key));
+
+  private load(outletId: string) {
+    return this.prisma.outlet.findUniqueOrThrow({
+      where: { id: outletId },
+      include: { logo: true },
+    });
+  }
+
   async get(outletId: string): Promise<OutletSettings> {
-    return toSettings(await this.prisma.outlet.findUniqueOrThrow({ where: { id: outletId } }));
+    return this.view(await this.load(outletId));
+  }
+
+  /** Sets or replaces the logo (staff header, printed bills, QR menu). */
+  async setLogo(actor: AuthUser, bytes: Buffer | undefined): Promise<OutletSettings> {
+    const outlet = await this.load(actor.outletId);
+    await this.media.replace({
+      outletId: outlet.id,
+      bytes,
+      link: (tx, mediaId) =>
+        tx.outlet.update({ where: { id: outlet.id }, data: { logoId: mediaId } }),
+      old: outlet.logo,
+    });
+    await this.recordLogo(actor, { action: 'set', bytes: bytes!.length });
+    return this.get(outlet.id);
+  }
+
+  async removeLogo(actor: AuthUser): Promise<OutletSettings> {
+    const outlet = await this.load(actor.outletId);
+    if (outlet.logo) {
+      await this.media.remove({
+        old: outlet.logo,
+        unlink: (tx) => tx.outlet.update({ where: { id: outlet.id }, data: { logoId: null } }),
+      });
+      await this.recordLogo(actor, { action: 'remove' });
+    }
+    return this.get(outlet.id);
+  }
+
+  private recordLogo(actor: AuthUser, after: Record<string, unknown>) {
+    return this.audit.record({
+      outletId: actor.outletId,
+      actorId: actor.id,
+      action: 'outlet.logo',
+      entity: 'outlet',
+      entityId: actor.outletId,
+      after: after as never,
+    });
   }
 
   async update(actor: AuthUser, request: OutletSettingsUpdate): Promise<OutletSettings> {
@@ -61,6 +111,6 @@ export class OutletService {
         after: after as never,
       });
     }
-    return toSettings(updated);
+    return this.get(updated.id);
   }
 }
