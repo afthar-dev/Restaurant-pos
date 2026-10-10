@@ -435,6 +435,36 @@ describe('QR ordering', () => {
       await submit(await scan(), { lines: [roti()] }).expect(201);
     });
 
+    it('marks a waiting request on a billed order, and says why approving it fails', async () => {
+      const token = await scan();
+      const sent = (await submit(token, { lines: [roti()] }).expect(201)).body;
+      const sub = await ctx.prisma.qrSubmission.findUniqueOrThrow({ where: { id: sent.id } });
+      let pending = (await ctx.http().get('/api/qr/pending').set(waiter.auth).expect(200)).body;
+      expect(pending).toEqual([expect.objectContaining({ id: sent.id, blocked: null })]);
+
+      // Normal flows keep this from happening; the guard is for a bill printed in between.
+      await ctx.prisma.order.update({ where: { id: sub.orderId }, data: { status: 'BILLED' } });
+      pending = (await ctx.http().get('/api/qr/pending').set(waiter.auth).expect(200)).body;
+      expect(pending).toEqual([expect.objectContaining({ id: sent.id, blocked: 'BILL_PRINTED' })]);
+      const order = await ctx.http().get(`/api/orders/${sub.orderId}`).set(waiter.auth).expect(200);
+      expect(order.body.qrPending).toEqual([
+        expect.objectContaining({ id: sent.id, blocked: 'BILL_PRINTED' }),
+      ]);
+
+      const res = await approve(sent.id).expect(409);
+      expect(res.body).toMatchObject({
+        code: 'BILL_PRINTED',
+        message: expect.stringMatching(/bill is already printed.*reject/i),
+      });
+      // Rejecting still works.
+      await ctx
+        .http()
+        .post(`/api/qr/submissions/${sent.id}/reject`)
+        .set(waiter.auth)
+        .send({})
+        .expect(201);
+    });
+
     it('asks staff to decide on waiting requests before printing the bill', async () => {
       const order = (await seat(r.t1.id)).body;
       await ctx

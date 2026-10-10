@@ -120,7 +120,7 @@ export function orderView(order: OrderWithDetails) {
     kots: order.kots.map(({ printJobs, ...kot }) => ({ ...kot, print: kotPrintState(printJobs) })),
     mergedTables: order.mergedFrom.flatMap((m) => (m.table ? [m.table] : [])),
     /** Dishes customers asked for from the table QR, waiting for staff. */
-    qrPending: order.qrSubmissions.map((s) => pendingView(s)),
+    qrPending: order.qrSubmissions.map((s) => pendingView(s, order.status)),
     bills: order.bills.map((b) => ({
       id: b.id,
       billNo: b.billNo,

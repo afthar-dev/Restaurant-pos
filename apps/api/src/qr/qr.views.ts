@@ -41,8 +41,11 @@ export function submissionView(s: QrSubmission) {
 
 export type QrSubmissionView = ReturnType<typeof submissionView>;
 
-/** What staff see for a request waiting for approval (with ids, so they can edit it). */
-export function pendingView(s: QrSubmission & { table?: { name: string } }) {
+/**
+ * What staff see for a request waiting for approval (with ids, so they can edit it). `blocked`
+ * says when it cannot be approved: its order already has a printed bill.
+ */
+export function pendingView(s: QrSubmission & { table?: { name: string } }, orderStatus?: string) {
   return {
     id: s.id,
     orderId: s.orderId,
@@ -60,6 +63,7 @@ export function pendingView(s: QrSubmission & { table?: { name: string } }) {
     })),
     note: s.note,
     total: s.total,
+    blocked: orderStatus === 'BILLED' ? ('BILL_PRINTED' as const) : null,
   };
 }
 

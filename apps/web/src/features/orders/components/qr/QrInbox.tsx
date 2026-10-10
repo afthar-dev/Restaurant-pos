@@ -2,6 +2,7 @@ import { useNotify } from '@/features/notifications';
 import { useCan } from '@/shared/session/store';
 import { useRealtimeEvent } from '@/shared/realtime/context';
 import { useQrPending } from '../../queries';
+import { BILL_PRINTED_NOTE } from './messages';
 
 const ago = (iso: string) => {
   const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
@@ -44,7 +45,12 @@ export function QrInbox({ onOpen }: { onOpen: (orderId: string) => void }) {
             className="flex min-h-11 items-center justify-between rounded-md bg-surface px-3 text-left text-sm font-medium shadow-sm hover:bg-violet-100"
             onClick={() => onOpen(r.orderId)}
           >
-            {`${r.tableName ?? 'Table'} · ${dishes} ${dishes === 1 ? 'dish' : 'dishes'} · ${ago(r.createdAt)}`}
+            <span className="flex flex-col">
+              <span>{`${r.tableName ?? 'Table'} · ${dishes} ${dishes === 1 ? 'dish' : 'dishes'} · ${ago(r.createdAt)}`}</span>
+              {r.blocked === 'BILL_PRINTED' && (
+                <span className="text-xs font-medium text-amber-900">{BILL_PRINTED_NOTE}</span>
+              )}
+            </span>
           </button>
         );
       })}

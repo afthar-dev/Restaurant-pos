@@ -235,6 +235,7 @@ export function qrRequest(partial: Partial<QrRequest> = {}): QrRequest {
     ],
     note: 'peanut allergy',
     total: 45000,
+    blocked: null,
     ...partial,
   };
 }

@@ -39,9 +39,9 @@ export class QrApprovalService {
     const submissions = await this.prisma.qrSubmission.findMany({
       where: { outletId, status: 'PENDING', order: { status: { in: [...ACTIVE_STATUSES] } } },
       orderBy: { createdAt: 'asc' },
-      include: { table: { select: { name: true } } },
+      include: { table: { select: { name: true } }, order: { select: { status: true } } },
     });
-    return submissions.map(pendingView);
+    return submissions.map((s) => pendingView(s, s.order.status));
   }
 
   /**
@@ -67,6 +67,12 @@ export class QrApprovalService {
           where: { id: orderId },
           data: { status: 'OPEN', waiterId: approver.id },
         });
+      } else if (order.status === 'BILLED') {
+        throw new ApiError(
+          HttpStatus.CONFLICT,
+          'BILL_PRINTED',
+          'The bill is already printed. Reject this request, or void the bill first to add these dishes.',
+        );
       } else if (order.status !== 'OPEN') {
         throw orderNotOpen();
       }

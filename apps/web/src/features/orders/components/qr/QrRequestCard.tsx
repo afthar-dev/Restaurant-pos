@@ -11,6 +11,7 @@ import {
   secondaryButton,
 } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
+import { BILL_PRINTED_NOTE } from './messages';
 import { useDecideQrRequest } from '../../mutations';
 import type { Order, QrRequest } from '../../types';
 
@@ -26,6 +27,7 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
   const [reason, setReason] = useState('');
   const decision = useDecideQrRequest(order, request.id);
   const busy = decision.isPending;
+  const blocked = request.blocked === 'BILL_PRINTED';
 
   const edited = request.lines
     .map((l, index) => ({ line: l, quantity: quantities[index] ?? 0 }))
@@ -92,26 +94,32 @@ export function QrRequestCard({ order, request }: { order: Order; request: QrReq
       {request.note && <p className="text-sm italic text-violet-950">“{request.note}”</p>}
       <p className="text-sm text-muted">About {rupees(request.total)} before tax</p>
       <ErrorNote message={decision.isError ? describeError(decision.error) : null} />
+      {blocked && <p className="text-sm font-medium text-amber-900">{BILL_PRINTED_NOTE}</p>}
       {canApprove && mode === 'view' && (
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className={`${primaryButton} min-h-11`}
-            disabled={busy}
-            onClick={() => decision.decide({ action: 'approve', body: {} })}
-          >
-            <Check aria-hidden="true" />
-            Approve
-          </button>
-          <button
-            type="button"
-            className={`${secondaryButton} min-h-11`}
-            disabled={busy}
-            onClick={() => setMode('edit')}
-          >
-            <Pencil aria-hidden="true" />
-            Edit
-          </button>
+          {/* A printed bill cannot take more dishes: reject, or reopen the bill first. */}
+          {!blocked && (
+            <>
+              <button
+                type="button"
+                className={`${primaryButton} min-h-11`}
+                disabled={busy}
+                onClick={() => decision.decide({ action: 'approve', body: {} })}
+              >
+                <Check aria-hidden="true" />
+                Approve
+              </button>
+              <button
+                type="button"
+                className={`${secondaryButton} min-h-11`}
+                disabled={busy}
+                onClick={() => setMode('edit')}
+              >
+                <Pencil aria-hidden="true" />
+                Edit
+              </button>
+            </>
+          )}
           <button
             type="button"
             className={`${secondaryButton} min-h-11`}

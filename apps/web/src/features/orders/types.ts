@@ -138,6 +138,8 @@ export interface QrRequest {
   }[];
   note: string | null;
   total: number;
+  /** Why it cannot be approved: its order already has a printed bill. */
+  blocked: 'BILL_PRINTED' | null;
 }
 
 /** A dish to add, as the picker and the QR approval send it. */
