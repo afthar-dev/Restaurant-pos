@@ -268,6 +268,65 @@ describe('closing the business day', () => {
     expect(twice.body.code).toBe('DAY_NOT_CLOSED');
   });
 
+  it('keeps the first close figures when the day is reopened, and reports them', async () => {
+    await close({ countedCash: 99000, note: 'Short' }, manager).expect(201);
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+    const closedAt = day.closedAt!;
+    await ctx
+      .http()
+      .post(`/api/business-day/${day.id}/reopen`)
+      .set(owner.auth)
+      .send({ reason: 'Missed a bill' })
+      .expect(201);
+    const entry = await ctx.prisma.auditEntry.findFirstOrThrow({ where: { action: 'day.reopen' } });
+    expect(entry.before).toEqual({
+      closedAt: closedAt.toISOString(),
+      closedById: manager.user.id,
+      expectedCash: 100000,
+      countedCash: 99000,
+      variance: -1000,
+    });
+
+    const open = await ctx
+      .http()
+      .get(`/api/business-day/${day.id}/report`)
+      .set(manager.auth)
+      .expect(200);
+    expect(open.body.reopened).toMatchObject({
+      by: owner.user.name,
+      reason: 'Missed a bill',
+      earlier: {
+        closedAt: closedAt.toISOString(),
+        closedBy: 'Meena',
+        counted: 99000,
+        expected: 100000,
+        variance: -1000,
+      },
+    });
+    expect(open.body.reopened.at).toBe(entry.createdAt.toISOString());
+
+    // Closed again with a different tally: the report still says what the first close was.
+    await close({ countedCash: 100000 }, manager).expect(201);
+    const again = await ctx
+      .http()
+      .get(`/api/business-day/${day.id}/report`)
+      .set(manager.auth)
+      .expect(200);
+    expect(again.body.cash).toMatchObject({ counted: 100000, variance: 0 });
+    expect(again.body.reopened.earlier).toMatchObject({ counted: 99000, variance: -1000 });
+  });
+
+  it('reports no reopen for a day that was never reopened', async () => {
+    await close({ countedCash: 100000 }).expect(201);
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+    const res = await ctx
+      .http()
+      .get(`/api/business-day/${day.id}/report`)
+      .set(manager.auth)
+      .expect(200);
+    expect(res.body.reopened).toBeNull();
+  });
+
   it('splits the day report taxable value by GST rate and shows No-GST sales apart', async () => {
     const gst18 = await ctx.prisma.taxRate.create({
       data: { outletId: outlet.id, name: 'GST 18%', cgstBp: 900, sgstBp: 900 },

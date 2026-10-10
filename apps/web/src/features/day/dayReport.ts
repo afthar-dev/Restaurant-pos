@@ -42,6 +42,15 @@ hr { border: 0; border-top: 1px dashed #000; margin: 5px 0; }
 ${row('Opened', when(r.day.openedAt))}
 ${row('Closed', when(r.day.closedAt))}
 ${r.day.closedBy ? row('Closed by', e(r.day.closedBy.name)) : ''}
+${
+  r.reopened
+    ? `<div>Reopened by ${e(r.reopened.by ?? 'unknown')}, ${when(r.reopened.at)}${
+        r.reopened.earlier.counted !== null
+          ? `<br>Earlier close: counted ${money(r.reopened.earlier.counted)}, variance ${money(r.reopened.earlier.variance ?? 0)}`
+          : ''
+      }</div>`
+    : ''
+}
 ${section(
   'Sales',
   [

@@ -161,6 +161,7 @@ export class DayCloseService {
           reason,
           before: {
             closedAt: day.closedAt?.toISOString() ?? null,
+            closedById: day.closedById,
             expectedCash: day.expectedCash,
             countedCash: day.countedCash,
             variance: day.variance,
@@ -301,6 +302,8 @@ export class DayCloseService {
       orderBy: { updatedAt: 'asc' },
     });
 
+    const reopened = await this.lastReopen(outletId, day.id);
+
     const gst = gstSummary(live.flatMap((b) => gstLinesOf(b)));
     // What is kept: received on the day less what was refunded on it.
     const collected = payments.CASH + payments.UPI + payments.CARD - refunds.total;
@@ -335,6 +338,7 @@ export class DayCloseService {
         collected,
         unpaid: billed - collected,
       },
+      reopened,
       payments,
       refunds: { ...refunds, bills: [...refundedBills.values()] },
       byType,
@@ -366,6 +370,41 @@ export class DayCloseService {
         expected,
         counted: day.countedCash,
         variance: day.variance,
+      },
+    };
+  }
+
+  /** The latest reopen of the day, with the close figures it replaced (from the audit log). */
+  private async lastReopen(outletId: string, dayId: string) {
+    const entry = await this.prisma.auditEntry.findFirst({
+      where: { outletId, action: 'day.reopen', entity: 'business_day', entityId: dayId },
+      orderBy: { createdAt: 'desc' },
+      include: { actor: { select: { name: true } } },
+    });
+    if (!entry) return null;
+    const before = (entry.before ?? {}) as {
+      closedAt?: string | null;
+      closedById?: string | null;
+      expectedCash?: number | null;
+      countedCash?: number | null;
+      variance?: number | null;
+    };
+    const closer = before.closedById
+      ? await this.prisma.user.findUnique({
+          where: { id: before.closedById },
+          select: { name: true },
+        })
+      : null;
+    return {
+      by: entry.actor?.name ?? null,
+      at: entry.createdAt,
+      reason: entry.reason,
+      earlier: {
+        closedAt: before.closedAt ?? null,
+        closedBy: closer?.name ?? null,
+        counted: before.countedCash ?? null,
+        expected: before.expectedCash ?? null,
+        variance: before.variance ?? null,
       },
     };
   }

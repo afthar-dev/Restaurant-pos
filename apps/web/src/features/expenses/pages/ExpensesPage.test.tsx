@@ -192,6 +192,7 @@ describe('day report printout', () => {
       },
       payments: { CASH: 0, UPI: 0, CARD: 0 },
       refunds: { total: 0, CASH: 0, UPI: 0, CARD: 0, bills: [] },
+      reopened: null,
       byType: { DINE_IN: { orders: 0, total: 0 }, PARCEL: { orders: 0, total: 0 } },
       topItems: [],
       voids: [],

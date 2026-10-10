@@ -262,6 +262,13 @@ function ReportView({
           Print report
         </button>
       </div>
+      {report.reopened && (
+        <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900">
+          {`Reopened by ${report.reopened.by ?? 'unknown'} · ${openedLabel(report.reopened.at)}`}
+          {report.reopened.earlier.counted !== null &&
+            ` — earlier close: counted ${rupees(report.reopened.earlier.counted)}, variance ${signed(report.reopened.earlier.variance ?? 0)}`}
+        </p>
+      )}
       <div className="grid gap-3 md:grid-cols-2">
         <Block title="Sales">
           <Row label="Bills" value={String(sales.bills)} />

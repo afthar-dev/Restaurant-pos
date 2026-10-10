@@ -54,6 +54,7 @@ const report = (partial: Partial<DayReport> = {}): DayReport => ({
   },
   payments: { CASH: 3200, UPI: 37800, CARD: 0 },
   refunds: { total: 0, CASH: 0, UPI: 0, CARD: 0, bills: [] },
+  reopened: null,
   byType: { DINE_IN: { orders: 2, total: 41000 }, PARCEL: { orders: 0, total: 0 } },
   topItems: [{ itemName: 'Paneer Tikka', variantName: 'Half', quantity: 2, amount: 36000 }],
   voids: [],
@@ -330,6 +331,37 @@ describe('Day close', () => {
     expect(within(shown).queryByText('Cash refunded')).toBeNull();
   });
 
+  it('says the day was reopened, and what the earlier close was', async () => {
+    as(OWNER, 'OWNER');
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json(days),
+      'GET /api/business-day/d2/report': () =>
+        json(
+          report({
+            reopened: {
+              by: 'Priya',
+              at: '2026-10-07T04:30:00Z',
+              reason: 'Missed a bill',
+              earlier: {
+                closedAt: '2026-10-06T17:30:00Z',
+                closedBy: 'Meena',
+                counted: 99000,
+                expected: 100000,
+                variance: -1000,
+              },
+            },
+          }),
+        ),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
+    const shown = await screen.findByRole('region', { name: 'Day report' });
+    const note = within(shown).getByText(/Reopened by Priya/);
+    expect(note).toHaveTextContent('Wed, 7 Oct, 10:00 am');
+    expect(note).toHaveTextContent('earlier close: counted ₹990, variance −₹10');
+  });
+
   it('does not offer reopen to a manager', async () => {
     as(MANAGER);
     mockApi({
@@ -368,6 +400,29 @@ describe('day report times on a PC set to UTC', () => {
 });
 
 describe('renderDayReport', () => {
+  it('prints who reopened the day and the earlier close', () => {
+    const html = renderDayReport(
+      report({
+        reopened: {
+          by: 'Priya',
+          at: '2026-10-07T04:30:00Z',
+          reason: 'Missed a bill',
+          earlier: {
+            closedAt: '2026-10-06T17:30:00Z',
+            closedBy: 'Meena',
+            counted: 99000,
+            expected: 100000,
+            variance: -1000,
+          },
+        },
+      }),
+      'Spice Garden',
+    );
+    expect(html).toContain('Reopened by Priya');
+    expect(html).toContain('counted ₹990.00');
+    expect(renderDayReport(report(), 'Spice Garden')).not.toContain('Reopened');
+  });
+
   it('prints the refunds, per mode, and the cash refunded in the drawer tally', () => {
     const base = report();
     const html = renderDayReport(

@@ -79,6 +79,19 @@ export interface DayReport {
     /** Billed but not yet paid: `total - collected`. */
     unpaid: number;
   };
+  /** The latest reopen of this day and the close it replaced; null if never reopened. */
+  reopened: {
+    by: string | null;
+    at: string;
+    reason: string | null;
+    earlier: {
+      closedAt: string | null;
+      closedBy: string | null;
+      counted: number | null;
+      expected: number | null;
+      variance: number | null;
+    };
+  } | null;
   /** Received on the day, including bills voided since; refunds are listed apart. */
   payments: Record<PaymentMode, number>;
   /** Money handed back on this day by voiding paid bills. */
