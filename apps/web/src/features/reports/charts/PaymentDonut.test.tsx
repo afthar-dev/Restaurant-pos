@@ -18,6 +18,14 @@ describe('PaymentDonut', () => {
     expect(legend.getByText('Cash').closest('li')).toHaveTextContent('Cash₹5,00033%');
   });
 
+  it('shows shares that add up to 100% even when they do not divide evenly', () => {
+    render(<PaymentDonut payments={{ CASH: 100, UPI: 100, CARD: 100 }} />);
+    const legend = within(screen.getByRole('list', { name: 'Payment modes' }));
+    expect(legend.getByText('Cash').closest('li')).toHaveTextContent('34%');
+    expect(legend.getByText('UPI').closest('li')).toHaveTextContent('33%');
+    expect(legend.getByText('Card').closest('li')).toHaveTextContent('33%');
+  });
+
   it('draws one full ring when everyone paid the same way', () => {
     render(<PaymentDonut payments={{ CASH: 0, UPI: 900_000, CARD: 0 }} />);
     expect(document.querySelectorAll('.recharts-pie-sector')).toHaveLength(1);

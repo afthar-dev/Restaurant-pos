@@ -116,6 +116,22 @@ describe('calculateBill', () => {
     expect(r.total).toBe(13500);
   });
 
+  it('keeps no-GST sales out of the taxable value and reports them as exempt', () => {
+    // ₹200 at 5% + ₹100 No-GST: taxable ₹200, exempt ₹100, tax ₹10
+    const r = bill([line(20000), line(10000, 1, { cgstBp: 0, sgstBp: 0 })]);
+    expect(r.taxable).toBe(20000);
+    expect(r.exempt).toBe(10000);
+    expect(r.cgst + r.sgst).toBe(1000);
+    expect(r.total).toBe(31000);
+    expect(r.lines.map((l) => l.taxable)).toEqual([20000, 10000]);
+  });
+
+  it('treats a whole bill as exempt when no GST is charged', () => {
+    const r = bill([line(18000, 2)], { taxScheme: 'COMPOSITION' });
+    expect(r.taxable).toBe(0);
+    expect(r.exempt).toBe(36000);
+  });
+
   it('refuses an empty bill', () => {
     expect(() => bill([])).toThrow('A bill needs at least one line');
   });

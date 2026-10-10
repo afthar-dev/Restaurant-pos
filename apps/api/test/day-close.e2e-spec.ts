@@ -188,6 +188,74 @@ describe('closing the business day', () => {
     expect(twice.body.code).toBe('DAY_NOT_CLOSED');
   });
 
+  it('splits the day report taxable value by GST rate and shows No-GST sales apart', async () => {
+    const gst18 = await ctx.prisma.taxRate.create({
+      data: { outletId: outlet.id, name: 'GST 18%', cgstBp: 900, sgstBp: 900 },
+    });
+    await ctx.prisma.item.updateMany({
+      where: { name: 'Tandoori Roti' },
+      data: { taxRateId: null },
+    });
+    await ctx.prisma.item.updateMany({
+      where: { name: 'Paneer Tikka' },
+      data: { taxRateId: gst18.id },
+    });
+    // ₹30 roti (No GST) + ₹180 paneer at 18% + ₹120 dosa at 5%
+    const bill = await billFor([
+      ...roti(),
+      { variantId: r.paneer.half.id, quantity: 1 },
+      { variantId: r.dosa.regular.id, quantity: 1, addonIds: [r.chutney.coconut.id] },
+    ]);
+    await pay(bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+    const res = await close({ countedCash: 100000 + bill.total }).expect(201);
+    expect(res.body.sales).toMatchObject({
+      taxable: 30000,
+      exempt: 3000,
+      gstBreakup: [
+        { ratePercent: 5, taxable: 12000, cgst: 300, sgst: 300 },
+        { ratePercent: 18, taxable: 18000, cgst: 1620, sgst: 1620 },
+      ],
+    });
+  });
+
+  it('shows collected and unpaid beside sales on the day report and the day list', async () => {
+    const paid = await billFor(roti(), r.t1.id);
+    await pay(paid.id, { mode: 'CASH', amount: paid.total }).expect(201);
+    const unpaid = await billFor([{ variantId: r.paneer.half.id, quantity: 1 }], r.t2.id);
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+
+    const report = await ctx
+      .http()
+      .get(`/api/business-day/${day.id}/report`)
+      .set(manager.auth)
+      .expect(200);
+    expect(report.body.sales).toMatchObject({
+      total: paid.total + unpaid.total,
+      collected: paid.total,
+      unpaid: unpaid.total,
+    });
+    const list = await ctx.http().get('/api/business-day').set(manager.auth).expect(200);
+    expect(list.body[0]).toMatchObject({
+      total: paid.total + unpaid.total,
+      collected: paid.total,
+      unpaid: unpaid.total,
+    });
+  });
+
+  it('ranks the top items on the day report by amount, like the sales report', async () => {
+    // 3 rotis = ₹90 (most sold) against 1 paneer = ₹180 (earns more).
+    const bill = await billFor([
+      { variantId: r.roti.regular.id, quantity: 3 },
+      { variantId: r.paneer.half.id, quantity: 1 },
+    ]);
+    await pay(bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+    const res = await close({ countedCash: 100000 + bill.total }).expect(201);
+    expect(res.body.topItems.map((i: { itemName: string }) => i.itemName)).toEqual([
+      'Paneer Tikka',
+      'Tandoori Roti',
+    ]);
+  });
+
   it('reads the report of any past day', async () => {
     await close({ countedCash: 99000 }).expect(201);
     const [day] = (await ctx.http().get('/api/business-day').set(manager.auth).expect(200)).body;

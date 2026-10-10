@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import type { TaxBreakupRow } from './bill-calc';
+import { gstLinesOf, gstSummary } from './gst-summary';
 
 export const BILL_INCLUDE = {
   items: { orderBy: { sortOrder: 'asc' } },
@@ -48,6 +49,8 @@ export function taxBreakupOf(bill: {
 
 export function billView(bill: BillWithDetails) {
   const paid = paidOn(bill);
+  // From the lines, so bills made before No-GST sales were kept apart read the same way.
+  const gst = gstSummary(gstLinesOf(bill));
   return {
     id: bill.id,
     billNo: bill.billNo,
@@ -81,7 +84,8 @@ export function billView(bill: BillWithDetails) {
     billDiscount: bill.billDiscount,
     discountReason: bill.discountReason,
     packaging: bill.packaging,
-    taxable: bill.taxable,
+    taxable: gst.taxable,
+    exempt: gst.exempt,
     cgst: bill.cgst,
     sgst: bill.sgst,
     taxBreakup: taxBreakupOf(bill),

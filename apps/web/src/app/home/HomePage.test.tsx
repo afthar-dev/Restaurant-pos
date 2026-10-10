@@ -1,6 +1,6 @@
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import type { Permission } from '@rpos/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { useSession } from '@/shared/session/store';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
 import { expectNoAxeViolations } from '@/test/a11y';
@@ -25,6 +25,10 @@ const SALES = {
     discounts: 0,
     packaging: 0,
     taxable: 0,
+    collected: 1000000,
+    unpaid: 240000,
+    exempt: 0,
+    gstBreakup: [],
     cgst: 0,
     sgst: 0,
     roundOff: 0,
@@ -78,6 +82,61 @@ describe('HomePage', () => {
     expect(screen.getByText('₹1,022')).toBeInTheDocument();
     expect(await screen.findByText('Onion')).toBeInTheDocument();
     await expectNoAxeViolations();
+  });
+
+  it('shows the open business day’s sales by day id, with when it opened', async () => {
+    useSession.getState().setSession(sessionBody('OWNER', OWNER, 'Asha'));
+    const mock = mockApi({
+      'GET /api/business-day/current': () => json(DAY_OPEN),
+      'GET /api/reports/sales': () => json(SALES),
+      'GET /api/business-day/close-check': () => json(CLOSE_CHECK),
+    });
+    renderRoute('/');
+    const card = await screen.findByRole('group', { name: 'This business day' });
+    expect(within(card).getByText('Since Wed, 7 Oct, 9:00 am')).toBeInTheDocument();
+    expect(within(card).getByText('₹12,400')).toBeInTheDocument();
+    // What was billed is not all collected yet.
+    expect(within(card).getByText('Collected')).toBeInTheDocument();
+    expect(within(card).getByText('₹10,000')).toBeInTheDocument();
+    expect(within(card).getByText('Unpaid')).toBeInTheDocument();
+    expect(within(card).getByText('₹2,400')).toBeInTheDocument();
+    const urls = callsTo(mock, 'GET', '/api/reports/sales').map(([u]) => String(u));
+    expect(urls).toContain('/api/reports/sales?businessDayId=d1');
+  });
+
+  it('asks for the sales again every minute while the screen stays open', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'setInterval'] });
+    try {
+      useSession.getState().setSession(sessionBody('OWNER', OWNER, 'Asha'));
+      const mock = mockApi({
+        'GET /api/business-day/current': () => json(DAY_OPEN),
+        'GET /api/reports/sales': () => json(SALES),
+        'GET /api/business-day/close-check': () => json(CLOSE_CHECK),
+      });
+      renderRoute('/');
+      await screen.findByRole('group', { name: 'This business day' });
+      const before = callsTo(mock, 'GET', '/api/reports/sales').length;
+      await act(() => vi.advanceTimersByTimeAsync(61_000));
+      await expect
+        .poll(() => callsTo(mock, 'GET', '/api/reports/sales').length)
+        .toBeGreaterThan(before);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows today’s date range when no business day is open', async () => {
+    useSession.getState().setSession(sessionBody('OWNER', OWNER, 'Asha'));
+    const mock = mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/reports/sales': () => json({ ...SALES, summary: { ...SALES.summary, unpaid: 0 } }),
+    });
+    renderRoute('/');
+    const card = await screen.findByRole('group', { name: 'Today' });
+    expect(within(card).queryByText('Unpaid')).toBeNull();
+    const urls = callsTo(mock, 'GET', '/api/reports/sales').map(([u]) => String(u));
+    expect(urls.some((u) => /from=\d{4}-\d{2}-\d{2}&to=/.test(u))).toBe(true);
+    expect(urls.some((u) => u.includes('businessDayId'))).toBe(false);
   });
 
   it('never asks the server for owner-only numbers on a cashier’s home', async () => {
@@ -196,6 +255,8 @@ describe('HomePage', () => {
           cash: 0,
           upi: 0,
           card: 0,
+          collected: 0,
+          unpaid: 0,
           expenses: 0,
         },
         {
@@ -207,6 +268,8 @@ describe('HomePage', () => {
           cash: 0,
           upi: 0,
           card: 0,
+          collected: 0,
+          unpaid: 0,
           expenses: 0,
         },
         {
@@ -218,6 +281,8 @@ describe('HomePage', () => {
           cash: 0,
           upi: 0,
           card: 0,
+          collected: 0,
+          unpaid: 0,
           expenses: 0,
         },
       ],

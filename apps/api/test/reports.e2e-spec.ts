@@ -1,5 +1,5 @@
 import type { Outlet } from '@prisma/client';
-import { billFor as billForOn, parcelOrder, pay as payOn } from './billing-helpers';
+import { billFor as billForOn, parcelOrder, pay as payOn, type Line } from './billing-helpers';
 import { buildRestaurant, type Restaurant } from './fixtures';
 import {
   createOutlet,
@@ -52,7 +52,7 @@ describe('sales report', () => {
       .set(manager.auth)
       .send({ countedCash: 0 })
       .expect(201);
-  const billFor = (lines: { variantId: string; quantity: number }[], tableId = r.t1.id) =>
+  const billFor = (lines: Line[], tableId = r.t1.id) =>
     billForOn(ctx, r, waiter, cashier, lines, tableId);
   const pay = (billId: string, body: object) => payOn(ctx, cashier, billId, body);
   const report = (from: string, to: string, who = owner) =>
@@ -127,8 +127,10 @@ describe('sales report', () => {
       averageBill: Math.round(total / 3),
       payments: { CASH: first.total, UPI: upi.total, CARD: parcel.total },
       expenses: { total: 1000, byCategory: [{ name: 'Gas', amount: 1000 }] },
-      net: total - 1000,
+      // Sales without the GST that is owed on to the government, minus expenses.
+      net: total - res.body.summary.cgst - res.body.summary.sgst - 1000,
     });
+    expect(res.body.summary.cgst).toBeGreaterThan(0);
     expect(res.body.summary.byType.DINE_IN).toEqual({ orders: 2, total: first.total + upi.total });
     expect(res.body.summary.byType.PARCEL).toEqual({ orders: 1, total: parcel.total });
     expect(res.body.items[0]).toMatchObject({ itemName: 'Paneer Tikka', quantity: 2 });
@@ -141,6 +143,105 @@ describe('sales report', () => {
 
     const onlyToday = await report(istDate(0), istDate(0)).expect(200);
     expect(onlyToday.body.summary.bills).toBe(2);
+  });
+
+  it('splits taxable value by GST rate and keeps No-GST sales apart', async () => {
+    const gst18 = await ctx.prisma.taxRate.create({
+      data: { outletId: outlet.id, name: 'GST 18%', cgstBp: 900, sgstBp: 900 },
+    });
+    await ctx.prisma.item.updateMany({
+      where: { name: 'Tandoori Roti' },
+      data: { taxRateId: null },
+    });
+    await ctx.prisma.item.updateMany({
+      where: { name: 'Paneer Tikka' },
+      data: { taxRateId: gst18.id },
+    });
+    await openDay();
+    // ₹30 roti (No GST) + ₹180 paneer at 18% + ₹120 dosa at 5%
+    const bill = await billFor([
+      { variantId: r.roti.regular.id, quantity: 1 },
+      { variantId: r.paneer.half.id, quantity: 1 },
+      { variantId: r.dosa.regular.id, quantity: 1, addonIds: [r.chutney.coconut.id] },
+    ]);
+    await pay(bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+
+    const res = await report(istDate(0), istDate(0)).expect(200);
+    expect(res.body.summary).toMatchObject({
+      taxable: 30000,
+      exempt: 3000,
+      cgst: 1620 + 300,
+      sgst: 1620 + 300,
+      gstBreakup: [
+        { ratePercent: 5, taxable: 12000, cgst: 300, sgst: 300 },
+        { ratePercent: 18, taxable: 18000, cgst: 1620, sgst: 1620 },
+      ],
+    });
+  });
+
+  it('shows what was collected and what is still unpaid next to sales', async () => {
+    await openDay();
+    const paid = await billFor([{ variantId: r.paneer.half.id, quantity: 1 }]);
+    await pay(paid.id, { mode: 'UPI', amount: paid.total }).expect(201);
+    const part = await billFor([{ variantId: r.paneer.half.id, quantity: 2 }], r.t2.id);
+    await pay(part.id, { mode: 'CASH', amount: 10000 }).expect(201);
+    // A voided bill is neither sales nor unpaid.
+    const voided = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }], r.t1.id);
+    await ctx
+      .http()
+      .post(`/api/bills/${voided.id}/void`)
+      .set(manager.auth)
+      .send({ reason: 'Wrong table' })
+      .expect(201);
+
+    const res = await report(istDate(0), istDate(0)).expect(200);
+    const total = paid.total + part.total;
+    expect(res.body.summary).toMatchObject({
+      total,
+      collected: paid.total + 10000,
+      unpaid: part.total - 10000,
+    });
+    expect(res.body.days[0]).toMatchObject({
+      total,
+      collected: paid.total + 10000,
+      unpaid: part.total - 10000,
+    });
+  });
+
+  it('reports one business day by id, whatever date it was opened on', async () => {
+    await openDay();
+    const bill = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }]);
+    await pay(bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+    // The day was opened yesterday evening and is still running.
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+    await ctx.prisma.businessDay.update({
+      where: { id: day.id },
+      data: { openedAt: new Date(Date.now() - 86_400_000) },
+    });
+
+    const today = await report(istDate(0), istDate(0)).expect(200);
+    expect(today.body.summary.bills).toBe(0);
+    const byId = await ctx
+      .http()
+      .get(`/api/reports/sales?businessDayId=${day.id}`)
+      .set(owner.auth)
+      .expect(200);
+    expect(byId.body.days).toHaveLength(1);
+    expect(byId.body.days[0]).toMatchObject({ dayId: day.id, date: istDate(1), status: 'OPEN' });
+    expect(byId.body.summary).toMatchObject({ bills: 1, total: bill.total });
+    expect(byId.body.range).toEqual({ from: istDate(1), to: istDate(1) });
+
+    await ctx
+      .http()
+      .get('/api/reports/sales?businessDayId=00000000-0000-4000-8000-000000000000')
+      .set(owner.auth)
+      .expect(404);
+    await ctx.http().get('/api/reports/sales?businessDayId=nope').set(owner.auth).expect(400);
+    await ctx
+      .http()
+      .get(`/api/reports/sales?businessDayId=${day.id}`)
+      .set(manager.auth)
+      .expect(403);
   });
 
   it('gives zeros for a range without business days', async () => {

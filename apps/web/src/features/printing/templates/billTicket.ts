@@ -1,5 +1,6 @@
 import { formatPaise, type PaymentMode } from '@rpos/shared';
 import { escapeHtml } from '@/shared/lib/escape';
+import { PRINT_TIME_ZONE } from '@/shared/lib/when';
 
 /** Mirrors PrintService.buildBillPayload() in the API. */
 export interface BillPrintPayload {
@@ -42,6 +43,8 @@ export interface BillPrintPayload {
   discountReason: string | null;
   packaging: number;
   taxable: number;
+  /** Sales with no GST (No-GST dishes). */
+  exempt: number;
   cgst: number;
   sgst: number;
   taxBreakup: {
@@ -77,6 +80,7 @@ export function renderBillTicket(p: BillPrintPayload): string {
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: PRINT_TIME_ZONE,
   });
   const where = p.tableName ? `Table ${e(p.tableName)}` : `Parcel #${p.tokenNo ?? '?'}`;
   const outlet = [
@@ -104,6 +108,7 @@ export function renderBillTicket(p: BillPrintPayload): string {
         `-${money(discount)}`,
       ),
     p.packaging > 0 && row('Packaging', money(p.packaging)),
+    p.exempt > 0 && row('No GST items', money(p.exempt)),
     ...p.taxBreakup.flatMap((t) => [
       row(`CGST ${e(t.cgstPercent)} on ${money(t.taxable)}`, money(t.cgst)),
       row(`SGST ${e(t.sgstPercent)} on ${money(t.taxable)}`, money(t.sgst)),

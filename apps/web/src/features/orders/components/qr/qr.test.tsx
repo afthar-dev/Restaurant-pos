@@ -84,6 +84,21 @@ describe('QR request card', () => {
     expect(screen.getByRole('button', { name: 'Edit' })).toBeEnabled();
   });
 
+  it('offers no approve on a billed order, only the way out', () => {
+    as();
+    mockApi({});
+    renderWithProviders(
+      <QrRequestCard order={waiting} request={qrRequest({ blocked: 'BILL_PRINTED' })} />,
+    );
+    const card = screen.getByRole('region', { name: 'QR order from T1' });
+    expect(
+      within(card).getByText('Bill already printed — reject or reopen the bill'),
+    ).toBeInTheDocument();
+    expect(within(card).queryByRole('button', { name: 'Approve' })).toBeNull();
+    expect(within(card).queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(within(card).getByRole('button', { name: 'Reject' })).toBeInTheDocument();
+  });
+
   it('shows the request without buttons to staff who cannot approve', () => {
     as(['order.take']);
     mockApi({});
@@ -102,6 +117,16 @@ describe('QR inbox', () => {
     const inbox = await screen.findByRole('region', { name: 'QR orders waiting' });
     fireEvent.click(within(inbox).getByRole('button', { name: /^T1 · 3 dishes/ }));
     expect(onOpen).toHaveBeenCalledWith('o1');
+  });
+
+  it('says on the list when a waiting request cannot be approved', async () => {
+    as();
+    mockApi({ 'GET /api/qr/pending': () => json([qrRequest({ blocked: 'BILL_PRINTED' })]) });
+    renderWithProviders(<QrInbox onOpen={() => undefined} />);
+    const inbox = await screen.findByRole('region', { name: 'QR orders waiting' });
+    expect(
+      within(inbox).getByText('Bill already printed — reject or reopen the bill'),
+    ).toBeInTheDocument();
   });
 
   it('stays out of the way when nothing waits or the user cannot approve', async () => {

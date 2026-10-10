@@ -1,6 +1,7 @@
 import { formatPaise } from '@rpos/shared';
 import type { DayReport } from './types';
 import { escapeHtml } from '@/shared/lib/escape';
+import { PRINT_TIME_ZONE } from '@/shared/lib/when';
 
 const row = (label: string, value: string, strong = false) =>
   `<div class="row${strong ? ' strong' : ''}"><span>${label}</span><span>${value}</span></div>`;
@@ -14,7 +15,13 @@ export function renderDayReport(r: DayReport, outletName: string, paperWidthMm =
   const money = (paise: number) => e(formatPaise(paise));
   const when = (iso: string | null) =>
     iso
-      ? e(new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }))
+      ? e(
+          new Date(iso).toLocaleString('en-IN', {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+            timeZone: PRINT_TIME_ZONE,
+          }),
+        )
       : '—';
   const variance = r.cash.variance;
 
@@ -41,10 +48,16 @@ ${section(
     row('Discounts', money(r.sales.discounts)),
     row('Packaging', money(r.sales.packaging)),
     row('Taxable', money(r.sales.taxable)),
+    r.sales.exempt > 0 ? row('No GST sales', money(r.sales.exempt)) : '',
+    ...r.sales.gstBreakup.map((g) =>
+      row(`GST ${g.ratePercent}% on ${money(g.taxable)}`, money(g.cgst + g.sgst)),
+    ),
     row('CGST', money(r.sales.cgst)),
     row('SGST', money(r.sales.sgst)),
     row('Round off', money(r.sales.roundOff)),
     row('Total', money(r.sales.total), true),
+    row('Collected', money(r.sales.collected)),
+    r.sales.unpaid > 0 ? row('Unpaid', money(r.sales.unpaid)) : '',
   ].join(''),
 )}
 ${section(

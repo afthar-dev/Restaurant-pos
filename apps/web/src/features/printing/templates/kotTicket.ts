@@ -1,4 +1,5 @@
 import { escapeHtml } from '@/shared/lib/escape';
+import { PRINT_TIME_ZONE } from '@/shared/lib/when';
 
 export interface KotPrintPayload {
   kind: 'KOT';
@@ -33,6 +34,7 @@ export function renderKotTicket(p: KotPrintPayload): string {
   const time = new Date(p.createdAt).toLocaleTimeString('en-IN', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: PRINT_TIME_ZONE,
   });
   const lines = p.lines
     .map((l) => {

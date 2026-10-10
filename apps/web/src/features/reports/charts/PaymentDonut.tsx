@@ -3,6 +3,7 @@ import { cn } from '@/shared/lib/cn';
 import { rupees } from '@/shared/lib/money';
 import { ChartFrame } from './ChartFrame';
 import { CHART_ANIMATION_MS, prefersReducedMotion } from './motion';
+import { percentShares } from './scale';
 import { PaymentIcon } from '@/shared/ui';
 
 const MODES = [
@@ -17,11 +18,8 @@ type Payments = Record<(typeof MODES)[number]['key'], number>;
 export function PaymentDonut({ payments }: { payments: Payments }) {
   const total = payments.CASH + payments.UPI + payments.CARD;
   if (total <= 0) return null;
-  const rows = MODES.map((m) => ({
-    ...m,
-    amount: payments[m.key],
-    percent: Math.round((payments[m.key] / total) * 100),
-  }));
+  const percents = percentShares(MODES.map((m) => payments[m.key]));
+  const rows = MODES.map((m, i) => ({ ...m, amount: payments[m.key], percent: percents[i]! }));
   const top = rows.reduce((a, b) => (b.amount > a.amount ? b : a));
   const used = rows.filter((r) => r.amount > 0);
   const still = prefersReducedMotion();

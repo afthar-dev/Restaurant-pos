@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type BusinessDayStatus, type OrderType, type PaymentMode } from '@prisma/client';
 import type { ReportRange } from '@rpos/shared';
+import { notFound } from '../common/master-data';
+import { gstSummary } from '../billing/gst-summary';
 import { PrismaService } from '../prisma/prisma.service';
 
 const TIME_ZONE = 'Asia/Kolkata';
+
+type DayRow = { id: string; date: string; status: BusinessDayStatus };
 
 type Modes = Record<PaymentMode, number>;
 const noModes = (): Modes => ({ CASH: 0, UPI: 0, CARD: 0 });
@@ -17,14 +21,26 @@ export class SalesReportService {
   constructor(private readonly prisma: PrismaService) {}
 
   async sales(outletId: string, range: ReportRange) {
-    const days = await this.prisma.$queryRaw<
-      { id: string; date: string; status: BusinessDayStatus }[]
-    >`
+    const days = await this.prisma.$queryRaw<DayRow[]>`
       SELECT id, to_char(opened_at AT TIME ZONE ${TIME_ZONE}, 'YYYY-MM-DD') AS date, status
         FROM business_days
        WHERE outlet_id = ${outletId}::uuid
          AND (opened_at AT TIME ZONE ${TIME_ZONE})::date BETWEEN ${range.from}::date AND ${range.to}::date
        ORDER BY opened_at`;
+    return this.summarise(range, days);
+  }
+
+  /** One business day, by id: its figures stay together when it runs past midnight. */
+  async salesOfDay(outletId: string, businessDayId: string) {
+    const days = await this.prisma.$queryRaw<DayRow[]>`
+      SELECT id, to_char(opened_at AT TIME ZONE ${TIME_ZONE}, 'YYYY-MM-DD') AS date, status
+        FROM business_days
+       WHERE outlet_id = ${outletId}::uuid AND id = ${businessDayId}::uuid`;
+    if (days.length === 0) throw notFound('Business day');
+    return this.summarise({ from: days[0]!.date, to: days[0]!.date }, days);
+  }
+
+  private async summarise(range: ReportRange, days: DayRow[]) {
     const dayIds = days.map((d) => d.id);
     const live = { businessDayId: { in: dayIds }, status: { not: 'VOID' as const } };
 
@@ -38,7 +54,6 @@ export class SalesReportService {
             itemDiscount: true,
             billDiscount: true,
             packaging: true,
-            taxable: true,
             cgst: true,
             sgst: true,
             roundOff: true,
@@ -68,6 +83,7 @@ export class SalesReportService {
         }),
       ]);
 
+    const gst = await this.gst(dayIds);
     const sums = billTotals._sum;
     const bills = billTotals._count;
     const total = sums.total ?? 0;
@@ -81,6 +97,8 @@ export class SalesReportService {
       modes[p.mode] += amount;
       dayPayments.set(p.businessDayId, modes);
     }
+
+    const collected = payments.CASH + payments.UPI + payments.CARD;
 
     const categoryNames = await this.prisma.expenseCategory.findMany({
       where: { id: { in: expensesByCategory.map((e) => e.categoryId) } },
@@ -99,12 +117,17 @@ export class SalesReportService {
       days: days.map((d) => {
         const modes = dayPayments.get(d.id) ?? noModes();
         const billRow = billsByDay.find((b) => b.businessDayId === d.id);
+        const dayTotal = billRow?._sum.total ?? 0;
+        const collected = modes.CASH + modes.UPI + modes.CARD;
         return {
           dayId: d.id,
           date: d.date,
           status: d.status,
           bills: billRow?._count ?? 0,
-          total: billRow?._sum.total ?? 0,
+          total: dayTotal,
+          // Sales are billed; collected is what has been paid on those bills.
+          collected,
+          unpaid: dayTotal - collected,
           cash: modes.CASH,
           upi: modes.UPI,
           card: modes.CARD,
@@ -116,21 +139,43 @@ export class SalesReportService {
         grossSubtotal: sums.grossSubtotal ?? 0,
         discounts: (sums.itemDiscount ?? 0) + (sums.billDiscount ?? 0),
         packaging: sums.packaging ?? 0,
-        taxable: sums.taxable ?? 0,
+        // Sales that carry GST; No-GST sales are `exempt`.
+        taxable: gst.taxable,
+        exempt: gst.exempt,
+        gstBreakup: gst.rates,
         cgst: sums.cgst ?? 0,
         sgst: sums.sgst ?? 0,
         roundOff: sums.roundOff ?? 0,
         total,
+        collected,
+        unpaid: total - collected,
         averageBill: bills > 0 ? Math.round(total / bills) : 0,
         payments,
         byType: await this.byType(dayIds),
         expenses: { total: expenseTotal, byCategory: expenseRows },
-        net: total - expenseTotal,
+        // What is left of sales once the GST collected and the expenses are taken off.
+        net: total - (sums.cgst ?? 0) - (sums.sgst ?? 0) - expenseTotal,
       },
       items: await this.items(dayIds),
       categories: await this.categories(dayIds),
       hours: await this.hours(dayIds),
     };
+  }
+
+  /** Taxable value and GST per rate, from the bill lines (so bills made before the split read the same). */
+  private async gst(dayIds: string[]) {
+    if (dayIds.length === 0) return gstSummary([]);
+    const rows = await this.prisma.$queryRaw<
+      { cgstBp: number; sgstBp: number; taxable: number; cgst: number; sgst: number }[]
+    >`
+      SELECT CASE WHEN b.tax_scheme = 'REGULAR' THEN bi.cgst_bp ELSE 0 END AS "cgstBp",
+             CASE WHEN b.tax_scheme = 'REGULAR' THEN bi.sgst_bp ELSE 0 END AS "sgstBp",
+             SUM(bi.taxable)::float8 AS taxable, SUM(bi.cgst)::float8 AS cgst,
+             SUM(bi.sgst)::float8 AS sgst
+        FROM bill_items bi JOIN bills b ON b.id = bi.bill_id
+       WHERE b.business_day_id IN (${this.ids(dayIds)}) AND b.status <> 'VOID'
+       GROUP BY 1, 2`;
+    return gstSummary(rows);
   }
 
   private async byType(dayIds: string[]) {

@@ -2,6 +2,7 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { CloseDayRequest } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
+import { gstLinesOf, gstSummary } from '../billing/gst-summary';
 import { ApiError } from '../common/api-error';
 import { notFound } from '../common/master-data';
 import type { AuthUser } from '../common/request-context';
@@ -177,6 +178,12 @@ export class DayCloseService {
       _sum: { total: true },
     });
     const totalOf = new Map(totals.map((t) => [t.businessDayId, t._sum.total ?? 0]));
+    const paid = await this.prisma.payment.groupBy({
+      by: ['businessDayId'],
+      where: { businessDayId: { in: days.map((d) => d.id) }, bill: { status: { not: 'VOID' } } },
+      _sum: { amount: true },
+    });
+    const collectedOf = new Map(paid.map((p) => [p.businessDayId, p._sum.amount ?? 0]));
     return days.map((d) => ({
       id: d.id,
       status: d.status,
@@ -187,6 +194,9 @@ export class DayCloseService {
       countedCash: d.countedCash,
       variance: d.variance,
       total: totalOf.get(d.id) ?? 0,
+      // Sales are billed; collected is what has been paid on those bills.
+      collected: collectedOf.get(d.id) ?? 0,
+      unpaid: (totalOf.get(d.id) ?? 0) - (collectedOf.get(d.id) ?? 0),
     }));
   }
 
@@ -237,7 +247,11 @@ export class DayCloseService {
       items.set(key, row);
     }
     const topItems = [...items.values()]
-      .sort((a, b) => b.quantity - a.quantity || b.amount - a.amount)
+      // By amount, as on the sales report, then by quantity.
+      .sort(
+        (a, b) =>
+          b.amount - a.amount || b.quantity - a.quantity || a.itemName.localeCompare(b.itemName),
+      )
       .slice(0, 10);
 
     const voiders = await this.prisma.user.findMany({
@@ -249,6 +263,9 @@ export class DayCloseService {
       orderBy: { updatedAt: 'asc' },
     });
 
+    const gst = gstSummary(live.flatMap((b) => gstLinesOf(b)));
+    const collected = payments.CASH + payments.UPI + payments.CARD;
+    const billed = sum(live.map((b) => b.total));
     const cashSales = payments.CASH;
     const spent = await expenseTotals(this.prisma, day.id);
     const expected = day.expectedCash ?? day.openingCash + cashSales - spent.cash;
@@ -267,11 +284,17 @@ export class DayCloseService {
         grossSubtotal: sum(live.map((b) => b.grossSubtotal)),
         discounts: sum(live.map((b) => b.itemDiscount + b.billDiscount)),
         packaging: sum(live.map((b) => b.packaging)),
-        taxable: sum(live.map((b) => b.taxable)),
+        // Sales that carry GST; No-GST sales are `exempt`.
+        taxable: gst.taxable,
+        exempt: gst.exempt,
+        gstBreakup: gst.rates,
         cgst: sum(live.map((b) => b.cgst)),
         sgst: sum(live.map((b) => b.sgst)),
         roundOff: sum(live.map((b) => b.roundOff)),
-        total: sum(live.map((b) => b.total)),
+        total: billed,
+        // Sales are billed; collected is what has been paid on those bills.
+        collected,
+        unpaid: billed - collected,
       },
       payments,
       byType,

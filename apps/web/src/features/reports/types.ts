@@ -1,5 +1,13 @@
 import type { OrderType, PaymentMode } from '@rpos/shared';
 
+/** GST at one rate: CGST + SGST percent, the taxable value and the tax on it. */
+export interface GstRateRow {
+  ratePercent: number;
+  taxable: number;
+  cgst: number;
+  sgst: number;
+}
+
 /** Mirrors SalesReportService.sales() in apps/api/src/reports/sales-report.service.ts. */
 export interface SalesReport {
   range: { from: string; to: string };
@@ -12,6 +20,9 @@ export interface SalesReport {
     cash: number;
     upi: number;
     card: number;
+    /** Paid on those bills; `total - collected` is unpaid. */
+    collected: number;
+    unpaid: number;
     expenses: number;
   }[];
   summary: {
@@ -19,11 +30,19 @@ export interface SalesReport {
     grossSubtotal: number;
     discounts: number;
     packaging: number;
+    /** Sales that carry GST. */
     taxable: number;
+    /** Sales with no GST (No-GST dishes). */
+    exempt: number;
+    gstBreakup: GstRateRow[];
     cgst: number;
     sgst: number;
     roundOff: number;
     total: number;
+    /** Paid on those bills (the payment modes added up). */
+    collected: number;
+    /** Billed but not yet paid: `total - collected`. */
+    unpaid: number;
     averageBill: number;
     payments: Record<PaymentMode, number>;
     byType: Record<OrderType, { orders: number; total: number }>;

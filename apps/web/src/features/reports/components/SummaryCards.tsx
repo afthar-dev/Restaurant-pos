@@ -1,5 +1,5 @@
 import { rupees } from '@/shared/lib/money';
-import { StatStrip } from '@/shared/ui';
+import { GstTable, StatStrip } from '@/shared/ui';
 import type { SalesReport } from '../types';
 
 /** One breakdown inside the shared surface, divided from its neighbours by hairlines. */
@@ -24,12 +24,17 @@ export function SummaryCards({ summary }: { summary: SalesReport['summary'] }) {
       <StatStrip
         label="Totals"
         items={[
-          { label: 'Sales', value: rupees(summary.total) },
+          { label: 'Sales', value: rupees(summary.total), hint: 'Billed, not counting voids' },
+          { label: 'Collected', value: rupees(summary.collected), hint: 'Paid so far' },
+          ...(summary.unpaid > 0
+            ? [{ label: 'Unpaid', value: rupees(summary.unpaid), hint: 'Billed, not paid yet' }]
+            : []),
           { label: 'Bills', value: String(summary.bills) },
           { label: 'Average bill', value: rupees(summary.averageBill) },
           { label: 'Expenses', value: rupees(summary.expenses.total) },
           {
-            label: 'Net',
+            label: 'After expenses',
+            hint: 'Sales without GST, minus expenses',
             value: `${summary.net < 0 ? '−' : ''}${rupees(Math.abs(summary.net))}`,
             tone: summary.net < 0 ? 'danger' : undefined,
           },
@@ -55,11 +60,15 @@ export function SummaryCards({ summary }: { summary: SalesReport['summary'] }) {
           title="Tax and discounts"
           rows={[
             ['Discounts', rupees(summary.discounts)],
+            ['Taxable', rupees(summary.taxable)],
             ['CGST', rupees(summary.cgst)],
             ['SGST', rupees(summary.sgst)],
           ]}
         />
       </div>
+      {(summary.gstBreakup.length > 0 || summary.exempt > 0) && (
+        <GstTable rates={summary.gstBreakup} exempt={summary.exempt} />
+      )}
       {summary.expenses.byCategory.length > 0 && (
         <div className="overflow-hidden rounded-lg border border-border">
           <Split

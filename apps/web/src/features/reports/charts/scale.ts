@@ -50,3 +50,24 @@ export function shortDayLabel(iso: string): string {
 }
 
 export const billCount = (n: number) => (n === 1 ? '1 bill' : `${n} bills`);
+
+/**
+ * Whole-number percentages of each value that always add up to 100 (largest remainder): plain
+ * rounding of 33.3 three times shows 99%, and 12.5 + 12.5 + 75 shows 101%. All zeros stay 0.
+ */
+export function percentShares(values: number[]): number[] {
+  const total = values.reduce((a, b) => a + b, 0);
+  if (total <= 0) return values.map(() => 0);
+  const exact = values.map((v) => (v / total) * 100);
+  const shares = exact.map(Math.floor);
+  let spare = 100 - shares.reduce((a, b) => a + b, 0);
+  const byRemainder = exact
+    .map((e, i) => ({ i, rest: e - shares[i]! }))
+    .sort((a, b) => b.rest - a.rest || a.i - b.i);
+  for (const { i } of byRemainder) {
+    if (spare === 0) break;
+    shares[i]! += 1;
+    spare -= 1;
+  }
+  return shares;
+}

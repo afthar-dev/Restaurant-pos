@@ -82,6 +82,8 @@ describe('bills', () => {
       const res = await createBill(orderId).expect(201);
       // Chai ₹60 with no GST; roti ₹30 + 5% → ₹31.50; ₹91.50 rounds to ₹92.
       expect(res.body.total).toBe(9200);
+      // The No-GST chai is not taxable value.
+      expect(res.body).toMatchObject({ taxable: 3000, exempt: 6000 });
       expect(res.body.taxBreakup).toEqual([
         expect.objectContaining({ cgstBp: 250, sgstBp: 250, taxable: 3000 }),
       ]);

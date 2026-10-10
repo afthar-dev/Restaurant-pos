@@ -29,6 +29,17 @@ export interface DaySummary {
   countedCash: number | null;
   variance: number | null;
   total: number;
+  /** Paid on the day's bills; `total - collected` is unpaid. */
+  collected: number;
+  unpaid: number;
+}
+
+/** GST at one rate: CGST + SGST percent, the taxable value and the tax on it. */
+export interface GstRateRow {
+  ratePercent: number;
+  taxable: number;
+  cgst: number;
+  sgst: number;
 }
 
 /** Mirrors DayCloseService.report() in the API. */
@@ -47,11 +58,19 @@ export interface DayReport {
     grossSubtotal: number;
     discounts: number;
     packaging: number;
+    /** Sales that carry GST. */
     taxable: number;
+    /** Sales with no GST (No-GST dishes). */
+    exempt: number;
+    gstBreakup: GstRateRow[];
     cgst: number;
     sgst: number;
     roundOff: number;
     total: number;
+    /** Paid on those bills (the payment modes added up). */
+    collected: number;
+    /** Billed but not yet paid: `total - collected`. */
+    unpaid: number;
   };
   payments: Record<PaymentMode, number>;
   byType: Record<OrderType, { orders: number; total: number }>;
