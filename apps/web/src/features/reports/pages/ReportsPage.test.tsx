@@ -1,5 +1,5 @@
 import { fireEvent, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { useSession } from '@/shared/session/store';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
 import { renderRoute } from '@/test/render';
@@ -59,6 +59,13 @@ function asOwner() {
 afterEach(() => vi.restoreAllMocks());
 
 describe('ReportsPage', () => {
+  // The route loads this page (and its chart library) lazily; load it once up front so a busy
+  // test run does not spend the first test's wait on compiling it.
+  beforeAll(async () => {
+    await import('./ReportsPage');
+    await import('../charts/ColumnChart');
+  }, 60_000);
+
   it('shows today by default with the summary, days and dishes', async () => {
     asOwner();
     const mock = mockApi({ 'GET /api/reports/sales': () => json(REPORT) });

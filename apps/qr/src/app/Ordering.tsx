@@ -1,12 +1,15 @@
+import { ChevronRight, UtensilsCrossed } from 'lucide-react';
 import { useState } from 'react';
 import { Cart, cartTotals, useCart, type CartLine } from '@/features/cart';
-import { ItemSheet, Menu, useMenu, type MenuItem } from '@/features/menu';
+import { ItemSheet, Menu, MenuSkeleton, useMenu, type MenuItem } from '@/features/menu';
 import { Requests, useMyRequests, useSubmitOrder } from '@/features/requests';
 import type { StoredSession } from '@/features/session';
 import { isSessionEnded, QrApiError } from '@/shared/api/http';
 import { rupees } from '@/shared/lib/money';
 import { button } from '@/shared/ui';
 import { shell } from './shell';
+
+const itemsLabel = (n: number) => (n === 1 ? '1 item' : `${n} items`);
 
 /** The table's menu, the cart and what this phone has already sent. */
 export function Ordering({ session }: { session: StoredSession }) {
@@ -41,9 +44,18 @@ export function Ordering({ session }: { session: StoredSession }) {
 
   return (
     <main className={shell}>
-      <header>
-        <p className="text-sm text-slate-500">{session.outlet}</p>
-        <h1 className="text-2xl font-semibold">Table {session.table}</h1>
+      <header className="flex items-center gap-3">
+        <span
+          aria-hidden="true"
+          className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary-700 text-white"
+        >
+          <UtensilsCrossed className="size-6" />
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-muted">{session.outlet}</p>
+          <h1 className="text-2xl font-bold tracking-tight">Table {session.table}</h1>
+          <p className="text-xs text-muted">Dine-in · order here, the staff confirm it</p>
+        </div>
       </header>
       <Requests requests={requests.data ?? []} />
       {problem && (
@@ -51,7 +63,7 @@ export function Ordering({ session }: { session: StoredSession }) {
           <p>{problem}</p>
           <button
             type="button"
-            className={`${button} border border-red-300 bg-white`}
+            className={`${button} border border-red-300 bg-surface`}
             onClick={() => void menu.refetch()}
           >
             Try again
@@ -59,19 +71,29 @@ export function Ordering({ session }: { session: StoredSession }) {
         </div>
       )}
       {menu.data ? (
-        <Menu menu={menu.data} onPick={setPicking} />
+        <Menu menu={menu.data} onPick={setPicking} onOpenCart={() => setCartOpen(true)} />
       ) : (
-        !problem && <p>Loading the menu…</p>
+        !problem && <MenuSkeleton />
       )}
       {picking && <ItemSheet item={picking} onAdd={add} onClose={() => setPicking(null)} />}
       {dishes > 0 && (
         <div className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md p-3">
           <button
             type="button"
-            className={`${button} w-full bg-emerald-700 text-white shadow-lg`}
+            aria-label={`View order, ${itemsLabel(dishes)}, ${rupees(total)}`}
+            className="flex min-h-14 w-full items-center justify-between rounded-xl bg-primary-700 px-4 text-white shadow-overlay"
             onClick={() => setCartOpen(true)}
           >
-            {`Your order · ${dishes} ${dishes === 1 ? 'dish' : 'dishes'} · ${rupees(total)} approx.`}
+            <span className="flex flex-col items-start leading-tight">
+              <span className="text-xs font-medium uppercase tracking-wide opacity-90">
+                {itemsLabel(dishes)}
+              </span>
+              <span className="text-base font-bold tabular-nums">{rupees(total)}</span>
+            </span>
+            <span className="inline-flex items-center gap-1 text-base font-semibold">
+              View order
+              <ChevronRight aria-hidden="true" className="size-5" />
+            </span>
           </button>
         </div>
       )}
