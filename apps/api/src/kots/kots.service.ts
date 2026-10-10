@@ -182,6 +182,7 @@ export class KotsService {
     quantity: number | undefined,
   ): Promise<OrderView> {
     let kot: Kot | null = null;
+    let closed: Kot[] = [];
     const view = await this.orders.mutate(requester, orderId, ifMatch, async ({ tx, order }) => {
       if (order.status !== 'OPEN') {
         throw new ApiError(HttpStatus.CONFLICT, 'ORDER_NOT_OPEN', 'This order is no longer open.');
@@ -240,6 +241,7 @@ export class KotsService {
         cancelledLine = await tx.orderItem.update({ where: { id: item.id }, data: cancelData });
       }
       kot = await this.createKot(tx, requester, order, item.stationId, 'CANCEL', [cancelledLine]);
+      closed = await this.closeCancelledTickets(tx, orderId);
       // Same transaction: a cancellation without its audit entry must not exist.
       await this.audit.record(
         {
@@ -262,6 +264,7 @@ export class KotsService {
       await markBilledIfComplete(tx, orderId);
     });
     if (kot) await this.announce([kot], orderId);
+    this.announceClosed(closed);
     return view;
   }
 
@@ -274,6 +277,7 @@ export class KotsService {
     reason: string,
   ): Promise<OrderView> {
     const kots: Kot[] = [];
+    let closed: Kot[] = [];
     const view = await this.orders.mutate(requester, orderId, ifMatch, async ({ tx, order }) => {
       if (order.status !== 'OPEN') {
         throw new ApiError(HttpStatus.CONFLICT, 'ORDER_NOT_OPEN', 'This order is no longer open.');
@@ -294,6 +298,7 @@ export class KotsService {
         where: { orderId, status: { in: ['NEW', 'SENT'] } },
         data: { status: 'CANCELLED', cancelReason: reason, cancelledById: actor.id },
       });
+      closed = await this.closeCancelledTickets(tx, orderId);
       await tx.order.update({
         where: { id: orderId },
         data: {
@@ -318,7 +323,50 @@ export class KotsService {
       );
     });
     await this.announce(kots, orderId);
+    this.announceClosed(closed);
     return view;
+  }
+
+  /**
+   * The original ticket of a dish that was cancelled is no use to the kitchen: close every
+   * ticket of the order whose dishes are all cancelled now (the separate cancel ticket tells
+   * the cook). There is no cancelled ticket state, so they are closed like a served one.
+   */
+  private async closeCancelledTickets(tx: Tx, orderId: string): Promise<Kot[]> {
+    const open = await tx.kot.findMany({
+      where: { orderId, type: 'NEW', status: { in: ['NEW', 'PREPARING', 'READY'] } },
+      include: { lines: { select: { orderItemId: true } } },
+    });
+    const items = await tx.orderItem.findMany({
+      where: { id: { in: open.flatMap((k) => k.lines.map((l) => l.orderItemId)) } },
+      select: { id: true, status: true },
+    });
+    const cancelled = new Set(items.filter((i) => i.status === 'CANCELLED').map((i) => i.id));
+    const done = open.filter(
+      (k) => k.lines.length > 0 && k.lines.every((l) => cancelled.has(l.orderItemId)),
+    );
+    for (const kot of done) {
+      await tx.kot.update({
+        where: { id: kot.id },
+        data: { status: 'SERVED', servedAt: new Date() },
+      });
+    }
+    return done;
+  }
+
+  private announceClosed(kots: Kot[]) {
+    for (const kot of kots) {
+      this.events.emit('kot.updated', {
+        outletId: kot.outletId,
+        kotId: kot.id,
+        kotNo: kot.kotNo,
+        orderId: kot.orderId,
+        stationId: kot.stationId,
+        tableName: null,
+        tokenNo: null,
+        status: 'SERVED',
+      });
+    }
   }
 
   /** Stations for the kitchen screen's filter, including ones with no tickets right now. */

@@ -43,7 +43,7 @@ export interface SalesReport {
     collected: number;
     /** Billed but not yet paid: `total - collected`. */
     unpaid: number;
-    averageBill: number;
+    averageOrder: number;
     payments: Record<PaymentMode, number>;
     byType: Record<OrderType, { orders: number; total: number }>;
     expenses: { total: number; byCategory: { name: string; amount: number }[] };

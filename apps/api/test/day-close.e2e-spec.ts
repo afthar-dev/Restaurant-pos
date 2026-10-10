@@ -70,6 +70,7 @@ describe('closing the business day', () => {
     expect(check.body.cash).toEqual({
       opening: 100000,
       cashSales: 0,
+      cashRefunds: 0,
       cashExpenses: 0,
       expected: 100000,
     });
@@ -88,6 +89,7 @@ describe('closing the business day', () => {
     expect(res.body.cash).toEqual({
       opening: 100000,
       cashSales: 3200,
+      cashRefunds: 0,
       cashExpenses: 0,
       expected: 103200,
       counted: 103000,
@@ -147,6 +149,84 @@ describe('closing the business day', () => {
     expect(res.body.payments).toEqual({ CASH: 0, UPI: 0, CARD: discounted.total });
   });
 
+  it('refunds a paid bill when it is voided, on the day of the void', async () => {
+    const cash = await billFor(roti(), r.t1.id);
+    await pay(cash.id, { mode: 'CASH', amount: cash.total }).expect(201);
+    const upi = await billFor([{ variantId: r.paneer.half.id, quantity: 1 }], r.t2.id);
+    await pay(upi.id, { mode: 'UPI', amount: upi.total }).expect(201);
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+    const voidIt = (id: string) =>
+      ctx.http().post(`/api/bills/${id}/void`).set(manager.auth).send({ reason: 'Complaint' });
+    await voidIt(cash.id).expect(201);
+    await voidIt(upi.id).expect(201);
+
+    const refunded = await ctx.prisma.payment.findMany({
+      where: { billId: { in: [cash.id, upi.id] } },
+    });
+    expect(refunded).toHaveLength(2);
+    for (const p of refunded) {
+      expect(p).toMatchObject({ refundedById: manager.user.id, refundBusinessDayId: day.id });
+      expect(p.refundedAt).not.toBeNull();
+    }
+    const audit = await ctx.prisma.auditEntry.findFirstOrThrow({
+      where: { action: 'bill.void', entityId: cash.id },
+    });
+    expect(audit.after).toMatchObject({ refunded: cash.total });
+
+    // The orders are open again: bill and pay them once more so the day can close.
+    for (const voidedBill of [cash, upi]) {
+      const again = (
+        await ctx
+          .http()
+          .post(`/api/orders/${voidedBill.orderId}/bills`)
+          .set(cashier.auth)
+          .send({})
+          .expect(201)
+      ).body;
+      await pay(again.id, {
+        mode: voidedBill === cash ? 'CASH' : 'UPI',
+        amount: again.total,
+      }).expect(201);
+    }
+
+    const check = await ctx
+      .http()
+      .get('/api/business-day/close-check')
+      .set(manager.auth)
+      .expect(200);
+    expect(check.body.cash).toEqual({
+      opening: 100000,
+      cashSales: cash.total * 2,
+      cashRefunds: cash.total,
+      cashExpenses: 0,
+      expected: 100000 + cash.total,
+    });
+
+    const res = await close({ countedCash: 100000 + cash.total }).expect(201);
+    expect(res.body.cash).toMatchObject({
+      cashRefunds: cash.total,
+      expected: 100000 + cash.total,
+      variance: 0,
+    });
+    expect(res.body.refunds).toMatchObject({
+      total: cash.total + upi.total,
+      CASH: cash.total,
+      UPI: upi.total,
+      CARD: 0,
+    });
+    expect(res.body.refunds.bills).toEqual([
+      expect.objectContaining({ billNo: cash.billNo, amount: cash.total, modes: ['CASH'] }),
+      expect.objectContaining({ billNo: upi.billNo, amount: upi.total, modes: ['UPI'] }),
+    ]);
+    // Collected stays as received on the day; refunds come off the net.
+    expect(res.body.payments).toEqual({ CASH: cash.total * 2, UPI: upi.total * 2, CARD: 0 });
+    expect(res.body.sales).toMatchObject({
+      bills: 2,
+      collected: cash.total + upi.total,
+      unpaid: 0,
+    });
+  });
+
   it('never leaves an order on a closed day when close and a new order race', async () => {
     const [order, closed] = await Promise.all([
       ctx.http().post('/api/orders').set(waiter.auth).send({ type: 'PARCEL' }),
@@ -186,6 +266,88 @@ describe('closing the business day', () => {
     await ctx.http().post('/api/orders').set(waiter.auth).send({ type: 'PARCEL' }).expect(201);
     const twice = await reopen(owner).expect(409);
     expect(twice.body.code).toBe('DAY_NOT_CLOSED');
+  });
+
+  it('keeps the first close figures when the day is reopened, and reports them', async () => {
+    await close({ countedCash: 99000, note: 'Short' }, manager).expect(201);
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+    const closedAt = day.closedAt!;
+    await ctx
+      .http()
+      .post(`/api/business-day/${day.id}/reopen`)
+      .set(owner.auth)
+      .send({ reason: 'Missed a bill' })
+      .expect(201);
+    const entry = await ctx.prisma.auditEntry.findFirstOrThrow({ where: { action: 'day.reopen' } });
+    expect(entry.before).toEqual({
+      closedAt: closedAt.toISOString(),
+      closedById: manager.user.id,
+      expectedCash: 100000,
+      countedCash: 99000,
+      variance: -1000,
+    });
+
+    const open = await ctx
+      .http()
+      .get(`/api/business-day/${day.id}/report`)
+      .set(manager.auth)
+      .expect(200);
+    expect(open.body.reopened).toMatchObject({
+      by: owner.user.name,
+      reason: 'Missed a bill',
+      earlier: {
+        closedAt: closedAt.toISOString(),
+        closedBy: 'Meena',
+        counted: 99000,
+        expected: 100000,
+        variance: -1000,
+      },
+    });
+    expect(open.body.reopened.at).toBe(entry.createdAt.toISOString());
+
+    // Closed again with a different tally: the report still says what the first close was.
+    await close({ countedCash: 100000 }, manager).expect(201);
+    const again = await ctx
+      .http()
+      .get(`/api/business-day/${day.id}/report`)
+      .set(manager.auth)
+      .expect(200);
+    expect(again.body.cash).toMatchObject({ counted: 100000, variance: 0 });
+    expect(again.body.reopened.earlier).toMatchObject({ counted: 99000, variance: -1000 });
+  });
+
+  it('reports no reopen for a day that was never reopened', async () => {
+    await close({ countedCash: 100000 }).expect(201);
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+    const res = await ctx
+      .http()
+      .get(`/api/business-day/${day.id}/report`)
+      .set(manager.auth)
+      .expect(200);
+    expect(res.body.reopened).toBeNull();
+  });
+
+  it('lists bills in the order they were made, though the number restarts on 1 April', async () => {
+    const late = await billFor(roti(), r.t1.id);
+    const early = await billFor(roti(), r.t2.id);
+    // Made on 31 March as 4501, and just after midnight as number 1 of the new year.
+    await ctx.prisma.bill.update({ where: { id: late.id }, data: { billNo: 4501 } });
+    await ctx.prisma.bill.update({ where: { id: early.id }, data: { billNo: 1 } });
+    for (const bill of [late, early]) {
+      await ctx
+        .http()
+        .post(`/api/bills/${bill.id}/void`)
+        .set(manager.auth)
+        .send({ reason: 'Test' })
+        .expect(201);
+    }
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+    const res = await ctx
+      .http()
+      .get(`/api/business-day/${day.id}/report`)
+      .set(manager.auth)
+      .expect(200);
+    expect(res.body.voids.map((v: { billNo: number }) => v.billNo)).toEqual([4501, 1]);
   });
 
   it('splits the day report taxable value by GST rate and shows No-GST sales apart', async () => {

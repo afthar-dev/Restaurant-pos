@@ -30,7 +30,7 @@ export function SummaryCards({ summary }: { summary: SalesReport['summary'] }) {
             ? [{ label: 'Unpaid', value: rupees(summary.unpaid), hint: 'Billed, not paid yet' }]
             : []),
           { label: 'Bills', value: String(summary.bills) },
-          { label: 'Average bill', value: rupees(summary.averageBill) },
+          { label: 'Average order', value: rupees(summary.averageOrder) },
           { label: 'Expenses', value: rupees(summary.expenses.total) },
           {
             label: 'After expenses',

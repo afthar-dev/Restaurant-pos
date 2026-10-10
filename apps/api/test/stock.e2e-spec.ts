@@ -188,6 +188,45 @@ describe('stock register and purchases', () => {
     expect(closed.body.code).toBe('DAY_NOT_OPEN');
   });
 
+  it('refuses a quantity that the stock column cannot hold, and a count resets it', async () => {
+    const flour = await newItem('Flour', 'g');
+    await adjust(flour.id, { qtyMilli: 1_000_000_000, reason: 'Opening' }).expect(201);
+    await adjust(flour.id, { qtyMilli: 1_000_000_000, reason: 'More' }).expect(201);
+    expect((await item(flour.id)).currentMilli).toBe(2_000_000_000);
+
+    const tooMuch = await adjust(flour.id, { qtyMilli: 1, reason: 'One more' }).expect(400);
+    expect(tooMuch.body).toMatchObject({
+      code: 'STOCK_TOO_LARGE',
+      message: 'That quantity is too large. Count this item to reset its stock.',
+    });
+    const bought = await purchase({
+      vendorName: 'Mill',
+      paidMode: 'CASH',
+      lines: [{ stockItemId: flour.id, qtyMilli: 25_000, amount: 5000 }],
+    }).expect(400);
+    expect(bought.body.code).toBe('STOCK_TOO_LARGE');
+    expect(await ctx.prisma.purchase.count()).toBe(0);
+    expect(await ctx.prisma.expense.count()).toBe(0);
+    expect(await ctx.prisma.stockTxn.count()).toBe(2);
+    expect((await item(flour.id)).currentMilli).toBe(2_000_000_000);
+
+    // The other direction.
+    const diesel = await newItem('Diesel', 'ml');
+    await adjust(diesel.id, { qtyMilli: -1_000_000_000, reason: 'Loss' }).expect(201);
+    await adjust(diesel.id, { qtyMilli: -1_000_000_000, reason: 'Loss' }).expect(201);
+    const under = await adjust(diesel.id, { qtyMilli: -1, reason: 'Loss' }).expect(400);
+    expect(under.body.code).toBe('STOCK_TOO_LARGE');
+
+    const counted = await ctx
+      .http()
+      .post(`/api/stock/items/${flour.id}/count`)
+      .set(manager.auth)
+      .send({ countedMilli: 50_000 })
+      .expect(201);
+    expect(counted.body.item.currentMilli).toBe(50_000);
+    await adjust(flour.id, { qtyMilli: 1, reason: 'Works again' }).expect(201);
+  });
+
   it('posts a count as the difference, and nothing when it matches', async () => {
     const onion = await newItem('Onion');
     await adjust(onion.id, { qtyMilli: 5000, reason: 'Opening stock' }).expect(201);

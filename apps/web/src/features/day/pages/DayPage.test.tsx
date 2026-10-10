@@ -24,7 +24,7 @@ const today = {
 const clear = {
   day: { id: 'd2', openingCash: 100000 },
   blockers: { orders: [], bills: [] },
-  cash: { opening: 100000, cashSales: 3200, cashExpenses: 0, expected: 103200 },
+  cash: { opening: 100000, cashSales: 3200, cashRefunds: 0, cashExpenses: 0, expected: 103200 },
 };
 
 const report = (partial: Partial<DayReport> = {}): DayReport => ({
@@ -53,6 +53,8 @@ const report = (partial: Partial<DayReport> = {}): DayReport => ({
     total: 41000,
   },
   payments: { CASH: 3200, UPI: 37800, CARD: 0 },
+  refunds: { total: 0, CASH: 0, UPI: 0, CARD: 0, bills: [] },
+  reopened: null,
   byType: { DINE_IN: { orders: 2, total: 41000 }, PARCEL: { orders: 0, total: 0 } },
   topItems: [{ itemName: 'Paneer Tikka', variantName: 'Half', quantity: 2, amount: 36000 }],
   voids: [],
@@ -62,6 +64,7 @@ const report = (partial: Partial<DayReport> = {}): DayReport => ({
   cash: {
     opening: 100000,
     cashSales: 3200,
+    cashRefunds: 0,
     cashExpenses: 0,
     expected: 103200,
     counted: 103000,
@@ -284,6 +287,81 @@ describe('Day close', () => {
     expect(within(shown).getByText('₹110')).toBeInTheDocument();
   });
 
+  it('shows refunds, per mode, with the refunded bills on the day report', async () => {
+    as(OWNER, 'OWNER');
+    const base = report();
+    const refunded = {
+      ...base,
+      refunds: {
+        total: 50000,
+        CASH: 20000,
+        UPI: 30000,
+        CARD: 0,
+        bills: [{ billNo: 7, amount: 50000, modes: ['CASH', 'UPI'], by: 'Meena' }],
+      },
+      cash: { ...base.cash, cashRefunds: 20000 },
+    };
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json(days),
+      'GET /api/business-day/d2/report': () => json(refunded),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
+    const shown = await screen.findByRole('region', { name: 'Day report' });
+    const block = within(shown).getByRole('heading', { name: 'Refunds' }).parentElement!;
+    expect(within(block).getByText('Total refunded')).toBeInTheDocument();
+    expect(within(block).getAllByText('₹500')).toHaveLength(2);
+    expect(within(block).getByText(/Bill 7 · Cash, UPI · Meena/)).toBeInTheDocument();
+    expect(within(shown).getByText('Cash refunded')).toBeInTheDocument();
+    // No refunds, no block.
+  });
+
+  it('hides the refunds block when nothing was refunded', async () => {
+    as(OWNER, 'OWNER');
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json(days),
+      'GET /api/business-day/d2/report': () => json(report()),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
+    const shown = await screen.findByRole('region', { name: 'Day report' });
+    expect(within(shown).queryByRole('heading', { name: 'Refunds' })).toBeNull();
+    expect(within(shown).queryByText('Cash refunded')).toBeNull();
+  });
+
+  it('says the day was reopened, and what the earlier close was', async () => {
+    as(OWNER, 'OWNER');
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json(days),
+      'GET /api/business-day/d2/report': () =>
+        json(
+          report({
+            reopened: {
+              by: 'Priya',
+              at: '2026-10-07T04:30:00Z',
+              reason: 'Missed a bill',
+              earlier: {
+                closedAt: '2026-10-06T17:30:00Z',
+                closedBy: 'Meena',
+                counted: 99000,
+                expected: 100000,
+                variance: -1000,
+              },
+            },
+          }),
+        ),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
+    const shown = await screen.findByRole('region', { name: 'Day report' });
+    const note = within(shown).getByText(/Reopened by Priya/);
+    expect(note).toHaveTextContent('Wed, 7 Oct, 10:00 am');
+    expect(note).toHaveTextContent('earlier close: counted ₹990, variance −₹10');
+  });
+
   it('does not offer reopen to a manager', async () => {
     as(MANAGER);
     mockApi({
@@ -322,6 +400,50 @@ describe('day report times on a PC set to UTC', () => {
 });
 
 describe('renderDayReport', () => {
+  it('prints who reopened the day and the earlier close', () => {
+    const html = renderDayReport(
+      report({
+        reopened: {
+          by: 'Priya',
+          at: '2026-10-07T04:30:00Z',
+          reason: 'Missed a bill',
+          earlier: {
+            closedAt: '2026-10-06T17:30:00Z',
+            closedBy: 'Meena',
+            counted: 99000,
+            expected: 100000,
+            variance: -1000,
+          },
+        },
+      }),
+      'Spice Garden',
+    );
+    expect(html).toContain('Reopened by Priya');
+    expect(html).toContain('counted ₹990.00');
+    expect(renderDayReport(report(), 'Spice Garden')).not.toContain('Reopened');
+  });
+
+  it('prints the refunds, per mode, and the cash refunded in the drawer tally', () => {
+    const base = report();
+    const html = renderDayReport(
+      report({
+        refunds: {
+          total: 50000,
+          CASH: 20000,
+          UPI: 30000,
+          CARD: 0,
+          bills: [{ billNo: 7, amount: 50000, modes: ['CASH', 'UPI'], by: 'Meena' }],
+        },
+        cash: { ...base.cash, cashRefunds: 20000 },
+      }),
+      'Spice Garden',
+    );
+    expect(html).toContain('Refunds');
+    expect(html).toContain('Bill 7');
+    expect(html).toContain('Cash refunded');
+    expect(renderDayReport(report(), 'Spice Garden')).not.toContain('Refunds');
+  });
+
   it('prints collected and unpaid under the total', () => {
     const base = report();
     const html = renderDayReport(

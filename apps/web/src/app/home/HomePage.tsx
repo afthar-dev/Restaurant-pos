@@ -48,7 +48,7 @@ function SalesStrip({
           ? [{ label: 'Unpaid', value: rupees(s.unpaid), tone: 'danger' as const }]
           : []),
         { label: 'Bills', value: String(s.bills) },
-        { label: 'Average bill', value: rupees(s.averageBill) },
+        { label: 'Average order', value: rupees(s.averageOrder) },
       ]}
     />
   );
@@ -273,7 +273,12 @@ export function HomePage() {
       {day.data && !dayOpen && <DayNotOpen />}
       {canQr && dayOpen && <QrWaiting />}
       {canSales && <SalesToday />}
-      {canSales && <WeekTrend />}
+      {canSales &&
+        (day.data ? (
+          <WeekTrend openedAt={day.data.day?.openedAt} />
+        ) : (
+          <Skeleton className="h-44" />
+        ))}
       {canClose && dayOpen && <OpenWork />}
       {canStock && <LowStock />}
       <QuickActions />

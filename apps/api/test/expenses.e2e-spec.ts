@@ -212,6 +212,7 @@ describe('expenses', () => {
     expect(check.body.cash).toEqual({
       opening: 100000,
       cashSales: 3200,
+      cashRefunds: 0,
       cashExpenses: 1000,
       expected: 102200,
     });

@@ -1,5 +1,11 @@
 import type { Outlet } from '@prisma/client';
-import { billFor as billForOn, parcelOrder, pay as payOn, type Line } from './billing-helpers';
+import {
+  billFor as billForOn,
+  parcelOrder,
+  pay as payOn,
+  servedOrder,
+  type Line,
+} from './billing-helpers';
 import { buildRestaurant, type Restaurant } from './fixtures';
 import {
   createOutlet,
@@ -124,7 +130,7 @@ describe('sales report', () => {
     expect(res.body.summary).toMatchObject({
       bills: 3,
       total,
-      averageBill: Math.round(total / 3),
+      averageOrder: Math.round(total / 3),
       payments: { CASH: first.total, UPI: upi.total, CARD: parcel.total },
       expenses: { total: 1000, byCategory: [{ name: 'Gas', amount: 1000 }] },
       // Sales without the GST that is owed on to the government, minus expenses.
@@ -244,6 +250,68 @@ describe('sales report', () => {
       .expect(403);
   });
 
+  it('sums two business days opened on one date into one entry of the daily series', async () => {
+    // Lunch is closed, and a second day is opened for dinner on the same date.
+    await openDay();
+    const lunch = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }]);
+    await pay(lunch.id, { mode: 'CASH', amount: lunch.total }).expect(201);
+    await closeDay();
+    await openDay();
+    const dinner = await billFor([{ variantId: r.paneer.half.id, quantity: 1 }], r.t2.id);
+    await pay(dinner.id, { mode: 'UPI', amount: dinner.total }).expect(201);
+    const unpaid = await billFor([{ variantId: r.roti.regular.id, quantity: 2 }], r.t1.id);
+    const dayIds = (await ctx.prisma.businessDay.findMany({ orderBy: { openedAt: 'asc' } })).map(
+      (d) => d.id,
+    );
+
+    const res = await report(istDate(0), istDate(0)).expect(200);
+    expect(res.body.days).toHaveLength(1);
+    expect(res.body.days[0]).toMatchObject({
+      date: istDate(0),
+      dayId: dayIds[1],
+      status: 'OPEN',
+      bills: 3,
+      total: lunch.total + dinner.total + unpaid.total,
+      collected: lunch.total + dinner.total,
+      unpaid: unpaid.total,
+      cash: lunch.total,
+      upi: dinner.total,
+      card: 0,
+    });
+    // The summary still counts every day once.
+    expect(res.body.summary.bills).toBe(3);
+  });
+
+  it('averages per order, so a table split into several bills is one ticket', async () => {
+    await openDay();
+    // One table of 2 paneer + 2 roti, billed as two bills.
+    const orderId = await servedOrder(ctx, r, waiter, [
+      { variantId: r.paneer.half.id, quantity: 2 },
+      { variantId: r.roti.regular.id, quantity: 2 },
+    ]);
+    const lines = (await ctx.http().get(`/api/orders/${orderId}`).set(cashier.auth).expect(200))
+      .body.items as { id: string; itemName: string; quantity: number }[];
+    const bills = [];
+    for (const line of lines) {
+      bills.push(
+        (
+          await ctx
+            .http()
+            .post(`/api/orders/${orderId}/bills`)
+            .set(cashier.auth)
+            .send({ lines: [{ orderItemId: line.id, quantity: line.quantity }] })
+            .expect(201)
+        ).body,
+      );
+    }
+    const solo = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }], r.t2.id);
+    const table = bills[0].total + bills[1].total;
+
+    const res = await report(istDate(0), istDate(0)).expect(200);
+    expect(res.body.summary.bills).toBe(3);
+    expect(res.body.summary.averageOrder).toBe(Math.round((table + solo.total) / 2));
+  });
+
   it('gives zeros for a range without business days', async () => {
     const res = await report('2020-01-01', '2020-01-31').expect(200);
     expect(res.body.days).toEqual([]);
@@ -251,7 +319,7 @@ describe('sales report', () => {
     expect(res.body.summary).toMatchObject({
       bills: 0,
       total: 0,
-      averageBill: 0,
+      averageOrder: 0,
       net: 0,
       payments: { CASH: 0, UPI: 0, CARD: 0 },
     });
@@ -273,6 +341,44 @@ describe('sales report', () => {
     const res = await report(istDate(0), istDate(0)).expect(200);
     expect(res.body.days).toHaveLength(1);
     expect(res.body.summary.bills).toBe(1);
+  });
+
+  it('keeps a renamed dish in one row, under its current name', async () => {
+    await openDay();
+    const before = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }], r.t1.id);
+    await pay(before.id, { mode: 'CASH', amount: before.total }).expect(201);
+    await ctx.prisma.item.updateMany({
+      where: { name: 'Tandoori Roti' },
+      data: { name: 'Tandoori Roti (Butter)' },
+    });
+    const after = await billFor([{ variantId: r.roti.regular.id, quantity: 2 }], r.t2.id);
+    await pay(after.id, { mode: 'CASH', amount: after.total }).expect(201);
+
+    const res = await report(istDate(0), istDate(0)).expect(200);
+    expect(res.body.items).toEqual([
+      expect.objectContaining({ itemName: 'Tandoori Roti (Butter)', quantity: 3 }),
+    ]);
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+    const dayReport = await ctx
+      .http()
+      .get(`/api/business-day/${day.id}/report`)
+      .set(manager.auth)
+      .expect(200);
+    expect(dayReport.body.topItems).toEqual([
+      expect.objectContaining({ itemName: 'Tandoori Roti (Butter)', quantity: 3 }),
+    ]);
+  });
+
+  it('keeps the name on the bill for a dish that has been archived', async () => {
+    await openDay();
+    const bill = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }]);
+    await pay(bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+    await ctx.prisma.item.updateMany({
+      where: { name: 'Tandoori Roti' },
+      data: { name: 'Roti (old)', archivedAt: new Date() },
+    });
+    const res = await report(istDate(0), istDate(0)).expect(200);
+    expect(res.body.items).toEqual([expect.objectContaining({ itemName: 'Tandoori Roti' })]);
   });
 
   it('refuses a bad or too long range, and is for the owner only', async () => {

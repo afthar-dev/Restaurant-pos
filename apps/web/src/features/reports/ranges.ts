@@ -27,6 +27,10 @@ function istToday(now: number): Date {
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
+/** The India calendar date of a moment, which is the date reports file a business day under. */
+export const istDateOf = (isoTime: string): string =>
+  new Date(Date.parse(isoTime) + IST_OFFSET_MS).toISOString().slice(0, 10);
+
 export function presetRange(preset: Preset, now = Date.now()): DateRange {
   const today = istToday(now);
   const y = today.getUTCFullYear();
