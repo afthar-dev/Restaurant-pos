@@ -34,19 +34,21 @@ export class MediaService {
 
   /**
    * Stores `bytes` as a new image and runs `link(tx, mediaId)` to point the owner at it, in the
-   * same transaction that deletes `old`'s row. Returns the new media.
+   * same transaction that deletes the owner's previous media row. `current(tx)` must lock the
+   * owner row and return its current media, so two uploads cannot both miss, or both delete,
+   * the same old row. Returns the new media.
    */
   async replace({
     outletId,
     bytes,
+    current,
     link,
-    old,
   }: {
     outletId: string;
     bytes: Buffer | undefined;
+    current: (tx: Tx) => Promise<StoredMedia | null>;
     link: (tx: Tx, mediaId: string) => Promise<unknown>;
-    old: StoredMedia | null;
-  }): Promise<StoredMedia> {
+  }): Promise<StoredMedia & { byteSize: number }> {
     if (bytes && bytes.length > MAX_IMAGE_BYTES) {
       throw new ApiError(
         HttpStatus.PAYLOAD_TOO_LARGE,
@@ -60,31 +62,45 @@ export class MediaService {
     }
     const key = imageKey(mimeType);
     await this.storage.put(key, bytes, mimeType);
-    let id = '';
+    let committed: { id: string; old: StoredMedia | null };
     try {
-      await this.prisma.$transaction(async (tx) => {
+      committed = await this.prisma.$transaction(async (tx) => {
+        const old = await current(tx);
         const media = await tx.media.create({
           data: { outletId, key, mimeType, byteSize: bytes.length },
         });
-        id = media.id;
         await link(tx, media.id);
         if (old) await tx.media.delete({ where: { id: old.id } });
+        return { id: media.id, old };
       });
     } catch (error) {
       await this.discard(key);
       throw error;
     }
-    if (old) await this.discard(old.key);
-    return { id, key };
+    if (committed.old) await this.discard(committed.old.key);
+    return { id: committed.id, key, byteSize: bytes.length };
   }
 
-  /** Unlinks and deletes `old` in one transaction, then removes its object. */
-  async remove({ old, unlink }: { old: StoredMedia; unlink: (tx: Tx) => Promise<unknown> }) {
-    await this.prisma.$transaction(async (tx) => {
+  /**
+   * Unlinks and deletes the owner's current media (read by `current(tx)`, which must lock the
+   * owner row) in one transaction, then removes its object. Returns null when there was none.
+   */
+  async remove({
+    current,
+    unlink,
+  }: {
+    current: (tx: Tx) => Promise<StoredMedia | null>;
+    unlink: (tx: Tx) => Promise<unknown>;
+  }): Promise<StoredMedia | null> {
+    const removed = await this.prisma.$transaction(async (tx) => {
+      const old = await current(tx);
+      if (!old) return null;
       await unlink(tx);
       await tx.media.delete({ where: { id: old.id } });
+      return old;
     });
-    await this.discard(old.key);
+    if (removed) await this.discard(removed.key);
+    return removed;
   }
 
   /** Removes an object nobody points at any more; a failure is logged, never thrown. */

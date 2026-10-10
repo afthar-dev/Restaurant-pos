@@ -410,19 +410,18 @@ export class MenuService {
   async setItemImage(actor: AuthUser, id: string, bytes: Buffer | undefined) {
     const item = await this.prisma.item.findFirst({
       where: { id, outletId: actor.outletId, archivedAt: null },
-      include: { image: true },
     });
     if (!item) throw notFound('Item');
-    await this.media.replace({
+    const media = await this.media.replace({
       outletId: actor.outletId,
       bytes,
+      current: (tx) => this.lockedImage(tx, id),
       link: (tx, mediaId) => tx.item.update({ where: { id }, data: { imageId: mediaId } }),
-      old: item.image,
     });
     await this.record(actor, 'menu.item.image', 'item', id, undefined, {
       item: item.name,
       action: 'set',
-      bytes: bytes!.length,
+      bytes: media.byteSize,
     });
     return this.loadItem(id);
   }
@@ -430,20 +429,26 @@ export class MenuService {
   async removeItemImage(actor: AuthUser, id: string) {
     const item = await this.prisma.item.findFirst({
       where: { id, outletId: actor.outletId, archivedAt: null },
-      include: { image: true },
     });
     if (!item) throw notFound('Item');
-    if (item.image) {
-      await this.media.remove({
-        old: item.image,
-        unlink: (tx) => tx.item.update({ where: { id }, data: { imageId: null } }),
-      });
+    const removed = await this.media.remove({
+      current: (tx) => this.lockedImage(tx, id),
+      unlink: (tx) => tx.item.update({ where: { id }, data: { imageId: null } }),
+    });
+    if (removed) {
       await this.record(actor, 'menu.item.image', 'item', id, undefined, {
         item: item.name,
         action: 'remove',
       });
     }
     return this.loadItem(id);
+  }
+
+  /** Locks the item row, then reads its photo, so concurrent photo changes run one at a time. */
+  private async lockedImage(tx: Prisma.TransactionClient, id: string) {
+    await tx.$queryRaw`SELECT id FROM items WHERE id = ${id}::uuid FOR UPDATE`;
+    const item = await tx.item.findUniqueOrThrow({ where: { id }, include: { image: true } });
+    return item.image;
   }
 
   async setItemAvailability(outletId: string, id: string, isAvailable: boolean) {
