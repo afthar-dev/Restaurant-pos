@@ -5,6 +5,7 @@ import {
   hourLabel,
   hourRange,
   niceTicks,
+  percentShares,
   shortDayLabel,
   shortRupees,
 } from './scale';
@@ -34,5 +35,26 @@ describe('chart scale', () => {
     expect(dayLabel('2026-10-11')).toBe('Sun 11 Oct');
     expect(shortDayLabel('2026-10-11')).toBe('Sun 11');
     expect([1, 3].map(billCount)).toEqual(['1 bill', '3 bills']);
+  });
+});
+
+describe('percentShares', () => {
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+
+  it('adds up to exactly 100 where plain rounding gives 99', () => {
+    expect(percentShares([1, 1, 1])).toEqual([34, 33, 33]);
+    expect(percentShares([100, 100, 100])).toEqual([34, 33, 33]);
+  });
+
+  it('adds up to exactly 100 where plain rounding gives 101', () => {
+    expect(sum(percentShares([5, 5, 5, 5, 5, 5, 5]))).toBe(100);
+    // 12.5 + 12.5 + 75 → Math.round gives 13 + 13 + 75 = 101
+    expect(percentShares([1, 1, 6])).toEqual([13, 12, 75]);
+  });
+
+  it('keeps clean splits and handles zeros', () => {
+    expect(percentShares([500, 1000, 0])).toEqual([33, 67, 0]);
+    expect(percentShares([0, 900, 0])).toEqual([0, 100, 0]);
+    expect(percentShares([0, 0, 0])).toEqual([0, 0, 0]);
   });
 });
