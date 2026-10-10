@@ -56,7 +56,7 @@ function SalesStrip({
 
 /** The open business day, by id: it stays one day when service runs past midnight. */
 function OpenDaySales({ dayId, openedAt }: { dayId: string; openedAt: string }) {
-  const report = useDaySalesReport(dayId);
+  const report = useDaySalesReport(dayId, { poll: true });
   if (report.isError) {
     return (
       <ErrorNote message={describeError(report.error)} onRetry={() => void report.refetch()} />
@@ -76,7 +76,7 @@ function OpenDaySales({ dayId, openedAt }: { dayId: string; openedAt: string }) 
 /** With no day open, the sales of today's date. */
 function TodaySales() {
   // Worked out on each render, so a screen left open overnight moves to the new day.
-  const report = useSalesReport(presetRange('today'));
+  const report = useSalesReport(presetRange('today'), { poll: true });
   if (report.isError) {
     return (
       <ErrorNote message={describeError(report.error)} onRetry={() => void report.refetch()} />

@@ -1,6 +1,6 @@
-import { screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import type { Permission } from '@rpos/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { useSession } from '@/shared/session/store';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
 import { expectNoAxeViolations } from '@/test/a11y';
@@ -102,6 +102,27 @@ describe('HomePage', () => {
     expect(within(card).getByText('₹2,400')).toBeInTheDocument();
     const urls = callsTo(mock, 'GET', '/api/reports/sales').map(([u]) => String(u));
     expect(urls).toContain('/api/reports/sales?businessDayId=d1');
+  });
+
+  it('asks for the sales again every minute while the screen stays open', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'setInterval'] });
+    try {
+      useSession.getState().setSession(sessionBody('OWNER', OWNER, 'Asha'));
+      const mock = mockApi({
+        'GET /api/business-day/current': () => json(DAY_OPEN),
+        'GET /api/reports/sales': () => json(SALES),
+        'GET /api/business-day/close-check': () => json(CLOSE_CHECK),
+      });
+      renderRoute('/');
+      await screen.findByRole('group', { name: 'This business day' });
+      const before = callsTo(mock, 'GET', '/api/reports/sales').length;
+      await act(() => vi.advanceTimersByTimeAsync(61_000));
+      await expect
+        .poll(() => callsTo(mock, 'GET', '/api/reports/sales').length)
+        .toBeGreaterThan(before);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('shows today’s date range when no business day is open', async () => {
