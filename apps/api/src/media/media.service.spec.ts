@@ -24,9 +24,9 @@ function setup(transactionFails = false) {
     },
   };
   const prisma = {
-    $transaction: jest.fn(async (work: (t: typeof tx) => Promise<void>) => {
+    $transaction: jest.fn(async <T>(work: (t: typeof tx) => Promise<T>) => {
       if (transactionFails) throw new Error('database down');
-      await work(tx);
+      return work(tx);
     }),
   };
   const service = new MediaService(prisma as never, storage);
@@ -41,19 +41,45 @@ describe('MediaService', () => {
     const media = await service.replace({
       outletId: 'o1',
       bytes: PNG,
+      current: async () => ({ id: 'm-old', key: 'old.png' }),
       link,
-      old: { id: 'm-old', key: 'old.png' },
     });
     expect(link).toHaveBeenCalledWith(tx, 'm-new');
     expect(tx.media.delete).toHaveBeenCalledWith({ where: { id: 'm-old' } });
     expect(files.has('old.png')).toBe(false);
     expect(files.has(media.key)).toBe(true);
+    expect(media.byteSize).toBe(PNG.length);
+  });
+
+  it('removes the current media, and does nothing when there is none', async () => {
+    const { service, files, tx } = setup();
+    files.set('old.png', Buffer.from('old'));
+    const unlink = jest.fn(async () => undefined);
+    const removed = await service.remove({
+      current: async () => ({ id: 'm-old', key: 'old.png' }),
+      unlink,
+    });
+    expect(removed).toEqual({ id: 'm-old', key: 'old.png' });
+    expect(unlink).toHaveBeenCalledWith(tx);
+    expect(tx.media.delete).toHaveBeenCalledWith({ where: { id: 'm-old' } });
+    expect(files.has('old.png')).toBe(false);
+
+    unlink.mockClear();
+    tx.media.delete.mockClear();
+    expect(await service.remove({ current: async () => null, unlink })).toBeNull();
+    expect(unlink).not.toHaveBeenCalled();
+    expect(tx.media.delete).not.toHaveBeenCalled();
   });
 
   it('removes the new file again when the database part fails', async () => {
     const { service, files } = setup(true);
     await expect(
-      service.replace({ outletId: 'o1', bytes: PNG, link: async () => undefined, old: null }),
+      service.replace({
+        outletId: 'o1',
+        bytes: PNG,
+        current: async () => null,
+        link: async () => undefined,
+      }),
     ).rejects.toThrow('database down');
     expect(files.size).toBe(0);
   });
@@ -64,16 +90,16 @@ describe('MediaService', () => {
       service.replace({
         outletId: 'o1',
         bytes: Buffer.from('hello'),
+        current: async () => null,
         link: async () => undefined,
-        old: null,
       }),
     ).rejects.toThrow('Use a JPEG, PNG or WebP photo.');
     const big = Buffer.concat([PNG, Buffer.alloc(1_100_000)]);
     const tooBig = service.replace({
       outletId: 'o1',
       bytes: big,
+      current: async () => null,
       link: async () => undefined,
-      old: null,
     });
     await expect(tooBig).rejects.toThrow('The photo is too big. Use one under 1 MB.');
     await expect(tooBig).rejects.toMatchObject({ status: 413 });

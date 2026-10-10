@@ -37,7 +37,8 @@ conversion inside this repo (the print agent decides how to print `logoUrl`).
 
 Views: outlet settings (`GET /api/outlet`) gain `logoUrl: string | null`; QR session start
 (`POST /api/qr/sessions`) returns `outlet: { name, logoUrl }`; the bill print payload's `outlet`
-gains `logoUrl`.
+gains `logoUrl`. With local storage `logoUrl` is relative (`/api/media/<key>`); a print agent must
+join it with its API base URL. With R2 it is absolute.
 
 ## 4. API
 
@@ -62,14 +63,14 @@ gains `logoUrl`.
   `shrinkPhoto(file, 512)`), **Remove logo**. Uploads immediately on pick (no separate Save), with a
   spinner and an error note; success toast "Logo saved".
 - `shrinkPhoto(file, maxSide = 1024)` gains the size parameter.
-- `AppShell` header: logo (28 px high, `object-contain`, `alt=""`) before the outlet name when set.
+- `AppShell` header: logo (32 px square in the header, 36 px in the sidebar, `object-contain`, `alt=""`) before the outlet name when set.
 - Bill template (`billTicket.ts`): logo image at the top when `outlet.logoUrl` is set; the URL is
   escaped like other values. Relative URLs (`/api/media/…`, local storage) are made absolute against
   `window.location.origin` so the iframe document resolves them.
 
 ## 6. QR app
 
-- Session type gains `outlet.logoUrl`; the header shows a 32 px logo before the restaurant name
+- Session type gains `outlet.logoUrl`; the header shows the logo in a 48 px icon square before the restaurant name
   (`alt=""`, the name follows).
 
 ## 7. Tests

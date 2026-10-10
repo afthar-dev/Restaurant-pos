@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Media, Outlet } from '@prisma/client';
+import type { Media, Outlet, Prisma } from '@prisma/client';
 import type { OutletSettingsUpdate } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../common/request-context';
@@ -53,28 +53,36 @@ export class OutletService {
 
   /** Sets or replaces the logo (staff header, printed bills, QR menu). */
   async setLogo(actor: AuthUser, bytes: Buffer | undefined): Promise<OutletSettings> {
-    const outlet = await this.load(actor.outletId);
-    await this.media.replace({
-      outletId: outlet.id,
+    const outletId = actor.outletId;
+    const media = await this.media.replace({
+      outletId,
       bytes,
+      current: (tx) => this.lockedLogo(tx, outletId),
       link: (tx, mediaId) =>
-        tx.outlet.update({ where: { id: outlet.id }, data: { logoId: mediaId } }),
-      old: outlet.logo,
+        tx.outlet.update({ where: { id: outletId }, data: { logoId: mediaId } }),
     });
-    await this.recordLogo(actor, { action: 'set', bytes: bytes!.length });
-    return this.get(outlet.id);
+    await this.recordLogo(actor, { action: 'set', bytes: media.byteSize });
+    return this.get(outletId);
   }
 
   async removeLogo(actor: AuthUser): Promise<OutletSettings> {
-    const outlet = await this.load(actor.outletId);
-    if (outlet.logo) {
-      await this.media.remove({
-        old: outlet.logo,
-        unlink: (tx) => tx.outlet.update({ where: { id: outlet.id }, data: { logoId: null } }),
-      });
-      await this.recordLogo(actor, { action: 'remove' });
-    }
-    return this.get(outlet.id);
+    const outletId = actor.outletId;
+    const removed = await this.media.remove({
+      current: (tx) => this.lockedLogo(tx, outletId),
+      unlink: (tx) => tx.outlet.update({ where: { id: outletId }, data: { logoId: null } }),
+    });
+    if (removed) await this.recordLogo(actor, { action: 'remove' });
+    return this.get(outletId);
+  }
+
+  /** Locks the outlet row, then reads its logo, so concurrent logo changes run one at a time. */
+  private async lockedLogo(tx: Prisma.TransactionClient, outletId: string) {
+    await tx.$queryRaw`SELECT id FROM outlets WHERE id = ${outletId}::uuid FOR UPDATE`;
+    const outlet = await tx.outlet.findUniqueOrThrow({
+      where: { id: outletId },
+      include: { logo: true },
+    });
+    return outlet.logo;
   }
 
   private recordLogo(actor: AuthUser, after: Record<string, unknown>) {

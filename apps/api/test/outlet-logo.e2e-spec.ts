@@ -71,6 +71,16 @@ describe('restaurant logo', () => {
     expect(await ctx.prisma.auditEntry.count({ where: { action: 'outlet.logo' } })).toBe(3);
   });
 
+  it('keeps exactly one logo when two uploads race', async () => {
+    const [a, b] = await Promise.all([upload(PNG), upload(JPEG, 'logo.jpg')]);
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    const media = await ctx.prisma.media.findMany();
+    expect(media).toHaveLength(1);
+    const current = await ctx.prisma.outlet.findUniqueOrThrow({ where: { id: outlet.id } });
+    expect(current.logoId).toBe(media[0]?.id);
+  });
+
   it('shows the logo on the QR menu and on the bill print payload', async () => {
     const logoUrl = (await upload(PNG).expect(200)).body.logoUrl as string;
     const session = await ctx

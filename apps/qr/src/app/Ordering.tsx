@@ -16,6 +16,8 @@ export function Ordering({ session }: { session: StoredSession }) {
   const menu = useMenu(session.token);
   const requests = useMyRequests(session.token);
   const submit = useSubmitOrder(session.token);
+  // The phone keeps the logo URL it started with; if the owner replaced the logo it 404s.
+  const [failedLogo, setFailedLogo] = useState<string | null | undefined>(null);
   const lines = useCart((s) => s.lines);
   const addLine = useCart((s) => s.add);
   const setQuantity = useCart((s) => s.setQuantity);
@@ -45,10 +47,15 @@ export function Ordering({ session }: { session: StoredSession }) {
   return (
     <main className={shell}>
       <header className="flex items-center gap-3">
-        {session.logoUrl ? (
+        {session.logoUrl && failedLogo !== session.logoUrl ? (
           <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-white">
             {/* The restaurant name is right beside it. */}
-            <img src={session.logoUrl} alt="" className="max-h-full max-w-full object-contain" />
+            <img
+              src={session.logoUrl}
+              alt=""
+              className="max-h-full max-w-full object-contain"
+              onError={() => setFailedLogo(session.logoUrl)}
+            />
           </span>
         ) : (
           <span
