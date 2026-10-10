@@ -12,6 +12,47 @@ type DayRow = { id: string; date: string; status: BusinessDayStatus };
 type Modes = Record<PaymentMode, number>;
 const noModes = (): Modes => ({ CASH: 0, UPI: 0, CARD: 0 });
 
+type DayFigures = {
+  dayId: string;
+  date: string;
+  status: BusinessDayStatus;
+  bills: number;
+  total: number;
+  collected: number;
+  unpaid: number;
+  cash: number;
+  upi: number;
+  card: number;
+  expenses: number;
+};
+
+/**
+ * One entry per India date: two business days opened on the same date (lunch closed, dinner
+ * opened) add up. The entry carries the id and status of the latest of them; `days` are in
+ * the order they were opened.
+ */
+function perDate(days: DayFigures[]): DayFigures[] {
+  const byDate = new Map<string, DayFigures>();
+  for (const d of days) {
+    const row = byDate.get(d.date);
+    if (!row) {
+      byDate.set(d.date, { ...d });
+      continue;
+    }
+    row.dayId = d.dayId;
+    row.status = d.status;
+    row.bills += d.bills;
+    row.total += d.total;
+    row.collected += d.collected;
+    row.unpaid += d.unpaid;
+    row.cash += d.cash;
+    row.upi += d.upi;
+    row.card += d.card;
+    row.expenses += d.expenses;
+  }
+  return [...byDate.values()];
+}
+
 /**
  * Sales over a date range (spec §1.2 #12): the business days opened on those dates in India,
  * their non-void bills, payments and expenses. Read-only.
@@ -114,26 +155,28 @@ export class SalesReportService {
 
     return {
       range: { from: range.from, to: range.to },
-      days: days.map((d) => {
-        const modes = dayPayments.get(d.id) ?? noModes();
-        const billRow = billsByDay.find((b) => b.businessDayId === d.id);
-        const dayTotal = billRow?._sum.total ?? 0;
-        const collected = modes.CASH + modes.UPI + modes.CARD;
-        return {
-          dayId: d.id,
-          date: d.date,
-          status: d.status,
-          bills: billRow?._count ?? 0,
-          total: dayTotal,
-          // Sales are billed; collected is what has been paid on those bills.
-          collected,
-          unpaid: dayTotal - collected,
-          cash: modes.CASH,
-          upi: modes.UPI,
-          card: modes.CARD,
-          expenses: expensesByDay.find((e) => e.businessDayId === d.id)?._sum.amount ?? 0,
-        };
-      }),
+      days: perDate(
+        days.map((d) => {
+          const modes = dayPayments.get(d.id) ?? noModes();
+          const billRow = billsByDay.find((b) => b.businessDayId === d.id);
+          const dayTotal = billRow?._sum.total ?? 0;
+          const collected = modes.CASH + modes.UPI + modes.CARD;
+          return {
+            dayId: d.id,
+            date: d.date,
+            status: d.status,
+            bills: billRow?._count ?? 0,
+            total: dayTotal,
+            // Sales are billed; collected is what has been paid on those bills.
+            collected,
+            unpaid: dayTotal - collected,
+            cash: modes.CASH,
+            upi: modes.UPI,
+            card: modes.CARD,
+            expenses: expensesByDay.find((e) => e.businessDayId === d.id)?._sum.amount ?? 0,
+          };
+        }),
+      ),
       summary: {
         bills,
         grossSubtotal: sums.grossSubtotal ?? 0,

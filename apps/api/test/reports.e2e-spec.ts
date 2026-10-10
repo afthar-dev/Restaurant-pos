@@ -244,6 +244,38 @@ describe('sales report', () => {
       .expect(403);
   });
 
+  it('sums two business days opened on one date into one entry of the daily series', async () => {
+    // Lunch is closed, and a second day is opened for dinner on the same date.
+    await openDay();
+    const lunch = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }]);
+    await pay(lunch.id, { mode: 'CASH', amount: lunch.total }).expect(201);
+    await closeDay();
+    await openDay();
+    const dinner = await billFor([{ variantId: r.paneer.half.id, quantity: 1 }], r.t2.id);
+    await pay(dinner.id, { mode: 'UPI', amount: dinner.total }).expect(201);
+    const unpaid = await billFor([{ variantId: r.roti.regular.id, quantity: 2 }], r.t1.id);
+    const dayIds = (await ctx.prisma.businessDay.findMany({ orderBy: { openedAt: 'asc' } })).map(
+      (d) => d.id,
+    );
+
+    const res = await report(istDate(0), istDate(0)).expect(200);
+    expect(res.body.days).toHaveLength(1);
+    expect(res.body.days[0]).toMatchObject({
+      date: istDate(0),
+      dayId: dayIds[1],
+      status: 'OPEN',
+      bills: 3,
+      total: lunch.total + dinner.total + unpaid.total,
+      collected: lunch.total + dinner.total,
+      unpaid: unpaid.total,
+      cash: lunch.total,
+      upi: dinner.total,
+      card: 0,
+    });
+    // The summary still counts every day once.
+    expect(res.body.summary.bills).toBe(3);
+  });
+
   it('gives zeros for a range without business days', async () => {
     const res = await report('2020-01-01', '2020-01-31').expect(200);
     expect(res.body.days).toEqual([]);
