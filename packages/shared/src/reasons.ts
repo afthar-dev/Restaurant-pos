@@ -44,6 +44,11 @@ export const CLOSE_VARIANCE_REASONS = [
 ] as const;
 export type CloseVarianceReason = (typeof CLOSE_VARIANCE_REASONS)[number];
 
+/** Why cash is put into the drawer, taken out of it, or dropped to the safe or bank. */
+export const PAY_IN_REASONS = ['FLOAT_TOP_UP', 'OTHER'] as const;
+export const PAY_OUT_REASONS = ['SUPPLIER', 'STAFF_ADVANCE', 'OTHER'] as const;
+export const DROP_REASONS = ['SAFE', 'BANK', 'OTHER'] as const;
+
 /** Each kind of reason list, keyed by name. */
 export const REASON_LABELS = {
   kotReprint: {
@@ -77,6 +82,20 @@ export const REASON_LABELS = {
     SHORT_CHANGE: 'Short change given',
     EXPENSE_MISSING: 'Expense not entered',
     COUNT_ERROR: 'Counting error',
+    OTHER: 'Other',
+  },
+  payIn: {
+    FLOAT_TOP_UP: 'Float top-up',
+    OTHER: 'Other',
+  },
+  payOut: {
+    SUPPLIER: 'Supplier paid',
+    STAFF_ADVANCE: 'Staff advance',
+    OTHER: 'Other',
+  },
+  drop: {
+    SAFE: 'Moved to safe',
+    BANK: 'Taken to bank',
     OTHER: 'Other',
   },
 } as const satisfies Record<string, Record<string, string>>;

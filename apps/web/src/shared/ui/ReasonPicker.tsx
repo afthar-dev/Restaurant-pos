@@ -2,6 +2,9 @@ import {
   CANCEL_REASONS,
   CLOSE_VARIANCE_REASONS,
   DISCOUNT_REASONS,
+  DROP_REASONS,
+  PAY_IN_REASONS,
+  PAY_OUT_REASONS,
   VOID_REASONS,
   reasonLabel,
   type ReasonKind,
@@ -10,13 +13,19 @@ import { Field } from './Field';
 import { inputClass } from './styles';
 import { ReasonChips } from './ReasonChips';
 
-type PickerKind = Extract<ReasonKind, 'discount' | 'void' | 'cancel' | 'closeVariance'>;
+type PickerKind = Extract<
+  ReasonKind,
+  'discount' | 'void' | 'cancel' | 'closeVariance' | 'payIn' | 'payOut' | 'drop'
+>;
 
 const CODES: Record<PickerKind, readonly string[]> = {
   discount: DISCOUNT_REASONS,
   void: VOID_REASONS,
   cancel: CANCEL_REASONS,
   closeVariance: CLOSE_VARIANCE_REASONS,
+  payIn: PAY_IN_REASONS,
+  payOut: PAY_OUT_REASONS,
+  drop: DROP_REASONS,
 };
 
 /** What the person picked: a reason code, and a note that "Other" needs. */

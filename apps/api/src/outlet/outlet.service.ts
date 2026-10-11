@@ -26,6 +26,7 @@ function toSettings(outlet: Outlet & { logo: Media | null }, urlFor: (key: strin
     parcelPaymentTiming: outlet.parcelPaymentTiming,
     billPackagingCharge: outlet.billPackagingCharge,
     varianceAlertPaise: outlet.varianceAlertPaise,
+    pettyCashLimitPaise: outlet.pettyCashLimitPaise,
   };
 }
 

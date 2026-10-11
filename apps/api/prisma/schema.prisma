@@ -66,6 +66,8 @@ model Outlet {
   billPackagingCharge     Int                 @default(0) @map("bill_packaging_charge")
   /// A day cash variance above this (paise) needs a reason to close.
   varianceAlertPaise      Int                 @default(10000) @map("variance_alert_paise")
+  /// A cash expense above this (paise) needs a manager when a non-manager records it.
+  pettyCashLimitPaise     Int                 @default(200000) @map("petty_cash_limit_paise")
   /// The restaurant logo: staff header, printed bills, QR menu.
   logoId                  String?             @map("logo_id") @db.Uuid
   logo                    Media?              @relation("OutletLogo", fields: [logoId], references: [id], onDelete: SetNull)
@@ -91,6 +93,7 @@ model Outlet {
   qrSubmissions     QrSubmission[]
   expenseCategories ExpenseCategory[]
   expenses          Expense[]
+  cashMovements     CashMovement[]
   stockItems        StockItem[]
   stockTxns         StockTxn[]
   purchases         Purchase[]
@@ -129,6 +132,8 @@ model User {
   qrDecisions      QrSubmission[]    @relation("QrDecidedBy")
   expensesCreated  Expense[]         @relation("ExpenseCreatedBy")
   expensesVoided   Expense[]         @relation("ExpenseVoidedBy")
+  cashMovements    CashMovement[]    @relation("CashMovementCreatedBy")
+  cashApproved     CashMovement[]    @relation("CashMovementApprovedBy")
   stockTxns        StockTxn[]
   purchasesCreated Purchase[]        @relation("PurchaseCreatedBy")
   purchasesVoided  Purchase[]        @relation("PurchaseVoidedBy")
@@ -529,16 +534,17 @@ model BusinessDay {
   createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  outlet    Outlet     @relation(fields: [outletId], references: [id])
-  openedBy  User       @relation("DayOpenedBy", fields: [openedById], references: [id])
-  closedBy  User?      @relation("DayClosedBy", fields: [closedById], references: [id])
-  orders    Order[]
-  kots      Kot[]
-  bills     Bill[]
-  payments  Payment[]
-  refunds   Payment[]  @relation("PaymentRefundDay")
-  expenses  Expense[]
-  purchases Purchase[]
+  outlet        Outlet         @relation(fields: [outletId], references: [id])
+  openedBy      User           @relation("DayOpenedBy", fields: [openedById], references: [id])
+  closedBy      User?          @relation("DayClosedBy", fields: [closedById], references: [id])
+  orders        Order[]
+  kots          Kot[]
+  bills         Bill[]
+  payments      Payment[]
+  refunds       Payment[]      @relation("PaymentRefundDay")
+  expenses      Expense[]
+  purchases     Purchase[]
+  cashMovements CashMovement[]
 
   @@index([outletId, status])
   @@map("business_days")
@@ -1095,4 +1101,33 @@ model Media {
   logoOf    Outlet[] @relation("OutletLogo")
 
   @@map("media")
+}
+
+enum CashMovementType {
+  PAY_IN
+  PAY_OUT
+  DROP
+}
+
+/// Cash put into or taken out of the drawer during a business day, apart from sales and expenses.
+model CashMovement {
+  id            String           @id @default(uuid()) @db.Uuid
+  outletId      String           @map("outlet_id") @db.Uuid
+  businessDayId String           @map("business_day_id") @db.Uuid
+  type          CashMovementType
+  /// Paise, always positive; the type says which way it moves.
+  amount        Int
+  reasonCode    String           @map("reason_code")
+  note          String?
+  createdById   String           @map("created_by_id") @db.Uuid
+  approvedById  String?          @map("approved_by_id") @db.Uuid
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  outlet      Outlet      @relation(fields: [outletId], references: [id])
+  businessDay BusinessDay @relation(fields: [businessDayId], references: [id])
+  createdBy   User        @relation("CashMovementCreatedBy", fields: [createdById], references: [id])
+  approvedBy  User?       @relation("CashMovementApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([businessDayId])
+  @@map("cash_movements")
 }

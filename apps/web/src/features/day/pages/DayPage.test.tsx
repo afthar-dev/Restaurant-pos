@@ -77,11 +77,15 @@ const report = (partial: Partial<DayReport> = {}): DayReport => ({
   cancels: [],
   discounts: [],
   expenses: { total: 0, cash: 0, byCategory: [] },
+  cashMovements: { totals: { payIn: 0, payOut: 0, drop: 0 }, list: [] },
   cash: {
     opening: 100000,
     cashSales: 3200,
     cashRefunds: 0,
     cashExpenses: 0,
+    payIns: 0,
+    payOuts: 0,
+    drops: 0,
     expected: 103200,
     counted: 103000,
     variance: -200,
@@ -124,7 +128,90 @@ function as(permissions: Permission[], role: 'OWNER' | 'MANAGER' | 'CASHIER' = '
   useSession.getState().setSession(sessionBody(role, permissions));
 }
 
+const MOVEMENTS = {
+  totals: { payIn: 50000, payOut: 20000, drop: 30000 },
+  list: [
+    {
+      at: '2026-10-06T05:30:00Z',
+      type: 'PAY_IN',
+      amount: 50000,
+      reasonCode: 'FLOAT_TOP_UP',
+      note: null,
+      by: 'Kavya',
+    },
+    {
+      at: '2026-10-06T07:00:00Z',
+      type: 'PAY_OUT',
+      amount: 20000,
+      reasonCode: 'OTHER',
+      note: 'Gas refill',
+      by: 'Meena',
+    },
+    {
+      at: '2026-10-06T09:00:00Z',
+      type: 'DROP',
+      amount: 30000,
+      reasonCode: 'SAFE',
+      note: null,
+      by: 'Meena',
+    },
+  ],
+} satisfies DayReport['cashMovements'];
+
 describe('Day close', () => {
+  it('offers the Cash button while a day is open', async () => {
+    as(MANAGER);
+    mockApi({
+      'GET /api/business-day/current': () => json(today),
+      'GET /api/business-day': () => json([]),
+      'GET /api/business-day/close-check': () => json(clear),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: 'Cash' }));
+    expect(await screen.findByRole('dialog', { name: 'Cash in / out' })).toBeInTheDocument();
+  });
+
+  it('shows cash in and out on the day report, only when there was any', async () => {
+    as(OWNER, 'OWNER');
+    const base = report();
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json(days),
+      'GET /api/business-day/d2/report': () =>
+        json({
+          ...base,
+          cashMovements: MOVEMENTS,
+          cash: { ...base.cash, payIns: 50000, payOuts: 20000, drops: 30000, expected: 103200 },
+        }),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
+    const shown = await screen.findByRole('region', { name: 'Day report' });
+    const block = within(shown).getByRole('heading', { name: 'Cash in / out' }).parentElement!;
+    expect(within(block).getByText('Cash in')).toBeInTheDocument();
+    expect(within(block).getByText('Cash out')).toBeInTheDocument();
+    expect(within(block).getByText('Cash drops')).toBeInTheDocument();
+    expect(within(block).getByText(/Kavya · Float top-up/)).toBeInTheDocument();
+    expect(within(block).getByText(/Meena · Other: Gas refill/)).toBeInTheDocument();
+    expect(within(block).getByText(/Meena · Moved to safe/)).toBeInTheDocument();
+    // The drawer tally carries the same movements.
+    expect(within(shown).getByText('Pay-ins')).toBeInTheDocument();
+  });
+
+  it('hides the cash in / out block when nothing moved', async () => {
+    as(OWNER, 'OWNER');
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json(days),
+      'GET /api/business-day/d2/report': () => json(report()),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
+    const shown = await screen.findByRole('region', { name: 'Day report' });
+    expect(within(shown).queryByRole('heading', { name: 'Cash in / out' })).toBeNull();
+    expect(within(shown).queryByText('Pay-ins')).toBeNull();
+  });
+
   it('lists what is still open and keeps the close button off', async () => {
     as(MANAGER);
     mockApi({
@@ -655,6 +742,24 @@ describe('day report times on a PC set to UTC', () => {
 });
 
 describe('renderDayReport', () => {
+  it('prints cash in and out with its list, only when there was any', () => {
+    const base = report();
+    const html = renderDayReport(
+      report({
+        cashMovements: MOVEMENTS,
+        cash: { ...base.cash, payIns: 50000, payOuts: 20000, drops: 30000 },
+      }),
+      'Spice Garden',
+    );
+    expect(html).toContain('Cash in / out');
+    expect(html).toContain('Gas refill');
+    expect(html).toContain('Moved to safe');
+    expect(html).toContain('Pay-ins');
+    expect(html).toContain('Drops');
+    expect(renderDayReport(report(), 'Spice Garden')).not.toContain('Cash in / out');
+    expect(renderDayReport(report(), 'Spice Garden')).not.toContain('Pay-ins');
+  });
+
   it('prints the note count and the variance reason', () => {
     const html = renderDayReport(withCount(), 'Spice Garden');
     expect(html).toContain('Cash count');

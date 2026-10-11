@@ -91,3 +91,14 @@ describe('discount, void and cancel reasons', () => {
     expect(schema.safeParse({ reason: 'ab' }).success).toBe(false);
   });
 });
+
+describe('cash movement reasons', () => {
+  it('names each reason for a pay-in, a pay-out and a drop', async () => {
+    const { reasonLabel } = await import('./reasons');
+    expect(reasonLabel('payIn', 'FLOAT_TOP_UP')).toBe('Float top-up');
+    expect(reasonLabel('payOut', 'SUPPLIER')).toBe('Supplier paid');
+    expect(reasonLabel('payOut', 'STAFF_ADVANCE')).toBe('Staff advance');
+    expect(reasonLabel('drop', 'SAFE')).toBe('Moved to safe');
+    expect(reasonLabel('drop', 'BANK')).toBe('Taken to bank');
+  });
+});

@@ -235,6 +235,9 @@ describe('closing the business day', () => {
       cashSales: 0,
       cashRefunds: 0,
       cashExpenses: 0,
+      payIns: 0,
+      payOuts: 0,
+      drops: 0,
       expected: 100000,
     });
     const res = await close({ countedCash: 0 }).expect(409);
@@ -254,6 +257,9 @@ describe('closing the business day', () => {
       cashSales: 3200,
       cashRefunds: 0,
       cashExpenses: 0,
+      payIns: 0,
+      payOuts: 0,
+      drops: 0,
       expected: 103200,
       counted: 103000,
       variance: -200,
@@ -362,6 +368,9 @@ describe('closing the business day', () => {
       cashSales: cash.total * 2,
       cashRefunds: cash.total,
       cashExpenses: 0,
+      payIns: 0,
+      payOuts: 0,
+      drops: 0,
       expected: 100000 + cash.total,
     });
 

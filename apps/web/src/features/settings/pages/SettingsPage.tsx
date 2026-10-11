@@ -47,6 +47,7 @@ interface Draft {
   parcelPaymentTiming: ParcelPaymentTiming;
   bagRupees: string;
   varianceRupees: string;
+  pettyCashRupees: string;
 }
 
 function toDraft(s: OutletSettings): Draft {
@@ -66,6 +67,7 @@ function toDraft(s: OutletSettings): Draft {
     parcelPaymentTiming: s.parcelPaymentTiming,
     bagRupees: paiseToRupeesInput(s.billPackagingCharge ?? 0),
     varianceRupees: paiseToRupeesInput(s.varianceAlertPaise ?? 10000),
+    pettyCashRupees: paiseToRupeesInput(s.pettyCashLimitPaise ?? 200000),
   };
 }
 
@@ -94,6 +96,11 @@ function changes(saved: OutletSettings, draft: Draft): Record<string, unknown> {
   const variance = parseRupees(draft.varianceRupees.trim() || '0');
   const variancePaise = variance ?? -1;
   if (variancePaise !== (saved.varianceAlertPaise ?? 10000)) out.varianceAlertPaise = variancePaise;
+  const pettyCash = parseRupees(draft.pettyCashRupees.trim() || '0');
+  const pettyCashPaise = pettyCash ?? -1;
+  if (pettyCashPaise !== (saved.pettyCashLimitPaise ?? 200000)) {
+    out.pettyCashLimitPaise = pettyCashPaise;
+  }
   return out;
 }
 
@@ -101,6 +108,7 @@ const ERROR_FIELD: Record<string, string> = {
   cashierDiscountCapBp: 'capPercent',
   billPackagingCharge: 'bagRupees',
   varianceAlertPaise: 'varianceRupees',
+  pettyCashLimitPaise: 'pettyCashRupees',
 };
 
 function SettingsForm({ saved }: { saved: OutletSettings }) {
@@ -253,6 +261,20 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
             className={inputClass}
             value={draft.varianceRupees}
             onChange={(e) => setDraft((d) => ({ ...d, varianceRupees: e.target.value }))}
+          />
+        </Field>
+        <Field
+          id="setting-petty-cash"
+          label="Petty cash limit (₹)"
+          error={errors.pettyCashRupees}
+          hint="A cash expense above this needs a manager's approval when a cashier records it."
+        >
+          <input
+            id="setting-petty-cash"
+            inputMode="decimal"
+            className={inputClass}
+            value={draft.pettyCashRupees}
+            onChange={(e) => setDraft((d) => ({ ...d, pettyCashRupees: e.target.value }))}
           />
         </Field>
         <Field id="setting-parcel" label="Parcel payment">

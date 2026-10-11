@@ -16,6 +16,8 @@ export interface OutletSettings {
   billPackagingCharge: number;
   /** Cash variance (paise) above which closing the day needs a reason. */
   varianceAlertPaise: number;
+  /** A cash expense above this (paise) needs a manager when a non-manager records it. */
+  pettyCashLimitPaise: number;
   /** Shown in the staff header, on printed bills and on the QR menu. */
   logoUrl: string | null;
 }

@@ -44,6 +44,7 @@ src/
 
 ```
 shared ← auth · printing · notifications · health · settings · tax · staff · audit
+       ← cash              (cash in/out dialog; the day screen and the POS header open it)
        ← devices · day · tables
        ← kitchen-setup
        ← menu

@@ -42,7 +42,7 @@ export class AccountabilityService {
 
   async accountability(outletId: string, range: ReportRange): Promise<Accountability> {
     const when = istRange(range);
-    const [discounted, voided, cancelled, reprints] = await Promise.all([
+    const [discounted, voided, cancelled, reprints, cashOut] = await Promise.all([
       this.prisma.bill.findMany({
         where: {
           outletId,
@@ -80,6 +80,12 @@ export class AccountabilityService {
         by: ['actorId'],
         where: { outletId, action: { in: ['bill.reprint', 'kot.reprint'] }, createdAt: when },
         _count: { _all: true },
+      }),
+      this.prisma.cashMovement.groupBy({
+        by: ['createdById'],
+        where: { outletId, type: { in: ['PAY_OUT', 'DROP'] }, createdAt: when },
+        _count: { _all: true },
+        _sum: { amount: true },
       }),
     ]);
 
@@ -130,6 +136,11 @@ export class AccountabilityService {
       const addons = Array.isArray(i.addons) ? (i.addons as { price: number }[]) : [];
       const amount = lineTotal({ unitPrice: i.unitPrice, addons, quantity: i.quantity });
       add('cancel', i.cancelReasonCode, i.cancelledById, amount, 'cancels');
+    }
+    for (const g of cashOut) {
+      const figure = forStaff(g.createdById).cashOut;
+      figure.count += g._count._all;
+      figure.amount += g._sum.amount ?? 0;
     }
     for (const g of reprints) {
       if (g.actorId) forStaff(g.actorId).reprints += g._count._all;

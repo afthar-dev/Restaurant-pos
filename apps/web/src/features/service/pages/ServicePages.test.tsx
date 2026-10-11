@@ -72,6 +72,22 @@ function serviceApi(extra: Parameters<typeof mockApi>[0] = {}) {
 describe('POS counter', () => {
   beforeEach(() => handlers.clear());
 
+  it('puts the Cash button on the header for people who take payments', async () => {
+    useSession.getState().setSession(sessionBody('CASHIER', ['order.take', 'payment.take']));
+    serviceApi();
+    renderRoute('/pos');
+    fireEvent.click(await screen.findByRole('button', { name: 'Cash' }));
+    expect(await screen.findByRole('dialog', { name: 'Cash in / out' })).toBeInTheDocument();
+  });
+
+  it('keeps the Cash button from staff who cannot take payments', async () => {
+    useSession.getState().setSession(sessionBody('WAITER', ['order.take', 'bill.print']));
+    serviceApi();
+    renderRoute('/pos');
+    await screen.findByRole('heading', { level: 1, name: 'POS counter' });
+    expect(screen.queryByRole('button', { name: 'Cash' })).toBeNull();
+  });
+
   it('opens a running table next to the floor with the menu', async () => {
     useSession.getState().setSession(sessionBody('CASHIER', ['order.take', 'bill.print']));
     serviceApi();

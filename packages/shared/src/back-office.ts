@@ -98,6 +98,8 @@ export const expenseSchema = z.strictObject({
   amount: amountSchema,
   mode: z.enum(PAYMENT_MODES),
   note: noteSchema.optional(),
+  /** A manager's single-use approval for a cash expense above the petty-cash limit. */
+  overrideToken: z.string().min(1).max(2000).optional(),
 });
 export type ExpenseRequest = z.infer<typeof expenseSchema>;
 

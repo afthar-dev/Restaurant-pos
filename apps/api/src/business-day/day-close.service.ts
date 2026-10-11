@@ -4,6 +4,7 @@ import { Prisma, type BusinessDay, type PaymentMode } from '@prisma/client';
 import { closeCountTotal, type CloseCount, type CloseDayRequest } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
 import { gstLinesOf, gstSummary } from '../billing/gst-summary';
+import { cashMovementTotals } from '../cash/cash-totals';
 import { ApiError } from '../common/api-error';
 import { notFound } from '../common/master-data';
 import type { AuthUser } from '../common/request-context';
@@ -14,7 +15,15 @@ import { BusinessDayService, dayNotOpen } from './business-day.service';
 
 type Db = Pick<
   PrismaService,
-  'bill' | 'order' | 'orderItem' | 'businessDay' | 'user' | 'expense' | 'payment' | 'outlet'
+  | 'bill'
+  | 'order'
+  | 'orderItem'
+  | 'businessDay'
+  | 'user'
+  | 'expense'
+  | 'payment'
+  | 'outlet'
+  | 'cashMovement'
 >;
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
@@ -365,9 +374,15 @@ export class DayCloseService {
     // What is kept: received on the day less what was refunded on it.
     const collected = payments.CASH + payments.UPI + payments.CARD - refunds.total;
     const billed = sum(live.map((b) => b.total));
-    const cashSales = payments.CASH;
     const spent = await expenseTotals(this.prisma, day.id);
-    const expected = day.expectedCash ?? day.openingCash + cashSales - refunds.CASH - spent.cash;
+    // The same figures and formula as the close check and the close.
+    const drawer = await this.expectedCash(this.prisma, day);
+    const expected = day.expectedCash ?? drawer.expected;
+    const movements = await this.prisma.cashMovement.findMany({
+      where: { businessDayId: day.id },
+      include: { createdBy: { select: { name: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
     return {
       day: {
         id: day.id,
@@ -430,11 +445,25 @@ export class DayCloseService {
           reason: b.discountReason,
         })),
       expenses: { total: spent.total, cash: spent.cash, byCategory: spent.byCategory },
+      cashMovements: {
+        totals: { payIn: drawer.payIns, payOut: drawer.payOuts, drop: drawer.drops },
+        list: movements.map((m) => ({
+          at: m.createdAt,
+          type: m.type,
+          amount: m.amount,
+          reasonCode: m.reasonCode,
+          note: m.note,
+          by: m.createdBy.name,
+        })),
+      },
       cash: {
         opening: day.openingCash,
-        cashSales,
-        cashRefunds: refunds.CASH,
-        cashExpenses: spent.cash,
+        cashSales: drawer.cashSales,
+        cashRefunds: drawer.cashRefunds,
+        cashExpenses: drawer.cashExpenses,
+        payIns: drawer.payIns,
+        payOuts: drawer.payOuts,
+        drops: drawer.drops,
         expected,
         counted: day.countedCash,
         variance: day.variance,
@@ -504,22 +533,28 @@ export class DayCloseService {
   }
 
   /**
-   * The one place expected cash is worked out (spec §5.5.4): opening + cash payments − cash
-   * refunded − cash expenses. The close check, the count check and the close all use it.
+   * The one place expected cash is worked out (spec §5.5.4, P5): opening + cash payments − cash
+   * refunded − cash expenses + pay-ins − pay-outs − drops. The close check, the count check, the
+   * close and the day report all use it.
    */
   private async expectedCash(
-    db: Pick<Db, 'payment' | 'expense'>,
+    db: Pick<Db, 'payment' | 'expense' | 'cashMovement'>,
     day: Pick<BusinessDay, 'id' | 'openingCash'>,
   ) {
     const cashSales = await this.cashSales(db, day.id);
     const cashRefunds = await this.cashRefunds(db, day.id);
     const spent = await cashExpenses(db, day.id);
+    const moved = await cashMovementTotals(db, day.id);
     return {
       opening: day.openingCash,
       cashSales,
       cashRefunds,
       cashExpenses: spent,
-      expected: day.openingCash + cashSales - cashRefunds - spent,
+      payIns: moved.payIn,
+      payOuts: moved.payOut,
+      drops: moved.drop,
+      expected:
+        day.openingCash + cashSales - cashRefunds - spent + moved.payIn - moved.payOut - moved.drop,
     };
   }
 

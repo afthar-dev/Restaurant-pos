@@ -19,6 +19,8 @@ import {
   secondaryButton,
   type ReasonValue,
 } from '@/shared/ui';
+import { CashButton } from '@/features/cash';
+import { movementLabel } from '../cashMovements';
 import { renderDayReport } from '../dayReport';
 import { printHtmlInIframe } from '@/features/printing';
 import { useOutlet } from '@/features/settings';
@@ -399,6 +401,9 @@ function ReportView({
           <Row label="Cash sales" value={rupees(cash.cashSales)} />
           {cash.cashRefunds > 0 && <Row label="Cash refunded" value={rupees(cash.cashRefunds)} />}
           <Row label="Cash expenses" value={rupees(cash.cashExpenses)} />
+          {cash.payIns > 0 && <Row label="Pay-ins" value={rupees(cash.payIns)} />}
+          {cash.payOuts > 0 && <Row label="Pay-outs" value={rupees(cash.payOuts)} />}
+          {cash.drops > 0 && <Row label="Drops" value={rupees(cash.drops)} />}
           <Row label="Expected in drawer" value={rupees(cash.expected)} strong />
           {cash.counted !== null && <Row label="Counted" value={rupees(cash.counted)} />}
           {cash.variance !== null && (
@@ -443,6 +448,22 @@ function ReportView({
             </div>
           ))}
         </Block>
+        {report.cashMovements.list.length > 0 && (
+          <Block title="Cash in / out">
+            {report.cashMovements.totals.payIn > 0 && (
+              <Row label="Cash in" value={rupees(report.cashMovements.totals.payIn)} />
+            )}
+            {report.cashMovements.totals.payOut > 0 && (
+              <Row label="Cash out" value={rupees(report.cashMovements.totals.payOut)} />
+            )}
+            {report.cashMovements.totals.drop > 0 && (
+              <Row label="Cash drops" value={rupees(report.cashMovements.totals.drop)} />
+            )}
+            {report.cashMovements.list.map((m, index) => (
+              <Row key={index} label={movementLabel(m)} value={rupees(m.amount)} />
+            ))}
+          </Block>
+        )}
         {report.refunds.total > 0 && (
           <Block title="Refunds">
             <Row label="Total refunded" value={rupees(report.refunds.total)} strong />
@@ -605,6 +626,7 @@ export function DayPage() {
       <PageHeader
         title="Day close"
         description="Settle every table, count the cash in the drawer and close the day. Past day reports are below."
+        actions={open ? <CashButton /> : undefined}
       />
       {canClose && open && !justClosed && <CloseToday onClosed={setJustClosed} />}
       {canClose && day.data && !open && !justClosed && (

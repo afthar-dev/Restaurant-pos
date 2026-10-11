@@ -1,4 +1,10 @@
-import type { CloseCount, OrderStatus, OrderType, PaymentMode } from '@rpos/shared';
+import type {
+  CashMovementKind,
+  CloseCount,
+  OrderStatus,
+  OrderType,
+  PaymentMode,
+} from '@rpos/shared';
 
 export interface BusinessDay {
   id: string;
@@ -27,6 +33,10 @@ export interface CloseCheck extends BlindCloseCheck {
     /** Cash handed back by voiding paid bills. */
     cashRefunds: number;
     cashExpenses: number;
+    /** Cash put in, taken out and dropped, apart from sales and expenses. */
+    payIns: number;
+    payOuts: number;
+    drops: number;
     expected: number;
   };
 }
@@ -127,11 +137,26 @@ export interface DayReport {
   cancels: { itemName: string; quantity: number; reason: string | null }[];
   discounts: { billNo: number; amount: number; reason: string | null }[];
   expenses: { total: number; cash: number; byCategory: { name: string; amount: number }[] };
+  /** Cash put in or taken out of the drawer during the day, and what it adds up to. */
+  cashMovements: {
+    totals: { payIn: number; payOut: number; drop: number };
+    list: {
+      at: string;
+      type: CashMovementKind;
+      amount: number;
+      reasonCode: string;
+      note: string | null;
+      by: string;
+    }[];
+  };
   cash: {
     opening: number;
     cashSales: number;
     cashRefunds: number;
     cashExpenses: number;
+    payIns: number;
+    payOuts: number;
+    drops: number;
     expected: number;
     counted: number | null;
     variance: number | null;

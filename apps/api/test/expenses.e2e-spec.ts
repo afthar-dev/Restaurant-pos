@@ -214,6 +214,9 @@ describe('expenses', () => {
       cashSales: 3200,
       cashRefunds: 0,
       cashExpenses: 1000,
+      payIns: 0,
+      payOuts: 0,
+      drops: 0,
       expected: 102200,
     });
     const report = await ctx

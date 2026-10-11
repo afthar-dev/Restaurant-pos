@@ -48,6 +48,8 @@ export interface NewExpense {
   amount: number;
   mode: PaymentMode;
   note?: string;
+  /** A manager's single-use approval for a large cash expense. */
+  overrideToken?: string;
 }
 
 export const MODE_LABEL: Record<PaymentMode, string> = { CASH: 'Cash', UPI: 'UPI', CARD: 'Card' };
