@@ -205,12 +205,20 @@ describe('PaymentSheet', () => {
     expect(callsTo(mock, 'POST', '/api/bills/b1/payments')).toHaveLength(0);
 
     fireEvent.change(screen.getByLabelText('Amount (₹)'), { target: { value: '473' } });
-    fireEvent.change(screen.getByLabelText('Reference (UTR or last 4 digits)'), {
-      target: { value: ' UTR9 ' },
+    fireEvent.change(screen.getByLabelText('Reference (optional)'), {
+      target: { value: 'bad ref' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Record payment' }));
+    expect(
+      await screen.findByText('A reference is 6 to 22 letters and digits'),
+    ).toBeInTheDocument();
+    expect(callsTo(mock, 'POST', '/api/bills/b1/payments')).toHaveLength(0);
+    fireEvent.change(screen.getByLabelText('Reference (optional)'), {
+      target: { value: ' UTR123456 ' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Record payment' }));
     await expect.poll(() => callsTo(mock, 'POST', '/api/bills/b1/payments').length).toBe(1);
-    expect(body(mock)).toEqual({ mode: 'UPI', amount: 47300, reference: 'UTR9' });
+    expect(body(mock)).toEqual({ mode: 'UPI', amount: 47300, reference: 'UTR123456' });
   });
 });
 

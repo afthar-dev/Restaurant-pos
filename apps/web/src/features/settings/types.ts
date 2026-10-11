@@ -18,6 +18,11 @@ export interface OutletSettings {
   varianceAlertPaise: number;
   /** A cash expense above this (paise) needs a manager when a non-manager records it. */
   pettyCashLimitPaise: number;
+  /** The UPI ID and payee name behind the payment QR; null until set. */
+  upiVpa: string | null;
+  upiPayee: string | null;
+  /** Print the UPI QR under the total of an unpaid bill. */
+  printUpiQr: boolean;
   /** Shown in the staff header, on printed bills and on the QR menu. */
   logoUrl: string | null;
 }

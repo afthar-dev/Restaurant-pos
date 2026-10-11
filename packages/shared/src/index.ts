@@ -11,3 +11,4 @@ export * from './qr';
 export * from './back-office';
 export * from './reasons';
 export * from './cash';
+export * from './upi';

@@ -1,9 +1,4 @@
-import QRCode from 'qrcode';
-
-/** A table's QR code as SVG markup, for showing on screen at any size. */
-export function qrSvg(url: string): Promise<string> {
-  return QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
-}
+export { qrSvg } from '@/shared/lib/qrSvg';
 
 const SIZE = 1024;
 const PAD = 64;
@@ -24,6 +19,7 @@ export async function qrPng(url: string, table: string, restaurant: string): Pro
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   const code = document.createElement('canvas');
+  const { default: QRCode } = await import('qrcode');
   await QRCode.toCanvas(code, url, { width: QR, margin: 0, errorCorrectionLevel: 'M' });
   ctx.drawImage(code, PAD, PAD, QR, QR);
 

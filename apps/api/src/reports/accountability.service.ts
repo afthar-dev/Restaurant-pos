@@ -36,6 +36,8 @@ export function istRange(range: ReportRange): { gte: Date; lt: Date } {
  * why. Discounts and voids are attributed to the approving manager, like the audit trail.
  * Cash out (pay-outs and drops) is attributed to whoever recorded it, the person handling the
  * cash, not to the manager who approved it.
+ * Payment mode changes count under whoever asked for the change (the audit entry's actor, the
+ * person handling the payment), also not the approving manager.
  * Rows from before reason codes count as "Other". Read-only.
  */
 @Injectable()
@@ -44,7 +46,7 @@ export class AccountabilityService {
 
   async accountability(outletId: string, range: ReportRange): Promise<Accountability> {
     const when = istRange(range);
-    const [discounted, voided, cancelled, reprints, cashOut] = await Promise.all([
+    const [discounted, voided, cancelled, reprints, cashOut, modeChanges] = await Promise.all([
       this.prisma.bill.findMany({
         where: {
           outletId,
@@ -88,6 +90,11 @@ export class AccountabilityService {
         where: { outletId, type: { in: ['PAY_OUT', 'DROP'] }, createdAt: when },
         _count: { _all: true },
         _sum: { amount: true },
+      }),
+      this.prisma.auditEntry.groupBy({
+        by: ['actorId'],
+        where: { outletId, action: 'payment.mode_change', createdAt: when },
+        _count: { _all: true },
       }),
     ]);
 
@@ -143,6 +150,9 @@ export class AccountabilityService {
       const figure = forStaff(g.createdById).cashOut;
       figure.count += g._count._all;
       figure.amount += g._sum.amount ?? 0;
+    }
+    for (const g of modeChanges) {
+      if (g.actorId) forStaff(g.actorId).modeChanges += g._count._all;
     }
     for (const g of reprints) {
       if (g.actorId) forStaff(g.actorId).reprints += g._count._all;

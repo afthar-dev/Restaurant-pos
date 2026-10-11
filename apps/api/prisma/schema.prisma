@@ -68,6 +68,11 @@ model Outlet {
   varianceAlertPaise      Int                 @default(10000) @map("variance_alert_paise")
   /// A cash expense above this (paise) needs a manager when a non-manager records it.
   pettyCashLimitPaise     Int                 @default(200000) @map("petty_cash_limit_paise")
+  /// The UPI ID (VPA) and payee name behind the payment QR.
+  upiVpa                  String?             @map("upi_vpa")
+  upiPayee                String?             @map("upi_payee")
+  /// Print the UPI QR under the total of an unpaid bill.
+  printUpiQr              Boolean             @default(true) @map("print_upi_qr")
   /// The restaurant logo: staff header, printed bills, QR menu.
   logoId                  String?             @map("logo_id") @db.Uuid
   logo                    Media?              @relation("OutletLogo", fields: [logoId], references: [id], onDelete: SetNull)
@@ -858,6 +863,8 @@ model Payment {
   tendered            Int?
   change              Int?
   reference           String?
+  /// The mode this payment had before a manager corrected it.
+  modeChangedFrom     String?     @map("mode_changed_from")
   receivedById        String      @map("received_by_id") @db.Uuid
   /// Set when the bill is voided: the money went back to the customer, on that business day.
   refundedAt          DateTime?   @map("refunded_at") @db.Timestamptz(3)

@@ -5,6 +5,7 @@ import {
   DROP_REASONS,
   PAY_IN_REASONS,
   PAY_OUT_REASONS,
+  PAYMENT_MODE_CHANGE_REASONS,
   VOID_REASONS,
   reasonLabel,
   type ReasonKind,
@@ -15,7 +16,7 @@ import { ReasonChips } from './ReasonChips';
 
 type PickerKind = Extract<
   ReasonKind,
-  'discount' | 'void' | 'cancel' | 'closeVariance' | 'payIn' | 'payOut' | 'drop'
+  'discount' | 'void' | 'cancel' | 'closeVariance' | 'payIn' | 'payOut' | 'drop' | 'paymentMode'
 >;
 
 const CODES: Record<PickerKind, readonly string[]> = {
@@ -26,6 +27,7 @@ const CODES: Record<PickerKind, readonly string[]> = {
   payIn: PAY_IN_REASONS,
   payOut: PAY_OUT_REASONS,
   drop: DROP_REASONS,
+  paymentMode: PAYMENT_MODE_CHANGE_REASONS,
 };
 
 /** What the person picked: a reason code, and a note that "Other" needs. */

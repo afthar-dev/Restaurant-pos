@@ -53,8 +53,8 @@ describe('request schemas', () => {
     expect(addPaymentSchema.safeParse({ mode: 'CASH', amount: 0 }).success).toBe(false);
     expect(addPaymentSchema.safeParse({ mode: 'CHEQUE', amount: 100 }).success).toBe(false);
     expect(
-      addPaymentSchema.parse({ mode: 'UPI', amount: 100, reference: ' 1234 ' }).reference,
-    ).toBe('1234');
+      addPaymentSchema.parse({ mode: 'UPI', amount: 100, reference: ' 123456 ' }).reference,
+    ).toBe('123456');
   });
 
   it('sets bill and item discounts together', () => {

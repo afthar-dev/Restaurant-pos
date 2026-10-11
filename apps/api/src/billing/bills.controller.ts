@@ -16,11 +16,13 @@ import {
   addPaymentSchema,
   billCustomerSchema,
   billDiscountSchema,
+  changePaymentModeSchema,
   createBillSchema,
   voidBillSchema,
   type AddPaymentRequest,
   type BillCustomerRequest,
   type BillDiscountRequest,
+  type ChangePaymentModeRequest,
   type VoidBillRequest,
   type CreateBillRequest,
 } from '@rpos/shared';
@@ -105,6 +107,18 @@ export class BillsController {
     @Body(new ZodBody(addPaymentSchema)) body: AddPaymentRequest,
   ) {
     return this.payments.add(user, id, idempotencyKey?.slice(0, 100) || undefined, body);
+  }
+
+  /** Fixes a wrong mode on a payment of the open day; a manager is needed unless the caller can close the day. */
+  @Post('payments/:id/change-mode')
+  @RequirePermissions('payment.take')
+  changeMode(
+    @CurrentUser() user: AuthUser,
+    @Req() req: RequestContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodBody(changePaymentModeSchema)) body: ChangePaymentModeRequest,
+  ) {
+    return this.payments.changeMode(user, req.permissions ?? [], id, body);
   }
 
   @Post('bills/:id/void')

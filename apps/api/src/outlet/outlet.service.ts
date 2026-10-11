@@ -27,6 +27,9 @@ function toSettings(outlet: Outlet & { logo: Media | null }, urlFor: (key: strin
     billPackagingCharge: outlet.billPackagingCharge,
     varianceAlertPaise: outlet.varianceAlertPaise,
     pettyCashLimitPaise: outlet.pettyCashLimitPaise,
+    upiVpa: outlet.upiVpa,
+    upiPayee: outlet.upiPayee,
+    printUpiQr: outlet.printUpiQr,
   };
 }
 

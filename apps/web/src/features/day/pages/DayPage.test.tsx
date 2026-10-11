@@ -69,6 +69,11 @@ const report = (partial: Partial<DayReport> = {}): DayReport => ({
   },
   payments: { CASH: 3200, UPI: 37800, CARD: 0 },
   refunds: { total: 0, CASH: 0, UPI: 0, CARD: 0, bills: [] },
+  reconciliation: {
+    upi: { withRef: 0, withoutRef: 0, amountWithout: 0 },
+    card: { withRef: 0, withoutRef: 0, amountWithout: 0 },
+    missing: [],
+  },
   reopened: null,
   byType: { DINE_IN: { orders: 2, total: 41000 }, PARCEL: { orders: 0, total: 0 } },
   topItems: [{ itemName: 'Paneer Tikka', variantName: 'Half', quantity: 2, amount: 36000 }],
@@ -738,6 +743,59 @@ describe('day report times on a PC set to UTC', () => {
     );
     expect(html).toMatch(/10 Oct 2026, 11:00.?am/i);
     expect(html).toMatch(/11 Oct 2026, 12:30.?am/i);
+  });
+});
+
+const RECONCILIATION = {
+  upi: { withRef: 3, withoutRef: 2, amountWithout: 12000 },
+  card: { withRef: 1, withoutRef: 0, amountWithout: 0 },
+  missing: [
+    { billNo: 7, mode: 'UPI' as const, amount: 5000, at: '2026-10-06T08:00:00Z' },
+    { billNo: 9, mode: 'UPI' as const, amount: 7000, at: '2026-10-06T09:00:00Z' },
+  ],
+};
+
+describe('payment reconciliation', () => {
+  it('lists UPI and card payments with and without a reference on the day report', async () => {
+    as(OWNER, 'OWNER');
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json(days),
+      'GET /api/business-day/d2/report': () =>
+        json({ ...report(), reconciliation: RECONCILIATION }),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
+    const shown = await screen.findByRole('region', { name: 'Day report' });
+    const block = within(shown).getByRole('heading', {
+      name: 'UPI and card references',
+    }).parentElement!;
+    expect(within(block).getByText('UPI · 3 with reference, 2 without')).toBeInTheDocument();
+    expect(within(block).getByText('Card · 1 with reference, 0 without')).toBeInTheDocument();
+    expect(within(block).getByText('Bill 7 · UPI')).toBeInTheDocument();
+    expect(within(block).getByText('Bill 9 · UPI')).toBeInTheDocument();
+    expect(within(block).getByText('₹120')).toBeInTheDocument();
+  });
+
+  it('is left out when there were no UPI or card payments', async () => {
+    as(OWNER, 'OWNER');
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json(days),
+      'GET /api/business-day/d2/report': () => json(report()),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
+    const shown = await screen.findByRole('region', { name: 'Day report' });
+    expect(within(shown).queryByRole('heading', { name: 'UPI and card references' })).toBeNull();
+  });
+
+  it('prints the same figures', () => {
+    const html = renderDayReport(report({ reconciliation: RECONCILIATION }), 'Spice Garden');
+    expect(html).toContain('UPI and card references');
+    expect(html).toContain('3 with reference, 2 without');
+    expect(html).toContain('Bill 7 · UPI');
+    expect(renderDayReport(report(), 'Spice Garden')).not.toContain('UPI and card references');
   });
 });
 

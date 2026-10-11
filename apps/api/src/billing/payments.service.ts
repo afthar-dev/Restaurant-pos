@@ -1,8 +1,17 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { formatPaise, type AddPaymentRequest } from '@rpos/shared';
+import {
+  formatPaise,
+  type AddPaymentRequest,
+  type ChangePaymentModeRequest,
+  type Permission,
+} from '@rpos/shared';
+import { AuditService } from '../audit/audit.service';
+import { OverrideService } from '../auth/override.service';
 import { BusinessDayService } from '../business-day/business-day.service';
 import { ApiError } from '../common/api-error';
+import { notFound } from '../common/master-data';
+import { reasonOf } from '../common/reason';
 import type { AuthUser } from '../common/request-context';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,7 +29,99 @@ export class PaymentsService {
     private readonly bills: BillsService,
     private readonly orders: OrdersService,
     private readonly days: BusinessDayService,
+    private readonly overrides: OverrideService,
+    private readonly audit: AuditService,
   ) {}
+
+  /**
+   * Corrects the mode of a payment taken on the still-open business day (spec P6). Refused once
+   * the day is closed or the payment was refunded. A manager's token is needed unless the caller
+   * has `day.openClose`. Cash handed over no longer applies when the mode changes. The audit
+   * entry is the requester's (the person handling the payment), with the approver in `after`.
+   */
+  async changeMode(
+    actor: AuthUser,
+    permissions: readonly Permission[],
+    paymentId: string,
+    request: ChangePaymentModeRequest,
+  ): Promise<BillView> {
+    const found = await this.prisma.payment.findFirst({
+      where: { id: paymentId, outletId: actor.outletId },
+      include: { bill: { select: { id: true, orderId: true } } },
+    });
+    if (!found) throw notFound('Payment');
+    const reason = reasonOf('paymentMode', request);
+    const billId = found.bill.id;
+    await this.orders.mutate(actor, found.bill.orderId, undefined, async ({ tx }) => {
+      await this.bills.lockBill(tx, actor.outletId, billId, undefined);
+      const payment = await tx.payment.findUniqueOrThrow({
+        where: { id: paymentId },
+        include: { businessDay: { select: { status: true } }, bill: { select: { billNo: true } } },
+      });
+      if (payment.refundedAt) {
+        throw new ApiError(
+          HttpStatus.CONFLICT,
+          'REFUNDED',
+          'This payment was refunded, so its mode cannot change.',
+        );
+      }
+      if (payment.businessDay.status !== 'OPEN') {
+        throw new ApiError(
+          HttpStatus.CONFLICT,
+          'DAY_CLOSED',
+          'This payment belongs to a closed day, so its mode cannot change.',
+        );
+      }
+      await this.days.requireOpen(tx, actor.outletId);
+      if (payment.mode === request.mode) {
+        throw new ApiError(
+          HttpStatus.BAD_REQUEST,
+          'VALIDATION',
+          'Choose a different mode from the one recorded.',
+        );
+      }
+      // Checked last, so a refused change does not use up the manager's token.
+      const approver = await this.overrides.requireApproval(
+        actor,
+        permissions,
+        'day.openClose',
+        request.overrideToken,
+        'A manager must approve changing a payment mode.',
+      );
+      await tx.payment.update({
+        where: { id: paymentId },
+        data: {
+          mode: request.mode,
+          modeChangedFrom: payment.mode,
+          tendered: null,
+          change: null,
+          reference: request.mode === 'CASH' ? null : payment.reference,
+        },
+      });
+      await this.audit.record(
+        {
+          outletId: actor.outletId,
+          actorId: actor.id,
+          action: 'payment.mode_change',
+          entity: 'payment',
+          entityId: paymentId,
+          reason: reason.text,
+          before: { mode: payment.mode },
+          after: {
+            from: payment.mode,
+            to: request.mode,
+            amount: payment.amount,
+            billNo: payment.bill.billNo,
+            reasonCode: reason.code,
+            ...(approver ? { approvedBy: approver.id } : {}),
+          },
+        },
+        tx,
+      );
+    });
+    this.bills.changed(actor.outletId, billId, found.bill.orderId);
+    return this.bills.get(actor.outletId, billId);
+  }
 
   async add(
     actor: AuthUser,

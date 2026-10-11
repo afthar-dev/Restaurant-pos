@@ -72,6 +72,13 @@ export interface GstRateRow {
 }
 
 /** Mirrors DayCloseService.report() in the API. */
+export interface ReconciliationFigure {
+  withRef: number;
+  withoutRef: number;
+  /** Paise taken without a reference. */
+  amountWithout: number;
+}
+
 export interface DayReport {
   day: {
     id: string;
@@ -128,6 +135,13 @@ export interface DayReport {
     UPI: number;
     CARD: number;
     bills: { billNo: number; amount: number; modes: PaymentMode[]; by: string | null }[];
+  };
+  /** UPI and card payments with and without a reference, to match against the statements. */
+  reconciliation: {
+    upi: ReconciliationFigure;
+    card: ReconciliationFigure;
+    /** The payments without a reference, oldest first. */
+    missing: { billNo: number; mode: PaymentMode; amount: number; at: string }[];
   };
   byType: Record<OrderType, { orders: number; total: number }>;
   topItems: { itemName: string; variantName: string; quantity: number; amount: number }[];

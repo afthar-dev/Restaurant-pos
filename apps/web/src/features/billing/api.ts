@@ -53,6 +53,11 @@ export const addPayment = (billId: string, idempotencyKey: string, body: Payment
     body,
   });
 
+export const changePaymentMode = (
+  paymentId: string,
+  body: { mode: PaymentMode; reasonCode: string; note?: string; overrideToken?: string },
+) => apiFetch<Bill>(`/api/payments/${paymentId}/change-mode`, { method: 'POST', body });
+
 export const voidBill = (
   billId: string,
   reason: { reasonCode: string; note?: string },

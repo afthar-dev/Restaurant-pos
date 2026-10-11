@@ -383,6 +383,32 @@ export class DayCloseService {
       include: { createdBy: { select: { name: true } } },
       orderBy: { createdAt: 'asc' },
     });
+    // UPI and card payments that still stand, with and without a reference to match against
+    // the bank or card statement. Refunded payments are left out.
+    const reconciliation = {
+      upi: { withRef: 0, withoutRef: 0, amountWithout: 0 },
+      card: { withRef: 0, withoutRef: 0, amountWithout: 0 },
+      missing: [] as { billNo: number; mode: PaymentMode; amount: number; at: Date }[],
+    };
+    for (const b of bills) {
+      if (b.status === 'VOID') continue;
+      for (const p of b.payments) {
+        if (p.mode === 'CASH' || p.refundedAt) continue;
+        const figure = p.mode === 'UPI' ? reconciliation.upi : reconciliation.card;
+        if (p.reference) {
+          figure.withRef += 1;
+        } else {
+          figure.withoutRef += 1;
+          figure.amountWithout += p.amount;
+          reconciliation.missing.push({
+            billNo: b.billNo,
+            mode: p.mode,
+            amount: p.amount,
+            at: p.createdAt,
+          });
+        }
+      }
+    }
     return {
       day: {
         id: day.id,
@@ -419,6 +445,7 @@ export class DayCloseService {
       },
       reopened,
       payments,
+      reconciliation,
       refunds: { ...refunds, bills: [...refundedBills.values()] },
       byType,
       topItems,

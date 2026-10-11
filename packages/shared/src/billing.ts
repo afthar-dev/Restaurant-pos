@@ -4,6 +4,7 @@ import { priceSchema } from './menu';
 import {
   CLOSE_VARIANCE_REASONS,
   DISCOUNT_REASONS,
+  PAYMENT_MODE_CHANGE_REASONS,
   VOID_REASONS,
   reasonRequestFields,
   refineReason,
@@ -60,15 +61,37 @@ export const billDiscountSchema = refineReason(
 );
 export type BillDiscountRequest = z.infer<typeof billDiscountSchema>;
 
+/** A UPI or card reference: 6 to 22 letters and digits. */
+export const PAYMENT_REFERENCE = /^[A-Za-z0-9]{6,22}$/;
+export const PAYMENT_REFERENCE_HINT = 'A reference is 6 to 22 letters and digits';
+
 export const addPaymentSchema = z.strictObject({
   mode: z.enum(PAYMENT_MODES),
   amount: priceSchema.refine((v) => v > 0, 'Enter an amount'),
   /** Cash handed over; change = tendered − amount. Cash only. */
   tendered: priceSchema.optional(),
-  /** UPI or card reference, optional. */
-  reference: z.string().trim().max(60).optional(),
+  /** UPI or card reference (6-22 letters and digits), optional; blank counts as none. */
+  reference: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().trim().regex(PAYMENT_REFERENCE, PAYMENT_REFERENCE_HINT).optional(),
+  ),
 });
 export type AddPaymentRequest = z.infer<typeof addPaymentSchema>;
+
+/**
+ * Fixes the mode of a payment taken on the open day. A manager's token is needed unless the
+ * caller can close the day.
+ */
+export const changePaymentModeSchema = refineReason(
+  z.strictObject({
+    mode: z.enum(PAYMENT_MODES),
+    ...reasonRequestFields(PAYMENT_MODE_CHANGE_REASONS),
+    /** A manager's single-use approval, from POST /auth/override. */
+    overrideToken: z.string().min(1).max(2000).optional(),
+  }),
+  true,
+);
+export type ChangePaymentModeRequest = z.infer<typeof changePaymentModeSchema>;
 
 /** Blank text counts as cleared. Send null (or an empty string) to remove a field. */
 const blankToNull = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? null : v);

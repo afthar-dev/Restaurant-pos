@@ -13,6 +13,24 @@ const MODE_NAME = { CASH: 'Cash', UPI: 'UPI', CARD: 'Card' } as const;
 const section = (title: string, body: string) =>
   body ? `<hr><div class="head">${title}</div>${body}` : '';
 
+/** UPI and card payments with and without a reference; nothing when there were none. */
+function reconciliationRows(r: DayReport, money: (paise: number) => string): string {
+  const { upi, card, missing } = r.reconciliation;
+  const figure = (name: string, f: DayReport['reconciliation']['upi']) =>
+    f.withRef + f.withoutRef > 0
+      ? row(
+          `${name} · ${f.withRef} with reference, ${f.withoutRef} without`,
+          f.withoutRef > 0 ? money(f.amountWithout) : '',
+        )
+      : '';
+  const rows = [figure('UPI', upi), figure('Card', card)].join('');
+  if (!rows) return '';
+  return (
+    rows +
+    missing.map((m) => row(`Bill ${m.billNo} · ${MODE_NAME[m.mode]}`, money(m.amount))).join('')
+  );
+}
+
 /** The day-close report (spec §5.5) on the counter's thermal roll. */
 export function renderDayReport(r: DayReport, outletName: string, paperWidthMm = 80): string {
   const e = escapeHtml;
@@ -95,6 +113,7 @@ ${section(
       ].join('')
     : '',
 )}
+${section('UPI and card references', reconciliationRows(r, money))}
 ${section(
   'Orders',
   [

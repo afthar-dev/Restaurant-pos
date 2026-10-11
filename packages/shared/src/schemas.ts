@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PASSWORD_ROLES, PERMISSIONS, ROLES } from './auth';
 import { gstinSchema } from './gstin';
+import { vpaSchema } from './upi';
 
 export const TAX_SCHEMES = ['REGULAR', 'COMPOSITION', 'NONE'] as const;
 export type TaxScheme = (typeof TAX_SCHEMES)[number];
@@ -84,6 +85,8 @@ export const updateUserSchema = z.strictObject({
 });
 export type UpdateUserRequest = z.infer<typeof updateUserSchema>;
 
+const blankToNull = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? null : v);
+
 const optionalText = (max: number) => z.string().trim().max(max).nullable().optional();
 
 export const outletSettingsSchema = z.strictObject({
@@ -113,6 +116,10 @@ export const outletSettingsSchema = z.strictObject({
   varianceAlertPaise: z.number().int().min(0).max(10_000_000).optional(),
   /** A cash expense above this (paise) needs a manager when a non-manager records it. */
   pettyCashLimitPaise: z.number().int().min(0).max(10_000_000).optional(),
+  /** UPI ID for the payment QR (Settle panel and unpaid bills). Blank clears it. */
+  upiVpa: z.preprocess(blankToNull, vpaSchema.nullable()).optional(),
+  upiPayee: z.preprocess(blankToNull, z.string().trim().max(100).nullable()).optional(),
+  printUpiQr: z.boolean().optional(),
 });
 export type OutletSettingsUpdate = z.infer<typeof outletSettingsSchema>;
 

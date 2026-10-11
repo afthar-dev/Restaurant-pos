@@ -1,4 +1,4 @@
-import { printHtmlInIframe, renderBillTicket } from '@/features/printing';
+import { printHtmlInIframe, renderBillTicketWithQr } from '@/features/printing';
 import { fetchBillPrintPayload, queueBillPrint } from './api';
 
 type PrintHtml = (html: string) => Promise<void>;
@@ -12,7 +12,9 @@ export async function printBillHere(
   copy?: number,
 ): Promise<void> {
   const payload = await fetchBillPrintPayload(billId, paperWidthMm);
-  await printHtml(renderBillTicket(copy === undefined ? payload : { ...payload, copy }));
+  await printHtml(
+    await renderBillTicketWithQr(copy === undefined ? payload : { ...payload, copy }),
+  );
 }
 
 /**

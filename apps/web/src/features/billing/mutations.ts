@@ -6,6 +6,7 @@ import { ApiError } from '@/shared/api/http';
 import {
   addPayment,
   applyDiscount,
+  changePaymentMode,
   createBill,
   setBillCustomer,
   voidBill,
@@ -96,6 +97,16 @@ export function useSetCustomer(bill: Bill) {
   return useMutation({
     mutationFn: (body: { name: string | null; gstin: string | null }) =>
       setBillCustomer(bill.id, body),
+    onSuccess: () => refresh(bill.orderId),
+  });
+}
+
+/** Fixes the mode of a payment taken today; the order's bills reload with the new mode. */
+export function useChangePaymentMode(bill: Bill, paymentId: string) {
+  const refresh = useRefreshOrder();
+  return useMutation({
+    mutationFn: (body: Parameters<typeof changePaymentMode>[1]) =>
+      changePaymentMode(paymentId, body),
     onSuccess: () => refresh(bill.orderId),
   });
 }

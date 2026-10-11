@@ -37,7 +37,16 @@ const PARCEL_LABEL: Record<ParcelPaymentTiming, string> = {
   PAY_AT_PICKUP: 'Customer pays at pickup',
 };
 
-type TextKey = 'name' | 'gstin' | 'address' | 'phone' | 'fssaiNumber' | 'billHeader' | 'billFooter';
+type TextKey =
+  | 'name'
+  | 'gstin'
+  | 'address'
+  | 'phone'
+  | 'fssaiNumber'
+  | 'billHeader'
+  | 'billFooter'
+  | 'upiVpa'
+  | 'upiPayee';
 
 interface Draft {
   text: Record<TextKey, string>;
@@ -48,6 +57,7 @@ interface Draft {
   bagRupees: string;
   varianceRupees: string;
   pettyCashRupees: string;
+  printUpiQr: boolean;
 }
 
 function toDraft(s: OutletSettings): Draft {
@@ -60,6 +70,8 @@ function toDraft(s: OutletSettings): Draft {
       fssaiNumber: s.fssaiNumber ?? '',
       billHeader: s.billHeader ?? '',
       billFooter: s.billFooter ?? '',
+      upiVpa: s.upiVpa ?? '',
+      upiPayee: s.upiPayee ?? '',
     },
     taxScheme: s.taxScheme,
     capPercent: String(s.cashierDiscountCapBp / 100),
@@ -68,6 +80,7 @@ function toDraft(s: OutletSettings): Draft {
     bagRupees: paiseToRupeesInput(s.billPackagingCharge ?? 0),
     varianceRupees: paiseToRupeesInput(s.varianceAlertPaise ?? 10000),
     pettyCashRupees: paiseToRupeesInput(s.pettyCashLimitPaise ?? 200000),
+    printUpiQr: s.printUpiQr ?? true,
   };
 }
 
@@ -78,9 +91,10 @@ function changes(saved: OutletSettings, draft: Draft): Record<string, unknown> {
     let value: string | null = draft.text[key].trim();
     if (key === 'gstin') value = value.toUpperCase();
     if (value === '' && key !== 'name') value = null;
-    if (value !== saved[key]) out[key] = value;
+    if (value !== (saved[key] ?? null)) out[key] = value;
   }
   if (draft.taxScheme !== saved.taxScheme) out.taxScheme = draft.taxScheme;
+  if (draft.printUpiQr !== (saved.printUpiQr ?? true)) out.printUpiQr = draft.printUpiQr;
   const capBp = Math.round(Number(draft.capPercent) * 100);
   if (capBp !== saved.cashierDiscountCapBp) out.cashierDiscountCapBp = capBp;
   if (draft.waiterCanCollectPayment !== saved.waiterCanCollectPayment) {
@@ -217,6 +231,24 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
             ))}
           </select>
         </Field>
+      </fieldset>
+
+      <fieldset className="grid gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
+        <legend className="px-1 text-sm font-semibold">UPI payments</legend>
+        {text('upiVpa', 'UPI ID', 'Like name@bank. Customers scan a QR with the bill amount.')}
+        {text(
+          'upiPayee',
+          'Payee name',
+          'Shown in the customer UPI app. Leave empty to use the restaurant name.',
+        )}
+        <label className="flex items-center gap-2 text-sm font-medium sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={draft.printUpiQr}
+            onChange={(e) => setDraft((d) => ({ ...d, printUpiQr: e.target.checked }))}
+          />
+          Print UPI QR on bills
+        </label>
       </fieldset>
 
       <fieldset className="grid gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">

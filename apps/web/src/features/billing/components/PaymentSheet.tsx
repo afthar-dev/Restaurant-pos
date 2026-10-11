@@ -1,4 +1,11 @@
-import { paiseToRupeesInput, parseRupees, splitEqually, type PaymentMode } from '@rpos/shared';
+import {
+  PAYMENT_REFERENCE,
+  PAYMENT_REFERENCE_HINT,
+  paiseToRupeesInput,
+  parseRupees,
+  splitEqually,
+  type PaymentMode,
+} from '@rpos/shared';
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import {
   describeError,
@@ -70,6 +77,9 @@ export function PaymentSheet({
       return setError('Enter the cash received in rupees, like 500.');
     }
     if (short > 0) return;
+    if (!cash && reference.trim() && !PAYMENT_REFERENCE.test(reference.trim())) {
+      return setError(PAYMENT_REFERENCE_HINT);
+    }
     setError(null);
     payment.pay(
       {
@@ -199,7 +209,7 @@ export function PaymentSheet({
             )}
           </>
         ) : (
-          <Field id={`${id}-reference`} label="Reference (UTR or last 4 digits)">
+          <Field id={`${id}-reference`} label="Reference (optional)">
             <input
               id={`${id}-reference`}
               className={inputClass}

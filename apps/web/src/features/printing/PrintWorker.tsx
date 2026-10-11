@@ -4,12 +4,12 @@ import { ApiError } from '@/shared/api/http';
 import { reportPrintJob, type PrintJob } from './api';
 import { useClaimedPrintJobs } from './queries';
 import { printKeys } from './keys';
-import { renderBillTicket } from './templates/billTicket';
+import { renderBillTicketWithQr } from './templates/billTicket';
 import { renderKotTicket } from './templates/kotTicket';
 
-function renderJob(job: PrintJob): string {
+async function renderJob(job: PrintJob): Promise<string> {
   if (job.kind === 'KOT') return renderKotTicket(job.payload);
-  if (job.kind === 'BILL') return renderBillTicket(job.payload);
+  if (job.kind === 'BILL') return renderBillTicketWithQr(job.payload);
   throw new Error(`Unknown print job ${(job as { kind: string }).kind}`);
 }
 
@@ -109,7 +109,7 @@ export function PrintWorker({
           if (printed.has(job.id)) continue;
           let ok = true;
           try {
-            await printHtml(renderJob(job));
+            await printHtml(await renderJob(job));
           } catch {
             ok = false;
           }

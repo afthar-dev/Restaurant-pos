@@ -49,6 +49,10 @@ export const PAY_IN_REASONS = ['FLOAT_TOP_UP', 'OTHER'] as const;
 export const PAY_OUT_REASONS = ['SUPPLIER', 'STAFF_ADVANCE', 'OTHER'] as const;
 export const DROP_REASONS = ['SAFE', 'BANK', 'OTHER'] as const;
 
+/** Why a payment's mode is corrected after it was taken. */
+export const PAYMENT_MODE_CHANGE_REASONS = ['WRONG_MODE', 'OTHER'] as const;
+export type PaymentModeChangeReason = (typeof PAYMENT_MODE_CHANGE_REASONS)[number];
+
 /** Each kind of reason list, keyed by name. */
 export const REASON_LABELS = {
   kotReprint: {
@@ -96,6 +100,10 @@ export const REASON_LABELS = {
   drop: {
     SAFE: 'Moved to safe',
     BANK: 'Taken to bank',
+    OTHER: 'Other',
+  },
+  paymentMode: {
+    WRONG_MODE: 'Wrong payment mode',
     OTHER: 'Other',
   },
 } as const satisfies Record<string, Record<string, string>>;

@@ -396,6 +396,35 @@ function ReportView({
             {`Parcel · ${report.byType.PARCEL.orders} orders · ${rupees(report.byType.PARCEL.total)}`}
           </p>
         </Block>
+        {report.reconciliation.upi.withRef +
+          report.reconciliation.upi.withoutRef +
+          report.reconciliation.card.withRef +
+          report.reconciliation.card.withoutRef >
+          0 && (
+          <Block title="UPI and card references">
+            {(
+              [
+                ['UPI', report.reconciliation.upi],
+                ['Card', report.reconciliation.card],
+              ] as const
+            )
+              .filter(([, f]) => f.withRef + f.withoutRef > 0)
+              .map(([name, f]) => (
+                <Row
+                  key={name}
+                  label={`${name} · ${f.withRef} with reference, ${f.withoutRef} without`}
+                  value={f.withoutRef > 0 ? rupees(f.amountWithout) : ''}
+                />
+              ))}
+            {report.reconciliation.missing.map((m, index) => (
+              <Row
+                key={index}
+                label={`Bill ${m.billNo} · ${PAY_LABEL[m.mode]}`}
+                value={rupees(m.amount)}
+              />
+            ))}
+          </Block>
+        )}
         <Block title="Cash">
           <Row label="Opening" value={rupees(cash.opening)} />
           <Row label="Cash sales" value={rupees(cash.cashSales)} />

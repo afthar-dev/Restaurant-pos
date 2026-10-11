@@ -1,5 +1,6 @@
-import { formatPaise, type PaymentMode, type TaxScheme } from '@rpos/shared';
+import { formatPaise, upiLink, type PaymentMode, type TaxScheme } from '@rpos/shared';
 import { escapeHtml } from '@/shared/lib/escape';
+import { qrSvg } from '@/shared/lib/qrSvg';
 import { PRINT_TIME_ZONE } from '@/shared/lib/when';
 
 /** Mirrors PrintService.buildBillPayload() in the API. */
@@ -18,6 +19,11 @@ export interface BillPrintPayload {
     billFooter: string | null;
     /** Restaurant logo; a relative /api/media path when photos are stored on the server. */
     logoUrl: string | null;
+    /** The UPI ID and payee behind the QR on an unpaid bill; older payloads have neither. */
+    upiVpa?: string | null;
+    upiPayee?: string | null;
+    /** Missing counts as on, like the outlet setting's default. */
+    printUpiQr?: boolean;
   };
   billNo: number;
   financialYear: string;
@@ -85,6 +91,35 @@ const RESTAURANT_SAC = 'SAC 996331';
 
 const MODE_LABEL: Record<PaymentMode, string> = { CASH: 'Cash', UPI: 'UPI', CARD: 'Card' };
 
+/** An unpaid bill, the switch on (the default) and a UPI ID set: the bill carries a UPI QR. */
+export function upiQrWanted(p: BillPrintPayload): boolean {
+  return (
+    p.status === 'OPEN' && (p.due ?? 0) > 0 && p.outlet.printUpiQr !== false && !!p.outlet.upiVpa
+  );
+}
+
+const upiNote = (p: BillPrintPayload) => `Bill ${p.billNo}`;
+
+/**
+ * The ticket with its UPI QR drawn when the bill needs one. The QR library loads only then, so
+ * paid bills and outlets without a UPI ID never pay for it.
+ */
+export async function renderBillTicketWithQr(p: BillPrintPayload): Promise<string> {
+  if (!upiQrWanted(p)) return renderBillTicket(p);
+  try {
+    const link = upiLink({
+      vpa: p.outlet.upiVpa!,
+      payee: p.outlet.upiPayee || p.outlet.name,
+      amountPaise: p.due,
+      note: upiNote(p),
+    });
+    return renderBillTicket(p, await qrSvg(link));
+  } catch {
+    // A bill without the QR is better than a bill that does not print.
+    return renderBillTicket(p);
+  }
+}
+
 const row = (label: string, amount: string, strong = false) =>
   `<div class="row${strong ? ' strong' : ''}"><span>${label}</span><span>${amount}</span></div>`;
 
@@ -92,7 +127,8 @@ const row = (label: string, amount: string, strong = false) =>
 /** The print frame is a separate document: give it a full address for server-stored images. */
 const absolute = (url: string) => new URL(url, window.location.origin).toString();
 
-export function renderBillTicket(p: BillPrintPayload): string {
+/** `upiQr` is the QR picture (SVG markup) made by the web; it prints only when the bill needs it. */
+export function renderBillTicket(p: BillPrintPayload, upiQr?: string): string {
   const e = escapeHtml;
   // Jobs queued before an upgrade may lack newer fields: tolerate them rather than stall printing.
   const legacyTitle = (p as { title?: string }).title;
@@ -174,6 +210,7 @@ body { width: ${p.paperWidthMm - 4}mm; margin: 0; font-family: ui-monospace, Con
 .reprint { font-size: 14px; font-weight: 700; border: 2px dashed #000; text-align: center; margin: 4px 0; padding: 2px; }
 .void { font-size: 22px; font-weight: 700; border: 3px solid #000; text-align: center; margin: 4px 0; }
 hr { border: 0; border-top: 1px dashed #000; margin: 5px 0; }
+svg.upi-qr { display: block; margin: 2px auto; width: ${Math.min(40, p.paperWidthMm - 14)}mm; height: ${Math.min(40, p.paperWidthMm - 14)}mm; }
 .logo { display: block; margin: 0 auto 4px; max-height: 18mm; max-width: 60%; filter: grayscale(1); }
 </style></head><body>
 ${(p.copy ?? 0) >= 1 ? `<div class="reprint">REPRINT #${p.copy}</div>` : ''}
@@ -196,6 +233,7 @@ ${totals}
 ${row('TOTAL', money(p.total), true)}
 ${payments ? `<hr>${payments}` : ''}
 ${p.due > 0 ? row('Due', money(p.due), true) : ''}
+${upiQr && upiQrWanted(p) ? `<hr><div class="center">${upiQr.replace('<svg', '<svg class="upi-qr"')}<div>Scan to pay ${money(p.due)}</div></div>` : ''}
 ${scheme === 'REGULAR' ? `<div class="center">${RESTAURANT_SAC}</div>` : ''}
 ${scheme === 'COMPOSITION' ? `<div class="center">${COMPOSITION_DECLARATION}</div>` : ''}
 ${p.outlet.billFooter ? `<hr><div class="center">${e(p.outlet.billFooter)}</div>` : ''}
