@@ -512,13 +512,39 @@ export class BillsService {
    */
   async reprint(user: AuthUser, billId: string) {
     await this.orderOf(user.outletId, billId);
-    return { id: billId, queued: await this.print.queueBillJobs(billId) };
+    // One atomic increment returns the new count, so two taps at once get copies 1 and 2.
+    const copy = await this.prisma.$transaction(async (tx) => {
+      const { printCount } = await tx.bill.update({
+        where: { id: billId },
+        data: { printCount: { increment: 1 } },
+        select: { printCount: true },
+      });
+      await this.audit.record(
+        {
+          outletId: user.outletId,
+          actorId: user.id,
+          action: 'bill.reprint',
+          entity: 'bill',
+          entityId: billId,
+          after: { copy: printCount - 1 },
+        },
+        tx,
+      );
+      return printCount - 1;
+    });
+    return { id: billId, queued: await this.print.queueBillJobs(billId, copy) };
   }
 
   /** Queues a new bill on the bill printers; a print problem never fails billing (§5.6.4). */
   private async queueForPrint(billId: string): Promise<number> {
     try {
-      return await this.print.queueBillJobs(billId);
+      // The original counts as the first print (even with no printer: it prints on screen).
+      const { printCount } = await this.prisma.bill.update({
+        where: { id: billId },
+        data: { printCount: { increment: 1 } },
+        select: { printCount: true },
+      });
+      return await this.print.queueBillJobs(billId, printCount - 1);
     } catch (error) {
       this.logger.error(`Could not queue print for bill ${billId}: ${String(error)}`);
       return 0;

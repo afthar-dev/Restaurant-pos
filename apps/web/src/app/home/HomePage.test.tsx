@@ -434,6 +434,7 @@ describe('the owner’s dashboard', () => {
     ],
   };
   const DAY_REPORT = {
+    reprints: [],
     voids: [{ billNo: 3, total: 85000, reason: 'Wrong table', by: 'Meena' }],
     discounts: [
       { billNo: 5, amount: 10000, reason: null },

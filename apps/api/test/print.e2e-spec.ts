@@ -257,7 +257,12 @@ describe('print jobs', () => {
     }
     expect(await printState(sent.order.id)).toBe('FAILED');
 
-    await ctx.http().post(`/api/kots/${sent.kots[0].id}/reprint`).set(waiter.auth).expect(201);
+    await ctx
+      .http()
+      .post(`/api/kots/${sent.kots[0].id}/reprint`)
+      .set(waiter.auth)
+      .send({ reasonCode: 'PRINTER_JAM' })
+      .expect(201);
     expect(await printState(sent.order.id)).toBe('WAITING');
     const [again] = (await claimFor(counter)).body;
     await ctx
@@ -410,7 +415,130 @@ describe('print jobs', () => {
   it('queues another job on reprint', async () => {
     await kitchenPrinter(counter.id).expect(201);
     const sent = await sendPaneerKot();
-    await ctx.http().post(`/api/kots/${sent.kots[0].id}/reprint`).set(waiter.auth).expect(201);
+    await ctx
+      .http()
+      .post(`/api/kots/${sent.kots[0].id}/reprint`)
+      .set(waiter.auth)
+      .send({ reasonCode: 'PRINTER_JAM' })
+      .expect(201);
     expect((await jobsFor(counter)).body).toHaveLength(2);
+  });
+
+  describe('reprint control', () => {
+    async function billPrinter() {
+      await ctx
+        .http()
+        .post('/api/printers')
+        .set(owner.auth)
+        .send({
+          name: 'Bill printer',
+          purpose: 'BILL',
+          mode: 'BROWSER',
+          paperWidthMm: 58,
+          deviceId: counter.id,
+        })
+        .expect(201);
+    }
+
+    async function newBill() {
+      const sent = await sendPaneerKot();
+      const bill = (
+        await ctx
+          .http()
+          .post(`/api/orders/${sent.order.id}/bills`)
+          .set(owner.auth)
+          .send({})
+          .expect(201)
+      ).body;
+      return { bill, sent };
+    }
+
+    const billCopies = async (): Promise<number[]> =>
+      (await claimFor(counter).expect(201)).body
+        .filter((j: { kind: string }) => j.kind === 'BILL')
+        .map((j: { payload: { copy: number } }) => j.payload.copy);
+
+    it('prints a bill as copy 0, then counts and audits every reprint', async () => {
+      await billPrinter();
+      const { bill } = await newBill();
+      expect(await billCopies()).toEqual([0]);
+      await ctx.http().post(`/api/bills/${bill.id}/print`).set(owner.auth).expect(201);
+      expect(await billCopies()).toEqual([1]);
+      const audit = await ctx.prisma.auditEntry.findFirstOrThrow({
+        where: { action: 'bill.reprint', entityId: bill.id },
+      });
+      expect(audit.actorId).toBe(owner.user.id);
+      expect(audit.after).toMatchObject({ copy: 1 });
+      const saved = await ctx.prisma.bill.findUniqueOrThrow({ where: { id: bill.id } });
+      expect(saved.printCount).toBe(2);
+    });
+
+    it('numbers two simultaneous reprints 1 and 2, never 1 twice', async () => {
+      await billPrinter();
+      const { bill } = await newBill();
+      await Promise.all([
+        ctx.http().post(`/api/bills/${bill.id}/print`).set(owner.auth).expect(201),
+        ctx.http().post(`/api/bills/${bill.id}/print`).set(owner.auth).expect(201),
+      ]);
+      const copies = await billCopies();
+      expect([...copies].sort()).toEqual([0, 1, 2]);
+      expect(new Set(copies).size).toBe(3);
+      const audits = await ctx.prisma.auditEntry.findMany({
+        where: { action: 'bill.reprint', entityId: bill.id },
+      });
+      expect(audits.map((a) => (a.after as { copy: number }).copy).sort()).toEqual([1, 2]);
+    });
+
+    it('marks the on-screen copy of a bill too when no bill printer is set up', async () => {
+      const { bill } = await newBill();
+      const first = await ctx.http().get(`/api/bills/${bill.id}/print-payload`).set(owner.auth);
+      expect(first.body.copy).toBe(0);
+      await ctx.http().post(`/api/bills/${bill.id}/print`).set(owner.auth).expect(201);
+      const second = await ctx.http().get(`/api/bills/${bill.id}/print-payload`).set(owner.auth);
+      expect(second.body.copy).toBe(1);
+    });
+
+    describe('kitchen tickets', () => {
+      const reprint = (kotId: string, body?: object) =>
+        ctx.http().post(`/api/kots/${kotId}/reprint`).set(waiter.auth).send(body);
+
+      it('refuses a reprint without a valid reason, or OTHER without a note', async () => {
+        await kitchenPrinter(counter.id).expect(201);
+        const sent = await sendPaneerKot();
+        const id = sent.kots[0].id;
+        await reprint(id).expect(400);
+        await reprint(id, {}).expect(400);
+        await reprint(id, { reasonCode: 'BORED' }).expect(400);
+        await reprint(id, { reasonCode: 'OTHER' }).expect(400);
+        await reprint(id, { reasonCode: 'OTHER', note: '  ' }).expect(400);
+        expect((await jobsFor(counter)).body).toHaveLength(1);
+        expect((await ctx.prisma.kot.findUniqueOrThrow({ where: { id } })).printCount).toBe(1);
+      });
+
+      it('queues copy n with the reason audited; the original is not a reprint', async () => {
+        await kitchenPrinter(counter.id).expect(201);
+        const sent = await sendPaneerKot();
+        const id = sent.kots[0].id;
+        await reprint(id, { reasonCode: 'PRINTER_JAM' }).expect(201);
+        await reprint(id, { reasonCode: 'OTHER', note: 'Ink ran out' }).expect(201);
+        const copies = (await claimFor(counter).expect(201)).body.map(
+          (j: { payload: { copy: number } }) => j.payload.copy,
+        );
+        expect([...copies].sort()).toEqual([0, 1, 2]);
+        const audits = await ctx.prisma.auditEntry.findMany({
+          where: { action: 'kot.reprint', entityId: id },
+          orderBy: { createdAt: 'asc' },
+        });
+        expect(audits).toHaveLength(2);
+        expect(audits[0]).toMatchObject({ actorId: waiter.user.id, reason: 'Printer jam' });
+        expect(audits[0]!.after).toMatchObject({ copy: 1, reasonCode: 'PRINTER_JAM' });
+        expect(audits[1]!.reason).toBe('Ink ran out');
+        expect(audits[1]!.after).toMatchObject({
+          copy: 2,
+          reasonCode: 'OTHER',
+          note: 'Ink ran out',
+        });
+      });
+    });
   });
 });

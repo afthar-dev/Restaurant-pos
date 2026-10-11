@@ -9,6 +9,7 @@ import { PrintWorker } from '../PrintWorker';
 
 export const billPayload: BillPrintPayload = {
   kind: 'BILL',
+  copy: 0,
   taxScheme: 'REGULAR',
   outlet: {
     name: 'Spice Garden',
@@ -353,5 +354,22 @@ describe('totals block order and old queued payloads', () => {
     expect(text).toContain('1 × ₹30.00 = ₹30.00');
     expect(text).not.toContain('NaN');
     expect(text).not.toContain('Bill to');
+  });
+});
+
+describe('reprint mark', () => {
+  const textOf = (html: string) =>
+    new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+
+  it('prints REPRINT #n above the bill title for a reprint, and nothing on the original', () => {
+    const text = textOf(renderBillTicket({ ...billPayload, copy: 2 }));
+    expect(text).toContain('REPRINT #2');
+    expect(text.indexOf('REPRINT #2')).toBeLessThan(text.indexOf('Tax Invoice'));
+    expect(textOf(renderBillTicket(billPayload))).not.toContain('REPRINT');
+  });
+
+  it('treats a payload queued before the upgrade as the original', () => {
+    const { copy: _c, ...rest } = billPayload;
+    expect(textOf(renderBillTicket(rest as unknown as BillPrintPayload))).not.toContain('REPRINT');
   });
 });

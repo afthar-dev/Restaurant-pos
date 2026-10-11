@@ -3,6 +3,7 @@ import { useCan } from '@/shared/session/store';
 import { describeError, PaymentIcon, secondaryButton } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
 import type { Bill } from '../types';
+import { BillCustomer } from './BillCustomer';
 import { DiscountSheet } from './DiscountSheet';
 import { usePrintBill } from '../mutations';
 
@@ -37,6 +38,7 @@ export function BillView({
   settle?: ReactNode;
 }) {
   const canDiscount = useCan('discount.apply');
+  const canPrint = useCan('bill.print');
   const [discounting, setDiscounting] = useState(false);
   const [printNote, setPrintNote] = useState<string | null>(null);
   const open = bill.status === 'OPEN';
@@ -143,6 +145,8 @@ export function BillView({
         {open && bill.paid > 0 && <Row label="Due" value={rupees(bill.due)} strong />}
       </div>
 
+      {/* An unpaid bill sets its customer in the Settle panel; a paid one here, before it is reprinted. */}
+      {bill.status === 'PAID' && canPrint && <BillCustomer bill={bill} />}
       <div className="flex flex-wrap gap-2">
         {actions}
         {open && canDiscount && bill.payments.length === 0 && (

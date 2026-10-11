@@ -643,6 +643,7 @@ model Kot {
   createdById   String    @map("created_by_id") @db.Uuid
   readyAt       DateTime? @map("ready_at") @db.Timestamptz(3)
   servedAt      DateTime? @map("served_at") @db.Timestamptz(3)
+  printCount    Int       @default(0) @map("print_count")
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
@@ -764,6 +765,8 @@ model Bill {
   /// Optional B2B customer, entered at the counter.
   customerName   String?       @map("customer_name")
   customerGstin  String?       @map("customer_gstin")
+  /// Times this bill was printed; the first is the original, later ones are reprints.
+  printCount     Int           @default(0) @map("print_count")
   voidReason     String?       @map("void_reason")
   voidedById     String?       @map("voided_by_id") @db.Uuid
   voidedAt       DateTime?     @map("voided_at") @db.Timestamptz(3)

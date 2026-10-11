@@ -15,6 +15,7 @@ export { Field } from './Field';
 export { Input, MoneyInput, QuantityInput, Select, Textarea } from './inputs';
 export { PageHeader } from './PageHeader';
 export { PAYMENT_ICON, PaymentIcon } from './PaymentIcon';
+export { ReasonChips } from './ReasonChips';
 export { RenameForm } from './RenameForm';
 export { Sheet } from './Sheet';
 export { LoadingScreen, Skeleton } from './Skeleton';

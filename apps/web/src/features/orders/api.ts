@@ -1,3 +1,4 @@
+import type { KotReprintRequest } from '@rpos/shared';
 import { apiFetch } from '@/shared/api/http';
 import type { ActiveOrder, FloorAreaStatus, NewLine, Order, QrApproval, QrRequest } from './types';
 
@@ -57,8 +58,8 @@ export const sendKot = (orderId: string, idempotencyKey: string) =>
     headers: { 'Idempotency-Key': idempotencyKey },
   });
 
-export const reprintKot = (kotId: string) =>
-  apiFetch(`/api/kots/${kotId}/reprint`, { method: 'POST' });
+export const reprintKot = (kotId: string, body: KotReprintRequest) =>
+  apiFetch(`/api/kots/${kotId}/reprint`, { method: 'POST', body });
 
 export const markKotServed = (kotId: string) =>
   apiFetch(`/api/kots/${kotId}/served`, { method: 'POST' });

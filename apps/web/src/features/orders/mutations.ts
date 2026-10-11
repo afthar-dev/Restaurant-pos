@@ -4,7 +4,7 @@ import {
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
-import { newId } from '@rpos/shared';
+import { newId, type KotReprintRequest } from '@rpos/shared';
 import { useRef } from 'react';
 import {
   addItems,
@@ -164,7 +164,7 @@ export function useSendKot(orderId: string) {
 export function useReprintKot(kotId: string, orderId: string) {
   const refresh = useRefreshOrder();
   return useMutation({
-    mutationFn: () => reprintKot(kotId),
+    mutationFn: (body: KotReprintRequest) => reprintKot(kotId, body),
     onSettled: () => refresh(orderId),
   });
 }

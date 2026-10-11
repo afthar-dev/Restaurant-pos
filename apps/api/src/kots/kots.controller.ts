@@ -15,9 +15,11 @@ import {
   cancelItemSchema,
   cancelOrderSchema,
   kdsStatusSchema,
+  kotReprintSchema,
   type CancelItemRequest,
   type CancelOrderRequest,
   type KdsStatusRequest,
+  type KotReprintRequest,
 } from '@rpos/shared';
 import { Public, RequirePermissions } from '../auth/decorators';
 import {
@@ -78,8 +80,12 @@ export class KotsController {
 
   @Post('kots/:id/reprint')
   @RequirePermissions('order.take')
-  reprint(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
-    return this.kots.reprint(user, id);
+  reprint(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodBody(kotReprintSchema)) body: KotReprintRequest,
+  ) {
+    return this.kots.reprint(user, id, body);
   }
 
   @Public()

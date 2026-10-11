@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma, type Kot, type KotStatus, type OrderItem } from '@prisma/client';
+import { reasonLabel, type KotReprintRequest } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
 import { CountersService } from '../business-day/counters.service';
 import { ApiError } from '../common/api-error';
@@ -463,10 +464,34 @@ export class KotsService {
     });
   }
 
-  async reprint(user: AuthUser, kotId: string) {
+  /** Prints a ticket again; the reason is audited and the copy is numbered for the kitchen. */
+  async reprint(user: AuthUser, kotId: string, body: KotReprintRequest) {
     const kot = await this.prisma.kot.findFirst({ where: { id: kotId, outletId: user.outletId } });
     if (!kot) throw notFound('KOT');
-    await this.events.emitAsync('kot.print', { outletId: kot.outletId, kotId: kot.id });
+    const note = body.note?.trim() || null;
+    // One atomic increment returns the new count, so two taps at once get copies 1 and 2.
+    const copy = await this.prisma.$transaction(async (tx) => {
+      const { printCount } = await tx.kot.update({
+        where: { id: kot.id },
+        data: { printCount: { increment: 1 } },
+        select: { printCount: true },
+      });
+      await this.audit.record(
+        {
+          outletId: kot.outletId,
+          actorId: user.id,
+          action: 'kot.reprint',
+          entity: 'kot',
+          entityId: kot.id,
+          reason:
+            body.reasonCode === 'OTHER' && note ? note : reasonLabel('kotReprint', body.reasonCode),
+          after: { copy: printCount - 1, reasonCode: body.reasonCode, note },
+        },
+        tx,
+      );
+      return printCount - 1;
+    });
+    await this.events.emitAsync('kot.print', { outletId: kot.outletId, kotId: kot.id, copy });
     return { id: kot.id, queued: true };
   }
 

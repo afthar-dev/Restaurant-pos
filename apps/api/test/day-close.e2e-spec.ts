@@ -404,6 +404,22 @@ describe('closing the business day', () => {
     });
   });
 
+  it('lists the bills that were reprinted, with how many times', async () => {
+    const reprinted = await billFor(roti(), r.t1.id);
+    const untouched = await billFor(roti(), r.t2.id);
+    for (let i = 0; i < 2; i++) {
+      await ctx.http().post(`/api/bills/${reprinted.id}/print`).set(cashier.auth).expect(201);
+    }
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+    const report = await ctx
+      .http()
+      .get(`/api/business-day/${day.id}/report`)
+      .set(manager.auth)
+      .expect(200);
+    expect(report.body.reprints).toEqual([{ billNo: reprinted.billNo, count: 2 }]);
+    expect(untouched.billNo).not.toBe(reprinted.billNo);
+  });
+
   it('ranks the top items on the day report by amount, like the sales report', async () => {
     // 3 rotis = ₹90 (most sold) against 1 paneer = ₹180 (earns more).
     const bill = await billFor([

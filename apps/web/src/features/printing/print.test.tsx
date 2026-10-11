@@ -9,6 +9,7 @@ import { PrintWorker } from './PrintWorker';
 
 const payload: KotPrintPayload = {
   kind: 'KOT',
+  copy: 0,
   kotNo: 7,
   kotType: 'NEW',
   stationName: 'Kitchen',
@@ -172,5 +173,16 @@ describe('printer setup', () => {
     expect(JSON.parse(String(callsTo(mock, 'POST', '/api/printers')[0]?.[1]?.body))).toMatchObject({
       deviceId: '00000000-0000-4000-8000-0000000000d1',
     });
+  });
+});
+
+describe('KOT reprint mark', () => {
+  it('marks a reprint at the top with its number, and not the original', () => {
+    expect(renderKotTicket({ ...payload, copy: 2 })).toContain('REPRINT #2');
+    expect(renderKotTicket({ ...payload, copy: 1 })).toContain('REPRINT #1');
+    expect(renderKotTicket(payload)).not.toContain('REPRINT');
+    const old = { ...payload } as Partial<KotPrintPayload>;
+    delete old.copy;
+    expect(renderKotTicket(old as KotPrintPayload)).not.toContain('REPRINT');
   });
 });

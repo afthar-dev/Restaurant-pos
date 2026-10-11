@@ -104,6 +104,8 @@ export interface DayReport {
   };
   byType: Record<OrderType, { orders: number; total: number }>;
   topItems: { itemName: string; variantName: string; quantity: number; amount: number }[];
+  /** Bills printed again, with the number of reprints (the original is not counted). */
+  reprints: { billNo: number; count: number }[];
   voids: { billNo: number; total: number; reason: string | null; by: string | null }[];
   cancels: { itemName: string; quantity: number; reason: string | null }[];
   discounts: { billNo: number; amount: number; reason: string | null }[];

@@ -261,7 +261,7 @@ describe('OrderPanel', () => {
     await expect.poll(() => callsTo(mock, 'GET', '/api/orders/o1').length).toBe(2);
   });
 
-  it('shows a failed KOT print and reprints it', async () => {
+  it('shows a failed KOT print and reprints it after a reason is picked', async () => {
     asWaiter();
     const mock = mockApi({
       'GET /api/orders/o1': () => json(withItems),
@@ -270,7 +270,38 @@ describe('OrderPanel', () => {
     renderWithProviders(<OrderPanel orderId="o1" />);
     expect(await screen.findByText('Print failed')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reprint KOT 7' }));
+    const dialog = screen.getByRole('dialog', { name: 'Reprint KOT 7' });
+    const send = within(dialog).getByRole('button', { name: 'Reprint' });
+    expect(send).toBeDisabled();
+    expect(callsTo(mock, 'POST', '/api/kots/k1/reprint')).toHaveLength(0);
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Printer jam' }));
+    fireEvent.click(send);
     await expect.poll(() => callsTo(mock, 'POST', '/api/kots/k1/reprint').length).toBe(1);
+    expect(body(mock, 'POST', '/api/kots/k1/reprint')).toEqual({ reasonCode: 'PRINTER_JAM' });
+    await expect.poll(() => screen.queryByRole('dialog', { name: 'Reprint KOT 7' })).toBeNull();
+  });
+
+  it('asks what happened when the reprint reason is Other', async () => {
+    asWaiter();
+    const mock = mockApi({
+      'GET /api/orders/o1': () => json(withItems),
+      'POST /api/kots/k1/reprint': () => json({ id: 'k1', queued: true }, 201),
+    });
+    renderWithProviders(<OrderPanel orderId="o1" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Reprint KOT 7' }));
+    const dialog = screen.getByRole('dialog', { name: 'Reprint KOT 7' });
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Other' }));
+    const send = within(dialog).getByRole('button', { name: 'Reprint' });
+    expect(send).toBeDisabled();
+    fireEvent.change(within(dialog).getByLabelText('What happened'), {
+      target: { value: 'Ink ran out' },
+    });
+    fireEvent.click(send);
+    await expect.poll(() => callsTo(mock, 'POST', '/api/kots/k1/reprint').length).toBe(1);
+    expect(body(mock, 'POST', '/api/kots/k1/reprint')).toEqual({
+      reasonCode: 'OTHER',
+      note: 'Ink ran out',
+    });
   });
 
   it('gets a manager approval to cancel a dish already in the kitchen', async () => {

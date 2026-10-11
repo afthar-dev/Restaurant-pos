@@ -58,6 +58,7 @@ const report = (partial: Partial<DayReport> = {}): DayReport => ({
   byType: { DINE_IN: { orders: 2, total: 41000 }, PARCEL: { orders: 0, total: 0 } },
   topItems: [{ itemName: 'Paneer Tikka', variantName: 'Half', quantity: 2, amount: 36000 }],
   voids: [],
+  reprints: [],
   cancels: [],
   discounts: [],
   expenses: { total: 0, cash: 0, byCategory: [] },
@@ -315,6 +316,34 @@ describe('Day close', () => {
     expect(within(block).getByText(/Bill 7 · Cash, UPI · Meena/)).toBeInTheDocument();
     expect(within(shown).getByText('Cash refunded')).toBeInTheDocument();
     // No refunds, no block.
+  });
+
+  it('shows how many times a bill was reprinted, only when it was', async () => {
+    as(OWNER, 'OWNER');
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json(days),
+      'GET /api/business-day/d2/report': () =>
+        json({ ...report(), reprints: [{ billNo: 12, count: 2 }] }),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
+    const shown = await screen.findByRole('region', { name: 'Day report' });
+    expect(within(shown).getByText('Bill 12')).toBeInTheDocument();
+    expect(within(shown).getByText('Reprinted 2×')).toBeInTheDocument();
+  });
+
+  it('hides the reprints block when nothing was reprinted', async () => {
+    as(OWNER, 'OWNER');
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json(days),
+      'GET /api/business-day/d2/report': () => json(report()),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
+    const shown = await screen.findByRole('region', { name: 'Day report' });
+    expect(within(shown).queryByText(/Reprinted/)).toBeNull();
   });
 
   it('hides the refunds block when nothing was refunded', async () => {

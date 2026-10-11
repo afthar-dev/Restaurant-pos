@@ -196,6 +196,7 @@ describe('day report printout', () => {
       byType: { DINE_IN: { orders: 0, total: 0 }, PARCEL: { orders: 0, total: 0 } },
       topItems: [],
       voids: [],
+      reprints: [],
       cancels: [],
       discounts: [],
       expenses: { total: 95000, cash: 95000, byCategory: [{ name: 'Gas <LPG>', amount: 95000 }] },

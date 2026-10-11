@@ -5,6 +5,8 @@ import { PRINT_TIME_ZONE } from '@/shared/lib/when';
 /** Mirrors PrintService.buildBillPayload() in the API. */
 export interface BillPrintPayload {
   kind: 'BILL';
+  /** 0 is the original bill, n >= 1 the nth reprint. */
+  copy: number;
   taxScheme: TaxScheme;
   outlet: {
     name: string;
@@ -169,10 +171,12 @@ body { width: ${p.paperWidthMm - 4}mm; margin: 0; font-family: ui-monospace, Con
 .strong { font-size: 16px; font-weight: 700; }
 .sub { padding-left: 14px; }
 .line { margin-bottom: 2px; }
+.reprint { font-size: 14px; font-weight: 700; border: 2px dashed #000; text-align: center; margin: 4px 0; padding: 2px; }
 .void { font-size: 22px; font-weight: 700; border: 3px solid #000; text-align: center; margin: 4px 0; }
 hr { border: 0; border-top: 1px dashed #000; margin: 5px 0; }
 .logo { display: block; margin: 0 auto 4px; max-height: 18mm; max-width: 60%; filter: grayscale(1); }
 </style></head><body>
+${(p.copy ?? 0) >= 1 ? `<div class="reprint">REPRINT #${p.copy}</div>` : ''}
 ${p.status === 'VOID' ? '<div class="void">VOID</div>' : ''}
 ${p.outlet.logoUrl ? `<img class="logo" src="${e(absolute(p.outlet.logoUrl))}" alt="">` : ''}
 <div class="center name">${e(p.outlet.name)}</div>

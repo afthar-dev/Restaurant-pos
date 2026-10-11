@@ -372,6 +372,10 @@ export class DayCloseService {
         quantity: i.quantity,
         reason: i.cancelReason,
       })),
+      // The first print is the original; every one after it is a reprint.
+      reprints: bills
+        .filter((b) => b.printCount > 1)
+        .map((b) => ({ billNo: b.billNo, count: b.printCount - 1 })),
       discounts: live
         .filter((b) => b.itemDiscount + b.billDiscount > 0)
         .map((b) => ({

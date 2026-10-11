@@ -350,6 +350,13 @@ function ReportView({
             ))}
           </Block>
         )}
+        {report.reprints.length > 0 && (
+          <Block title="Reprinted bills">
+            {report.reprints.map((b) => (
+              <Row key={b.billNo} label={`Bill ${b.billNo}`} value={`Reprinted ${b.count}×`} />
+            ))}
+          </Block>
+        )}
         {report.voids.length > 0 && (
           <Block title="Voided bills">
             {report.voids.map((v) => (

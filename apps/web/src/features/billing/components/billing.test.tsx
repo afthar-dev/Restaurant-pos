@@ -86,6 +86,18 @@ describe('billing an order', () => {
     expect(callsTo(mock, 'POST', '/api/bills/b1/print')).toHaveLength(0);
   });
 
+  it('lets staff add a customer GSTIN on a paid bill before reprinting it', async () => {
+    as(CASHIER);
+    mockApi({
+      'GET /api/orders/o1/bills': () => json([bill({ status: 'PAID', paid: 47300, due: 0 })]),
+    });
+    renderWithProviders(<BillArea order={sentOrder({ status: 'BILLED' })} />);
+    fireEvent.click(await screen.findByRole('button', { name: /^Bill 12/ }));
+    const shown = await screen.findByRole('region', { name: 'Bill 12' });
+    expect(within(shown).getByRole('button', { name: 'Print' })).toBeInTheDocument();
+    expect(within(shown).getByRole('button', { name: 'Add customer GSTIN' })).toBeInTheDocument();
+  });
+
   it('blocks billing a table with dishes not sent to the kitchen', async () => {
     as(CASHIER);
     mockApi({ 'GET /api/orders/o1/bills': () => json([]) });
