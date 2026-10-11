@@ -20,3 +20,6 @@ apps/api/uploads/
 
 # graphify knowledge graph (local, rebuilt on demand)
 graphify-out/
+
+# user manual build (local only: PDF, HTML source and screenshots)
+docs/user-manual/
