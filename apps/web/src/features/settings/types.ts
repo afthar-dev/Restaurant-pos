@@ -14,6 +14,8 @@ export interface OutletSettings {
   waiterCanCollectPayment: boolean;
   parcelPaymentTiming: ParcelPaymentTiming;
   billPackagingCharge: number;
+  /** Cash variance (paise) above which closing the day needs a reason. */
+  varianceAlertPaise: number;
   /** Shown in the staff header, on printed bills and on the QR menu. */
   logoUrl: string | null;
 }

@@ -1,7 +1,13 @@
 import { z } from 'zod';
 import { gstinSchema } from './gstin';
 import { priceSchema } from './menu';
-import { DISCOUNT_REASONS, VOID_REASONS, reasonRequestFields, refineReason } from './reasons';
+import {
+  CLOSE_VARIANCE_REASONS,
+  DISCOUNT_REASONS,
+  VOID_REASONS,
+  reasonRequestFields,
+  refineReason,
+} from './reasons';
 
 export const PAYMENT_MODES = ['CASH', 'UPI', 'CARD'] as const;
 export type PaymentMode = (typeof PAYMENT_MODES)[number];
@@ -82,10 +88,42 @@ export type MoveOrderRequest = z.infer<typeof moveOrderSchema>;
 export const mergeOrderSchema = z.strictObject({ fromOrderId: z.uuid() });
 export type MergeOrderRequest = z.infer<typeof mergeOrderSchema>;
 
-export const closeDaySchema = z.strictObject({
-  countedCash: priceSchema,
-  note: z.string().trim().max(200).optional(),
+/** The notes counted at day close: how many of each, and the coins in paise. */
+export const CLOSE_NOTE_DENOMINATIONS = ['500', '200', '100', '50', '20', '10'] as const;
+export type CloseNoteDenomination = (typeof CLOSE_NOTE_DENOMINATIONS)[number];
+
+export const closeCountSchema = z.strictObject({
+  notes: z.strictObject(
+    Object.fromEntries(
+      CLOSE_NOTE_DENOMINATIONS.map((d) => [d, z.number().int().min(0).max(100_000)]),
+    ) as Record<CloseNoteDenomination, z.ZodNumber>,
+  ),
+  coins: priceSchema,
 });
+export type CloseCount = z.infer<typeof closeCountSchema>;
+
+/** The paise a count adds up to (notes are whole rupees, coins are already paise). */
+export function closeCountTotal(count: CloseCount): number {
+  return (
+    CLOSE_NOTE_DENOMINATIONS.reduce((sum, d) => sum + Number(d) * count.notes[d], 0) * 100 +
+    count.coins
+  );
+}
+
+export const closeDaySchema = refineReason(
+  z.strictObject({
+    countedCash: priceSchema,
+    count: closeCountSchema.optional(),
+    reasonCode: z.enum(CLOSE_VARIANCE_REASONS).optional(),
+    note: z.string().trim().max(200).optional(),
+  }),
+  false,
+);
+
+/** Asks what closing would show for a counted figure; changes nothing. */
+export const checkCountSchema = z.strictObject({ countedCash: priceSchema });
+export type CheckCountRequest = z.infer<typeof checkCountSchema>;
+
 export type CloseDayRequest = z.infer<typeof closeDaySchema>;
 
 export const reopenDaySchema = z.strictObject({ reason: reasonSchema });

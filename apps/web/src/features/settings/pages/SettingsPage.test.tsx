@@ -25,6 +25,7 @@ const settings = {
   waiterCanCollectPayment: false,
   parcelPaymentTiming: 'PAY_FIRST',
   billPackagingCharge: 0,
+  varianceAlertPaise: 10000,
   logoUrl: null as string | null,
 };
 
@@ -89,6 +90,22 @@ describe('SettingsPage', () => {
     const [call] = callsTo(mock, 'PATCH', '/api/outlet');
     expect(JSON.parse(String(call?.[1]?.body))).toEqual({ billPackagingCharge: 1000 });
   });
+  it('saves the cash variance alert in paise, default ₹100', async () => {
+    useSession.getState().setSession(sessionBody('OWNER', ['settings.manage']));
+    const mock = mockApi({
+      'GET /api/outlet': () => json(settings),
+      'PATCH /api/outlet': ({ body }) => json({ ...settings, ...(body as object) }),
+    });
+    renderRoute('/admin/settings');
+    const field = await screen.findByLabelText('Variance alert above (₹)');
+    expect(field).toHaveValue('100');
+    fireEvent.change(field, { target: { value: '250' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    expect(await screen.findByRole('status', { name: 'Save result' })).toHaveTextContent('Saved');
+    const [call] = callsTo(mock, 'PATCH', '/api/outlet');
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({ varianceAlertPaise: 25000 });
+  });
+
   it('rejects an invalid GSTIN without calling the server', async () => {
     useSession.getState().setSession(sessionBody('OWNER', ['settings.manage']));
     const mock = mockApi({ 'GET /api/outlet': () => json(settings) });

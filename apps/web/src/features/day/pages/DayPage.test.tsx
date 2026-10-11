@@ -21,11 +21,23 @@ const today = {
   },
 };
 
+// The closing screen asks blind: no expected cash comes back.
 const clear = {
   day: { id: 'd2', openingCash: 100000 },
   blockers: { orders: [], bills: [] },
-  cash: { opening: 100000, cashSales: 3200, cashRefunds: 0, cashExpenses: 0, expected: 103200 },
+  cash: {},
 };
+
+const CHECK = 'POST /api/business-day/d2/close/check-count';
+const checked = { expected: 103200, variance: -200, needsReason: false };
+
+/** Uses the typed total instead of the note counter, then checks it. */
+async function checkTotal(value: string) {
+  fireEvent.click(await screen.findByRole('button', { name: 'Type total instead' }));
+  fireEvent.change(screen.getByLabelText('Counted cash (₹)'), { target: { value } });
+  fireEvent.click(screen.getByRole('button', { name: 'Check count' }));
+  await screen.findByText('Expected in drawer');
+}
 
 const report = (partial: Partial<DayReport> = {}): DayReport => ({
   day: {
@@ -36,6 +48,8 @@ const report = (partial: Partial<DayReport> = {}): DayReport => ({
     openedBy: { id: 'm', name: 'Meena' },
     closedBy: { id: 'm', name: 'Meena' },
     closeNote: 'Short ₹2',
+    closeCount: null,
+    closeReasonCode: null,
   },
   sales: {
     bills: 2,
@@ -73,6 +87,21 @@ const report = (partial: Partial<DayReport> = {}): DayReport => ({
   },
   ...partial,
 });
+
+const withCount = () => {
+  const base = report();
+  return report({
+    day: {
+      ...base.day,
+      closeCount: {
+        notes: { '500': 3, '200': 0, '100': 2, '50': 0, '20': 0, '10': 0 },
+        coins: 3000,
+      },
+      closeReasonCode: 'COUNT_ERROR',
+      closeNote: 'Recounted twice',
+    },
+  });
+};
 
 const days = [
   {
@@ -135,12 +164,12 @@ describe('Day close', () => {
       'GET /api/business-day/current': () => json(today),
       'GET /api/business-day': () => json([]),
       'GET /api/business-day/close-check': () => json(clear),
+      [CHECK]: () => json(checked, 201),
       'POST /api/business-day/close': () => json(report(), 201),
     });
     renderRoute('/day');
-    expect(await screen.findByText('Expected in drawer')).toBeInTheDocument();
+    await checkTotal('1030');
     expect(screen.getByText('₹1,032')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Counted cash (₹)'), { target: { value: '1030' } });
     fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'Short ₹2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Close day' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Yes, close the day' }));
@@ -154,12 +183,124 @@ describe('Day close', () => {
     expect(within(shown).getByRole('button', { name: 'Print report' })).toBeInTheDocument();
   });
 
+  describe('blind count', () => {
+    const closeBody = (mock: ReturnType<typeof mockApi>) =>
+      JSON.parse(String(callsTo(mock, 'POST', '/api/business-day/close')[0]?.[1]?.body));
+
+    const setup = (check: object = checked) =>
+      mockApi({
+        'GET /api/business-day/current': () => json(today),
+        'GET /api/business-day': () => json([]),
+        'GET /api/business-day/close-check': () => json(clear),
+        [CHECK]: () => json(check, 201),
+        'POST /api/business-day/close': () => json(report(), 201),
+      });
+
+    const countNotes = async () => {
+      fireEvent.change(await screen.findByLabelText('₹500 notes'), { target: { value: '3' } });
+      fireEvent.change(screen.getByLabelText('₹100 notes'), { target: { value: '2' } });
+      fireEvent.change(screen.getByLabelText('Coins (₹)'), { target: { value: '30' } });
+    };
+
+    it('asks for the close check blind and hides the expected cash until checked', async () => {
+      as(MANAGER);
+      const mock = setup();
+      renderRoute('/day');
+      await countNotes();
+      expect(callsTo(mock, 'GET', '/api/business-day/close-check')[0]?.[0]).toContain('blind=1');
+      expect(screen.queryByText('Expected in drawer')).toBeNull();
+      expect(screen.queryByText('Cash sales')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Close day' })).toBeDisabled();
+    });
+
+    it('adds 3 × ₹500, 2 × ₹100 and ₹30 of coins up to ₹1,730', async () => {
+      as(MANAGER);
+      setup();
+      renderRoute('/day');
+      await countNotes();
+      const total = screen.getByText('Counted total').parentElement!;
+      expect(total).toHaveTextContent('₹1,730');
+    });
+
+    it('steps a note count up and down with + and −, never below zero', async () => {
+      as(MANAGER);
+      setup();
+      renderRoute('/day');
+      const fifty = await screen.findByLabelText('₹50 notes');
+      fireEvent.click(screen.getByRole('button', { name: 'One more ₹50 note' }));
+      fireEvent.click(screen.getByRole('button', { name: 'One more ₹50 note' }));
+      expect(fifty).toHaveValue('2');
+      fireEvent.click(screen.getByRole('button', { name: 'One less ₹50 note' }));
+      fireEvent.click(screen.getByRole('button', { name: 'One less ₹50 note' }));
+      fireEvent.click(screen.getByRole('button', { name: 'One less ₹50 note' }));
+      expect(fifty).toHaveValue('0');
+    });
+
+    it('checks the count, then shows expected, counted and variance, and closes with the count', async () => {
+      as(MANAGER);
+      const mock = setup({ expected: 173000, variance: 0, needsReason: false });
+      renderRoute('/day');
+      await countNotes();
+      fireEvent.click(screen.getByRole('button', { name: 'Check count' }));
+      expect(await screen.findByText('Expected in drawer')).toBeInTheDocument();
+      expect(
+        JSON.parse(
+          String(callsTo(mock, 'POST', '/api/business-day/d2/close/check-count')[0]?.[1]?.body),
+        ),
+      ).toEqual({ countedCash: 173000 });
+      expect(screen.getByText('Variance')).toBeInTheDocument();
+      expect(screen.queryByRole('radiogroup', { name: 'Reason' })).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Close day' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Yes, close the day' }));
+      await expect.poll(() => callsTo(mock, 'POST', '/api/business-day/close').length).toBe(1);
+      expect(closeBody(mock)).toEqual({
+        countedCash: 173000,
+        count: {
+          notes: { '500': 3, '200': 0, '100': 2, '50': 0, '20': 0, '10': 0 },
+          coins: 3000,
+        },
+      });
+    });
+
+    it('needs a reason above the threshold before the day can close', async () => {
+      as(MANAGER);
+      const mock = setup({ expected: 103200, variance: 69800, needsReason: true });
+      renderRoute('/day');
+      await countNotes();
+      fireEvent.click(screen.getByRole('button', { name: 'Check count' }));
+      const reasons = await screen.findByRole('radiogroup', { name: 'Reason' });
+      expect(screen.getByRole('button', { name: 'Close day' })).toBeDisabled();
+      fireEvent.click(within(reasons).getByRole('radio', { name: 'Other' }));
+      // "Other" needs a few words too.
+      expect(screen.getByRole('button', { name: 'Close day' })).toBeDisabled();
+      fireEvent.click(within(reasons).getByRole('radio', { name: 'Counting error' }));
+      expect(screen.getByRole('button', { name: 'Close day' })).toBeEnabled();
+      fireEvent.click(screen.getByRole('button', { name: 'Close day' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Yes, close the day' }));
+      await expect.poll(() => callsTo(mock, 'POST', '/api/business-day/close').length).toBe(1);
+      expect(closeBody(mock)).toMatchObject({ countedCash: 173000, reasonCode: 'COUNT_ERROR' });
+    });
+
+    it('asks to check again when the count changes after a check', async () => {
+      as(MANAGER);
+      setup();
+      renderRoute('/day');
+      await countNotes();
+      fireEvent.click(screen.getByRole('button', { name: 'Check count' }));
+      await screen.findByText('Expected in drawer');
+      fireEvent.change(screen.getByLabelText('₹500 notes'), { target: { value: '4' } });
+      expect(screen.queryByText('Expected in drawer')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Close day' })).toBeDisabled();
+    });
+  });
+
   it('shows what blocked the close when the server refuses', async () => {
     as(MANAGER);
     mockApi({
       'GET /api/business-day/current': () => json(today),
       'GET /api/business-day': () => json([]),
       'GET /api/business-day/close-check': () => json(clear),
+      [CHECK]: () => json(checked, 201),
       'POST /api/business-day/close': () =>
         json(
           {
@@ -172,9 +313,7 @@ describe('Day close', () => {
         ),
     });
     renderRoute('/day');
-    fireEvent.change(await screen.findByLabelText('Counted cash (₹)'), {
-      target: { value: '1032' },
-    });
+    await checkTotal('1032');
     fireEvent.click(screen.getByRole('button', { name: 'Close day' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Yes, close the day' }));
     const open = await screen.findByRole('list', { name: 'Still open' });
@@ -199,6 +338,7 @@ describe('Day close', () => {
                 }
               : clear,
           ),
+        [CHECK]: () => json(checked, 201),
         'POST /api/business-day/close': () => {
           refused = true;
           return json(
@@ -212,9 +352,7 @@ describe('Day close', () => {
         },
       });
       renderRoute('/day');
-      fireEvent.change(await screen.findByLabelText('Counted cash (₹)'), {
-        target: { value: '1032' },
-      });
+      await checkTotal('1032');
       fireEvent.click(screen.getByRole('button', { name: 'Close day' }));
       fireEvent.click(await screen.findByRole('button', { name: 'Yes, close the day' }));
       await screen.findByRole('list', { name: 'Still open' });
@@ -227,7 +365,7 @@ describe('Day close', () => {
     } finally {
       vi.useRealTimers();
     }
-  });
+  }, 40_000);
 
   it('opens the report of a past day and lets the owner reopen the latest', async () => {
     as(OWNER, 'OWNER');
@@ -391,6 +529,38 @@ describe('Day close', () => {
     expect(note).toHaveTextContent('earlier close: counted ₹990, variance −₹10');
   });
 
+  it('shows the note count and the variance reason on the day report', async () => {
+    as(OWNER, 'OWNER');
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json(days),
+      'GET /api/business-day/d2/report': () => json(withCount()),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
+    const shown = await screen.findByRole('region', { name: 'Day report' });
+    const block = within(shown).getByRole('heading', { name: 'Cash count' }).parentElement!;
+    expect(within(block).getByText('₹500 × 3')).toBeInTheDocument();
+    expect(within(block).getByText('₹1,500')).toBeInTheDocument();
+    expect(within(block).getByText('₹100 × 2')).toBeInTheDocument();
+    expect(within(block).getByText('Coins')).toBeInTheDocument();
+    expect(within(block).queryByText(/₹200 ×/)).toBeNull();
+    expect(within(block).getByText('Counting error')).toBeInTheDocument();
+  });
+
+  it('has no cash count block for a day closed with a typed total', async () => {
+    as(OWNER, 'OWNER');
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json(days),
+      'GET /api/business-day/d2/report': () => json(report()),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
+    const shown = await screen.findByRole('region', { name: 'Day report' });
+    expect(within(shown).queryByRole('heading', { name: 'Cash count' })).toBeNull();
+  });
+
   it('does not offer reopen to a manager', async () => {
     as(MANAGER);
     mockApi({
@@ -429,6 +599,17 @@ describe('day report times on a PC set to UTC', () => {
 });
 
 describe('renderDayReport', () => {
+  it('prints the note count and the variance reason', () => {
+    const html = renderDayReport(withCount(), 'Spice Garden');
+    expect(html).toContain('Cash count');
+    expect(html).toContain('₹500 × 3');
+    expect(html).toContain('₹1,500');
+    expect(html).toContain('Coins');
+    expect(html).toContain('Reason');
+    expect(html).toContain('Counting error');
+    expect(renderDayReport(report(), 'Spice Garden')).not.toContain('Cash count');
+  });
+
   it('prints who reopened the day and the earlier close', () => {
     const html = renderDayReport(
       report({

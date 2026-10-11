@@ -46,6 +46,7 @@ interface Draft {
   waiterCanCollectPayment: boolean;
   parcelPaymentTiming: ParcelPaymentTiming;
   bagRupees: string;
+  varianceRupees: string;
 }
 
 function toDraft(s: OutletSettings): Draft {
@@ -64,6 +65,7 @@ function toDraft(s: OutletSettings): Draft {
     waiterCanCollectPayment: s.waiterCanCollectPayment,
     parcelPaymentTiming: s.parcelPaymentTiming,
     bagRupees: paiseToRupeesInput(s.billPackagingCharge ?? 0),
+    varianceRupees: paiseToRupeesInput(s.varianceAlertPaise ?? 10000),
   };
 }
 
@@ -89,12 +91,16 @@ function changes(saved: OutletSettings, draft: Draft): Record<string, unknown> {
   // An unreadable amount is sent as -1 so the schema check reports it on the field.
   const bagPaise = bag ?? -1;
   if (bagPaise !== (saved.billPackagingCharge ?? 0)) out.billPackagingCharge = bagPaise;
+  const variance = parseRupees(draft.varianceRupees.trim() || '0');
+  const variancePaise = variance ?? -1;
+  if (variancePaise !== (saved.varianceAlertPaise ?? 10000)) out.varianceAlertPaise = variancePaise;
   return out;
 }
 
 const ERROR_FIELD: Record<string, string> = {
   cashierDiscountCapBp: 'capPercent',
   billPackagingCharge: 'bagRupees',
+  varianceAlertPaise: 'varianceRupees',
 };
 
 function SettingsForm({ saved }: { saved: OutletSettings }) {
@@ -234,6 +240,20 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
             value={draft.bagRupees}
             onChange={(e) => setDraft((d) => ({ ...d, bagRupees: e.target.value }))}
           />{' '}
+        </Field>
+        <Field
+          id="setting-variance"
+          label="Variance alert above (₹)"
+          error={errors.varianceRupees}
+          hint="At day close, a cash difference bigger than this needs a reason."
+        >
+          <input
+            id="setting-variance"
+            inputMode="decimal"
+            className={inputClass}
+            value={draft.varianceRupees}
+            onChange={(e) => setDraft((d) => ({ ...d, varianceRupees: e.target.value }))}
+          />
         </Field>
         <Field id="setting-parcel" label="Parcel payment">
           <select

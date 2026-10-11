@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiError } from '@/shared/api/http';
-import { closeDay, openDay, reopenDay } from './api';
+import { checkCount, closeDay, openDay, reopenDay } from './api';
 import { dayKeys } from './keys';
-import type { CloseCheck, DayBlockers, DayReport } from './types';
+import type { BlindCloseCheck, DayBlockers, DayReport } from './types';
 
 export function useOpenDay() {
   const client = useQueryClient();
@@ -40,7 +40,7 @@ export function useCloseDay(handlers: {
     onError: (failure) => {
       const blocked = failure instanceof ApiError && failure.code === 'DAY_HAS_OPEN_WORK';
       if (blocked) {
-        client.setQueryData<CloseCheck>(dayKeys.closeCheck, (current) =>
+        client.setQueryData<BlindCloseCheck>(dayKeys.closeCheckBlind, (current) =>
           current ? { ...current, blockers: failure.body.blockers as DayBlockers } : current,
         );
       }
@@ -54,4 +54,9 @@ export function useReopenDay(dayId: string, onReopened: () => void) {
     mutationFn: (reason: string) => reopenDay(dayId, reason),
     onSuccess: onReopened,
   });
+}
+
+/** "Check count": expected, variance and whether a reason is needed. Closes nothing. */
+export function useCheckCount(dayId: string) {
+  return useMutation({ mutationFn: (countedCash: number) => checkCount(dayId, countedCash) });
 }

@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import {
+  checkCountSchema,
   closeDaySchema,
   openDaySchema,
   reopenDaySchema,
+  type CheckCountRequest,
   type CloseDayRequest,
   type OpenDayRequest,
   type ReopenDayRequest,
@@ -43,8 +45,19 @@ export class BusinessDayController {
 
   @Get('close-check')
   @RequirePermissions('day.openClose')
-  closeCheck(@CurrentUser() user: AuthUser) {
-    return this.closing.closeCheck(user.outletId);
+  closeCheck(@CurrentUser() user: AuthUser, @Query('blind') blind?: string) {
+    return this.closing.closeCheck(user.outletId, blind === '1');
+  }
+
+  /** A manager has counted: shows expected and variance without closing. */
+  @Post(':id/close/check-count')
+  @RequirePermissions('day.openClose')
+  checkCount(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) _id: string,
+    @Body(new ZodBody(checkCountSchema)) body: CheckCountRequest,
+  ) {
+    return this.closing.checkCount(user.outletId, body.countedCash);
   }
 
   @Post('close')

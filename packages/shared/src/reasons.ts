@@ -35,6 +35,15 @@ export const CANCEL_REASONS = [
 ] as const;
 export type CancelReason = (typeof CANCEL_REASONS)[number];
 
+/** Why the cash counted at day close is far from what was expected. */
+export const CLOSE_VARIANCE_REASONS = [
+  'SHORT_CHANGE',
+  'EXPENSE_MISSING',
+  'COUNT_ERROR',
+  'OTHER',
+] as const;
+export type CloseVarianceReason = (typeof CLOSE_VARIANCE_REASONS)[number];
+
 /** Each kind of reason list, keyed by name. */
 export const REASON_LABELS = {
   kotReprint: {
@@ -62,6 +71,12 @@ export const REASON_LABELS = {
     OUT_OF_STOCK: 'Out of stock',
     WRONG_DISH: 'Wrong dish',
     LONG_WAIT: 'Long wait',
+    OTHER: 'Other',
+  },
+  closeVariance: {
+    SHORT_CHANGE: 'Short change given',
+    EXPENSE_MISSING: 'Expense not entered',
+    COUNT_ERROR: 'Counting error',
     OTHER: 'Other',
   },
 } as const satisfies Record<string, Record<string, string>>;

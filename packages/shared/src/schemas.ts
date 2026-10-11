@@ -109,6 +109,8 @@ export const outletSettingsSchema = z.strictObject({
   parcelPaymentTiming: z.enum(PARCEL_PAYMENT_TIMINGS).optional(),
   /** Paise added once to each parcel order's bill (bag, cutlery). */
   billPackagingCharge: z.number().int().min(0).max(100_000).optional(),
+  /** Cash variance (paise) above which closing the day needs a reason. */
+  varianceAlertPaise: z.number().int().min(0).max(10_000_000).optional(),
 });
 export type OutletSettingsUpdate = z.infer<typeof outletSettingsSchema>;
 

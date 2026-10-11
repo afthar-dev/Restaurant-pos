@@ -64,6 +64,8 @@ model Outlet {
   parcelPaymentTiming     ParcelPaymentTiming @default(PAY_FIRST) @map("parcel_payment_timing")
   /// Paise added once to each parcel order's bill.
   billPackagingCharge     Int                 @default(0) @map("bill_packaging_charge")
+  /// A day cash variance above this (paise) needs a reason to close.
+  varianceAlertPaise      Int                 @default(10000) @map("variance_alert_paise")
   /// The restaurant logo: staff header, printed bills, QR menu.
   logoId                  String?             @map("logo_id") @db.Uuid
   logo                    Media?              @relation("OutletLogo", fields: [logoId], references: [id], onDelete: SetNull)
@@ -507,20 +509,23 @@ enum PrintJobStatus {
 }
 
 model BusinessDay {
-  id           String            @id @default(uuid()) @db.Uuid
-  outletId     String            @map("outlet_id") @db.Uuid
-  status       BusinessDayStatus @default(OPEN)
-  openingCash  Int               @map("opening_cash")
-  openedById   String            @map("opened_by_id") @db.Uuid
-  openedAt     DateTime          @default(now()) @map("opened_at") @db.Timestamptz(3)
-  closedById   String?           @map("closed_by_id") @db.Uuid
-  closedAt     DateTime?         @map("closed_at") @db.Timestamptz(3)
-  expectedCash Int?              @map("expected_cash")
-  countedCash  Int?              @map("counted_cash")
-  variance     Int?
-  closeNote    String?           @map("close_note")
-  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id              String            @id @default(uuid()) @db.Uuid
+  outletId        String            @map("outlet_id") @db.Uuid
+  status          BusinessDayStatus @default(OPEN)
+  openingCash     Int               @map("opening_cash")
+  openedById      String            @map("opened_by_id") @db.Uuid
+  openedAt        DateTime          @default(now()) @map("opened_at") @db.Timestamptz(3)
+  closedById      String?           @map("closed_by_id") @db.Uuid
+  closedAt        DateTime?         @map("closed_at") @db.Timestamptz(3)
+  expectedCash    Int?              @map("expected_cash")
+  countedCash     Int?              @map("counted_cash")
+  variance        Int?
+  closeNote       String?           @map("close_note")
+  /// The notes and coins counted at close: { notes: { "500": 3 }, coins: paise }.
+  closeCount      Json?             @map("close_count")
+  closeReasonCode String?           @map("close_reason_code")
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   outlet    Outlet     @relation(fields: [outletId], references: [id])
   openedBy  User       @relation("DayOpenedBy", fields: [openedById], references: [id])

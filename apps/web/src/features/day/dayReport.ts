@@ -1,4 +1,5 @@
 import { formatPaise } from '@rpos/shared';
+import { countRows, varianceReasonLabel } from './closeCount';
 import type { DayReport } from './types';
 import { escapeHtml } from '@/shared/lib/escape';
 import { PRINT_TIME_ZONE } from '@/shared/lib/when';
@@ -144,6 +145,15 @@ ${section(
     row('Expected in drawer', money(r.cash.expected), true),
     r.cash.counted !== null ? row('Counted', money(r.cash.counted)) : '',
     variance !== null ? row('Variance', money(variance), true) : '',
+  ].join(''),
+)}
+${section(
+  'Cash count',
+  [
+    ...(r.day.closeCount
+      ? countRows(r.day.closeCount).map((c) => row(c.label, money(c.amount)))
+      : []),
+    r.day.closeReasonCode ? row('Reason', e(varianceReasonLabel(r.day.closeReasonCode)!)) : '',
   ].join(''),
 )}
 ${r.day.closeNote ? `<hr><div>Note: ${e(r.day.closeNote)}</div>` : ''}

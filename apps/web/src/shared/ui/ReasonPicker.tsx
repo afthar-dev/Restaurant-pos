@@ -1,5 +1,6 @@
 import {
   CANCEL_REASONS,
+  CLOSE_VARIANCE_REASONS,
   DISCOUNT_REASONS,
   VOID_REASONS,
   reasonLabel,
@@ -9,12 +10,13 @@ import { Field } from './Field';
 import { inputClass } from './styles';
 import { ReasonChips } from './ReasonChips';
 
-type PickerKind = Extract<ReasonKind, 'discount' | 'void' | 'cancel'>;
+type PickerKind = Extract<ReasonKind, 'discount' | 'void' | 'cancel' | 'closeVariance'>;
 
 const CODES: Record<PickerKind, readonly string[]> = {
   discount: DISCOUNT_REASONS,
   void: VOID_REASONS,
   cancel: CANCEL_REASONS,
+  closeVariance: CLOSE_VARIANCE_REASONS,
 };
 
 /** What the person picked: a reason code, and a note that "Other" needs. */

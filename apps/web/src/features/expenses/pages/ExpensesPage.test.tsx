@@ -174,6 +174,8 @@ describe('day report printout', () => {
         openedBy: { id: 'a', name: 'A' },
         closedBy: { id: 'a', name: 'A' },
         closeNote: null,
+        closeCount: null,
+        closeReasonCode: null,
       },
       sales: {
         bills: 0,

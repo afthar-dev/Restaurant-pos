@@ -1,4 +1,4 @@
-import type { OrderStatus, OrderType, PaymentMode } from '@rpos/shared';
+import type { CloseCount, OrderStatus, OrderType, PaymentMode } from '@rpos/shared';
 
 export interface BusinessDay {
   id: string;
@@ -13,9 +13,14 @@ export interface DayBlockers {
   bills: { id: string; orderId: string; billNo: number; due: number }[];
 }
 
-export interface CloseCheck {
+/** What stops the close; the closing screen asks for this alone (blind). */
+export interface BlindCloseCheck {
   day: { id: string; openingCash: number };
   blockers: DayBlockers;
+}
+
+/** The close check with the cash expected in the drawer (owner Home). */
+export interface CloseCheck extends BlindCloseCheck {
   cash: {
     opening: number;
     cashSales: number;
@@ -24,6 +29,13 @@ export interface CloseCheck {
     cashExpenses: number;
     expected: number;
   };
+}
+
+/** The answer to "Check count": nothing is closed or saved. */
+export interface CountCheck {
+  expected: number;
+  variance: number;
+  needsReason: boolean;
 }
 
 export interface DaySummary {
@@ -59,6 +71,9 @@ export interface DayReport {
     openedBy: { id: string; name: string };
     closedBy: { id: string; name: string } | null;
     closeNote: string | null;
+    /** Notes and coins counted at close; null if the day was closed with a typed total. */
+    closeCount: CloseCount | null;
+    closeReasonCode: string | null;
   };
   sales: {
     bills: number;
