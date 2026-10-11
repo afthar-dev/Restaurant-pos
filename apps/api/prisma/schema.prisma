@@ -52,7 +52,7 @@ model Outlet {
   id                      String              @id @default(uuid()) @db.Uuid
   name                    String
   gstin                   String?
-  taxScheme               TaxScheme           @default(REGULAR) @map("tax_scheme")
+  taxScheme               TaxScheme           @default(NONE) @map("tax_scheme")
   address                 String?
   phone                   String?
   fssaiNumber             String?             @map("fssai_number")

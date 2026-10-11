@@ -49,6 +49,8 @@ export interface SalesReport {
     expenses: { total: number; byCategory: { name: string; amount: number }[] };
     net: number;
   };
+  /** Turnover and the flat tax owed on it; only for a composition outlet, otherwise null. */
+  composition: { turnover: number; taxPayable: number } | null;
   items: { itemName: string; variantName: string; quantity: number; amount: number }[];
   categories: { name: string; quantity: number; amount: number }[];
   /** Bills by India hour (0–23), only hours with bills. */

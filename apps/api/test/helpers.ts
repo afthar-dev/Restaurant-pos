@@ -46,7 +46,8 @@ export async function createTestApp(
 }
 
 export async function createOutlet(prisma: PrismaClient): Promise<Outlet> {
-  return prisma.outlet.create({ data: { name: 'Test Outlet' } });
+  // The column default is NONE (not registered); tests bill with GST unless they say otherwise.
+  return prisma.outlet.create({ data: { name: 'Test Outlet', taxScheme: 'REGULAR' } });
 }
 
 let phoneCounter = 0;

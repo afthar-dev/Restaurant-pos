@@ -457,6 +457,44 @@ describe('the owner’s dashboard', () => {
     return within(heading.closest('section')!);
   };
 
+  describe('GSTIN warning', () => {
+    const WARNING = 'Add your GSTIN — you are charging GST without one';
+    const withOutlet = (taxScheme: string, gstin: string | null) => {
+      owner();
+      mockApi({
+        ...handlers(),
+        'GET /api/outlet': () =>
+          json({ name: 'Spice Garden', gstin, taxScheme, address: 'MG Road', phone: '9000000001' }),
+      });
+      renderRoute('/');
+    };
+
+    it.each(['REGULAR', 'COMPOSITION'])(
+      'warns the owner on %s without a GSTIN, with a link to settings',
+      async (scheme) => {
+        withOutlet(scheme, null);
+        const warning = await screen.findByRole('alert');
+        expect(within(warning).getByText(WARNING)).toBeInTheDocument();
+        expect(within(warning).getByRole('link', { name: 'Open settings' })).toHaveAttribute(
+          'href',
+          '/admin/settings',
+        );
+      },
+    );
+
+    it('stays quiet when a GSTIN is set or the outlet is not registered', async () => {
+      withOutlet('REGULAR', '27AAPFU0939F1ZV');
+      await screen.findByRole('group', { name: 'This business day' });
+      expect(screen.queryByText(WARNING)).toBeNull();
+    });
+
+    it('stays quiet for a not-registered outlet', async () => {
+      withOutlet('NONE', null);
+      await screen.findByRole('group', { name: 'This business day' });
+      expect(screen.queryByText(WARNING)).toBeNull();
+    });
+  });
+
   it('shows live tiles for the floor, kitchen, QR orders, unpaid bills and cash', async () => {
     owner();
     full();

@@ -12,6 +12,7 @@ import {
 import { dayAndTime } from '@/shared/lib/when';
 import { Card, CardBody, describeError, ErrorNote } from '@/shared/ui';
 import { DayNotOpen } from '../DayNotOpen';
+import { GstinWarning } from './GstinWarning';
 import { OwnerHomeSkeleton } from './OwnerHomeSkeleton';
 import { RightNow } from './RightNow';
 import { TodaysBusiness } from './TodaysBusiness';
@@ -92,6 +93,7 @@ export default function OwnerHome() {
   const open = day.data.day;
   return (
     <>
+      <GstinWarning />
       {open ? <RightNow /> : <DayNotOpen />}
       {open ? <OpenDaySections dayId={open.id} openedAt={open.openedAt} /> : <TodaySections />}
       <WatchList day={open} />

@@ -179,7 +179,7 @@ export class PrintService {
     const percent = (bp: number) => `${Number((bp / 100).toFixed(2))}%`;
     return {
       kind: 'BILL',
-      title: bill.taxScheme === 'REGULAR' ? 'Tax Invoice' : 'Bill of Supply',
+      taxScheme: bill.taxScheme,
       outlet: {
         name: bill.outlet.name,
         address: bill.outlet.address,

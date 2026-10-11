@@ -43,6 +43,7 @@ const REPORT: SalesReport = {
   range: { from: '2026-10-09', to: '2026-10-10' },
   days: [day('d1', '2026-10-09', 1_000_000, 7), day('d2', '2026-10-10', 1_825_000, 10)],
   summary: SUMMARY,
+  composition: null,
   items: [
     { itemName: 'Paneer Tikka', variantName: 'Regular', quantity: 20, amount: 440_000 },
     { itemName: 'Biryani', variantName: 'Half', quantity: 5, amount: 150_000 },

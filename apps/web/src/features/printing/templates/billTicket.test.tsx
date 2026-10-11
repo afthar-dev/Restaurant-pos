@@ -4,12 +4,12 @@ import { printBill } from '@/features/billing/printBill';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
 import { renderWithProviders } from '@/test/render';
 import { withDeviceTimeZone } from '@/test/timezone';
-import { renderBillTicket, type BillPrintPayload } from './billTicket';
+import { billTitle, renderBillTicket, type BillPrintPayload } from './billTicket';
 import { PrintWorker } from '../PrintWorker';
 
 export const billPayload: BillPrintPayload = {
   kind: 'BILL',
-  title: 'Tax Invoice',
+  taxScheme: 'REGULAR',
   outlet: {
     name: 'Spice Garden',
     address: 'MG Road, Bengaluru',
@@ -126,7 +126,7 @@ describe('renderBillTicket', () => {
   it('prints a bill of supply without tax lines, a parcel token and a void stamp', () => {
     const html = renderBillTicket({
       ...billPayload,
-      title: 'Bill of Supply',
+      taxScheme: 'COMPOSITION',
       taxBreakup: [],
       cgst: 0,
       sgst: 0,
@@ -141,6 +141,44 @@ describe('renderBillTicket', () => {
     expect(html).toContain('Parcel #7');
     expect(html).toContain('VOID');
     expect(html).toContain('58mm');
+  });
+});
+
+describe('bill title and wording by tax scheme', () => {
+  const noTax = { taxBreakup: [], cgst: 0, sgst: 0 };
+
+  it('names the bill after the scheme', () => {
+    expect(billTitle('REGULAR')).toBe('Tax Invoice');
+    expect(billTitle('COMPOSITION')).toBe('Bill of Supply');
+    expect(billTitle('NONE')).toBe('Bill');
+  });
+
+  it('REGULAR prints Tax Invoice, the GSTIN, CGST and SGST rows and the SAC code', () => {
+    const html = renderBillTicket(billPayload);
+    expect(html).toContain('Tax Invoice');
+    expect(html).toContain('GSTIN: 29ABCDE1234F1Z5');
+    expect(html).toContain('CGST 2.5%');
+    expect(html).toContain('SGST 2.5%');
+    expect(html).toContain('SAC 996331');
+    expect(html).not.toContain('Composition taxable person');
+  });
+
+  it('COMPOSITION prints Bill of Supply, the GSTIN, the declaration and no tax rows', () => {
+    const html = renderBillTicket({ ...billPayload, ...noTax, taxScheme: 'COMPOSITION' });
+    expect(html).toContain('Bill of Supply');
+    expect(html).toContain('GSTIN: 29ABCDE1234F1Z5');
+    expect(html).toContain('Composition taxable person, not eligible to collect tax on supplies');
+    expect(html).not.toContain('CGST');
+    expect(html).not.toContain('SAC 996331');
+  });
+
+  it('NONE prints Bill with no GSTIN line and no tax rows', () => {
+    const html = renderBillTicket({ ...billPayload, ...noTax, taxScheme: 'NONE' });
+    expect(html).toContain('>Bill<');
+    expect(html).not.toContain('GSTIN');
+    expect(html).not.toContain('CGST');
+    expect(html).not.toContain('SAC 996331');
+    expect(html).not.toContain('Composition taxable person');
   });
 });
 

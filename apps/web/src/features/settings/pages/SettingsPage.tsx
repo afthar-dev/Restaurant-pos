@@ -30,6 +30,8 @@ const TAX_LABEL: Record<TaxScheme, string> = {
   NONE: 'Not GST registered',
 };
 
+const GSTIN_NEEDED = 'Add your GSTIN to charge GST.';
+
 const PARCEL_LABEL: Record<ParcelPaymentTiming, string> = {
   PAY_FIRST: 'Customer pays before the order is sent',
   PAY_AT_PICKUP: 'Customer pays at pickup',
@@ -102,6 +104,7 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
 
   useEffect(() => setDraft(toDraft(saved)), [saved]);
 
+  const needsGstin = draft.taxScheme !== 'NONE';
   const save = useUpdateOutlet(() => setResult('Saved'));
 
   const setText = (key: TextKey) => (value: string) =>
@@ -113,6 +116,12 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
     const body = changes(saved, draft);
     if (Object.keys(body).length === 0) {
       setResult('No changes to save');
+      return;
+    }
+    // Same rule as the server: choosing or keeping a GST scheme needs a GSTIN, but only when the
+    // scheme or GSTIN is being changed, so an older outlet can still save its other settings.
+    if (('taxScheme' in body || 'gstin' in body) && needsGstin && !draft.text.gstin.trim()) {
+      setErrors({ gstin: GSTIN_NEEDED });
       return;
     }
     const parsed = outletSettingsSchema.safeParse(body);
@@ -150,7 +159,24 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
 
       <fieldset className="grid gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
         <legend className="px-1 text-sm font-semibold">Tax</legend>
-        {text('gstin', 'GSTIN', 'From the GST certificate. Leave empty if not registered.')}
+        <Field
+          id="setting-gstin"
+          label="GSTIN"
+          error={errors.gstin}
+          hint={
+            needsGstin
+              ? 'Required to charge GST. From the GST certificate.'
+              : 'From the GST certificate. Leave empty if not registered.'
+          }
+        >
+          <input
+            id="setting-gstin"
+            className={inputClass}
+            aria-required={needsGstin}
+            value={draft.text.gstin}
+            onChange={(e) => setText('gstin')(e.target.value)}
+          />
+        </Field>
         <Field id="setting-taxScheme" label="GST scheme">
           <select
             id="setting-taxScheme"

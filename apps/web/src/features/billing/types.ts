@@ -46,7 +46,7 @@ export interface Bill {
   billNo: number;
   financialYear: string;
   status: BillStatus;
-  title: 'Tax Invoice' | 'Bill of Supply';
+  title: 'Tax Invoice' | 'Bill of Supply' | 'Bill';
   orderId: string;
   orderType: OrderType;
   tableName: string | null;

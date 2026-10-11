@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import type { Media, Outlet, Prisma } from '@prisma/client';
 import type { OutletSettingsUpdate } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
+import { ApiError } from '../common/api-error';
 import type { AuthUser } from '../common/request-context';
 import { MediaService } from '../media/media.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -98,6 +99,17 @@ export class OutletService {
 
   async update(actor: AuthUser, request: OutletSettingsUpdate): Promise<OutletSettings> {
     const current = await this.prisma.outlet.findUniqueOrThrow({ where: { id: actor.outletId } });
+
+    // Only a request that touches the scheme or the GSTIN is checked, so a live outlet that is on
+    // REGULAR without a GSTIN can still save its other settings.
+    if ('taxScheme' in request || 'gstin' in request) {
+      const scheme = request.taxScheme ?? current.taxScheme;
+      const gstin = request.gstin === undefined ? current.gstin : request.gstin;
+      if (scheme !== 'NONE' && !gstin) {
+        throw new ApiError(HttpStatus.BAD_REQUEST, 'VALIDATION', 'Add your GSTIN to charge GST.');
+      }
+    }
+
     const updated = await this.prisma.outlet.update({ where: { id: current.id }, data: request });
 
     const before: Record<string, unknown> = {};

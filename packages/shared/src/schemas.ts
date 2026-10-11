@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PASSWORD_ROLES, PERMISSIONS, ROLES } from './auth';
+import { gstinSchema } from './gstin';
 
 export const TAX_SCHEMES = ['REGULAR', 'COMPOSITION', 'NONE'] as const;
 export type TaxScheme = (typeof TAX_SCHEMES)[number];
@@ -21,10 +22,6 @@ export const passwordSchema = z
   .max(200, 'Password is too long');
 
 export const nameSchema = z.string().trim().min(1, 'Name is required').max(100, 'Name is too long');
-
-export const gstinSchema = z
-  .string()
-  .regex(/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, 'Enter a valid 15-character GSTIN');
 
 export const loginSchema = z.strictObject({
   phone: phoneSchema,

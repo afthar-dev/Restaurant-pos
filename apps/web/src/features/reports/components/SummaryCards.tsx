@@ -1,3 +1,4 @@
+import { COMPOSITION_RESTAURANT_RATE_BP } from '@rpos/shared';
 import { rupees } from '@/shared/lib/money';
 import { GstTable, StatStrip } from '@/shared/ui';
 import type { SalesReport } from '../types';
@@ -18,7 +19,13 @@ function Split({ title, rows }: { title: string; rows: [string, string][] }) {
 }
 
 /** Headline numbers for the range: sales, bills, average, expenses, net, and the splits. */
-export function SummaryCards({ summary }: { summary: SalesReport['summary'] }) {
+export function SummaryCards({
+  summary,
+  composition,
+}: {
+  summary: SalesReport['summary'];
+  composition: SalesReport['composition'];
+}) {
   return (
     <div className="flex flex-col gap-3">
       <StatStrip
@@ -66,8 +73,22 @@ export function SummaryCards({ summary }: { summary: SalesReport['summary'] }) {
           ]}
         />
       </div>
-      {(summary.gstBreakup.length > 0 || summary.exempt > 0) && (
-        <GstTable rates={summary.gstBreakup} exempt={summary.exempt} />
+      {composition ? (
+        <StatStrip
+          label="Composition"
+          items={[
+            { label: 'Turnover (composition)', value: rupees(composition.turnover) },
+            {
+              label: `Composition tax payable (${COMPOSITION_RESTAURANT_RATE_BP / 100}%)`,
+              value: rupees(composition.taxPayable),
+              hint: 'Owed on turnover. Not collected on bills.',
+            },
+          ]}
+        />
+      ) : (
+        (summary.gstBreakup.length > 0 || summary.exempt > 0) && (
+          <GstTable rates={summary.gstBreakup} exempt={summary.exempt} />
+        )
       )}
       {summary.expenses.byCategory.length > 0 && (
         <div className="overflow-hidden rounded-lg border border-border">

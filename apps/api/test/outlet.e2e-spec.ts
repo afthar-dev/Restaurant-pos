@@ -1,10 +1,13 @@
 import type { Outlet, User } from '@prisma/client';
+import { pay, servedOrder } from './billing-helpers';
+import { buildRestaurant } from './fixtures';
 import {
   createOutlet,
   createTestApp,
   createUser,
   loginWithPassword,
   resetDatabase,
+  signIn,
   type TestContext,
 } from './helpers';
 
@@ -126,6 +129,75 @@ describe('outlet settings and audit', () => {
       .expect(400);
     expect(res.body.code).toBe('VALIDATION');
     expect(res.body.details[0].path).toBe('gstin');
+  });
+
+  describe('GST scheme needs a GSTIN', () => {
+    const patch = (body: object) =>
+      ctx.http().patch('/api/outlet').set('Authorization', `Bearer ${ownerToken}`).send(body);
+
+    it.each(['REGULAR', 'COMPOSITION'])('refuses %s without a GSTIN', async (taxScheme) => {
+      const res = await patch({ taxScheme }).expect(400);
+      expect(res.body.code).toBe('VALIDATION');
+      expect(res.body.message).toBe('Add your GSTIN to charge GST.');
+    });
+
+    it('accepts a GST scheme together with a valid GSTIN', async () => {
+      const res = await patch({ taxScheme: 'COMPOSITION', gstin: '27aapfu0939f1zv' }).expect(200);
+      expect(res.body).toMatchObject({ taxScheme: 'COMPOSITION', gstin: '27AAPFU0939F1ZV' });
+    });
+
+    it('accepts a GST scheme when a GSTIN is already stored', async () => {
+      await ctx.prisma.outlet.update({
+        where: { id: outlet.id },
+        data: { taxScheme: 'NONE', gstin: '27AAPFU0939F1ZV' },
+      });
+      await patch({ taxScheme: 'REGULAR' }).expect(200);
+    });
+
+    it('refuses clearing the GSTIN while on a GST scheme', async () => {
+      await patch({ taxScheme: 'REGULAR', gstin: '27AAPFU0939F1ZV' }).expect(200);
+      const res = await patch({ gstin: null }).expect(400);
+      expect(res.body.message).toBe('Add your GSTIN to charge GST.');
+    });
+
+    it('lets NONE be saved and keeps the stored GSTIN', async () => {
+      await patch({ taxScheme: 'REGULAR', gstin: '27AAPFU0939F1ZV' }).expect(200);
+      const res = await patch({ taxScheme: 'NONE' }).expect(200);
+      expect(res.body).toMatchObject({ taxScheme: 'NONE', gstin: '27AAPFU0939F1ZV' });
+    });
+
+    it('billing still works for a REGULAR outlet without a GSTIN, and settings refuses to save REGULAR without one', async () => {
+      // A live outlet from before this rule: REGULAR, no GSTIN.
+      await ctx.prisma.outlet.update({
+        where: { id: outlet.id },
+        data: { taxScheme: 'REGULAR', gstin: null },
+      });
+      const r = await buildRestaurant(ctx.prisma, outlet.id);
+      const cashier = await signIn(ctx, outlet.id, 'CASHIER', 'Kavya');
+      const waiter = await signIn(ctx, outlet.id, 'WAITER', 'Arun');
+      await ctx
+        .http()
+        .post('/api/business-day/open')
+        .set({ Authorization: `Bearer ${ownerToken}` })
+        .send({ openingCash: 100000 })
+        .expect(201);
+      const orderId = await servedOrder(ctx, r, waiter, [
+        { variantId: r.roti.regular.id, quantity: 1 },
+      ]);
+      const bill = await ctx
+        .http()
+        .post(`/api/orders/${orderId}/bills`)
+        .set(cashier.auth)
+        .send({})
+        .expect(201);
+      await pay(ctx, cashier, bill.body.id, { mode: 'CASH', amount: bill.body.due }).expect(201);
+
+      // Other settings still save.
+      await patch({ billFooter: 'Thanks' }).expect(200);
+      // Keeping or choosing a GST scheme without a GSTIN is what is refused.
+      await patch({ taxScheme: 'REGULAR' }).expect(400);
+      await patch({ gstin: null }).expect(400);
+    });
   });
 
   it('rejects a bad audit query', async () => {

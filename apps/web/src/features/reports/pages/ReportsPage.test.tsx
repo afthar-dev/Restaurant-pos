@@ -42,6 +42,7 @@ const REPORT: SalesReport = {
     expenses: { total: 1000, byCategory: [{ name: 'Gas', amount: 1000 }] },
     net: 116050,
   },
+  composition: null,
   items: [
     { itemName: '=Paneer Tikka', variantName: 'Half', quantity: 2, amount: 36000 },
     { itemName: 'Tandoori Roti', variantName: 'Regular', quantity: 4, amount: 12800 },
@@ -148,6 +149,34 @@ describe('ReportsPage', () => {
     expect(within(gst).getByRole('row', { name: /5%.*₹120.*₹3.*₹3/ })).toBeInTheDocument();
     expect(within(gst).getByRole('row', { name: /18%.*₹180.*₹16.20.*₹16.20/ })).toBeInTheDocument();
     expect(within(gst).getByRole('row', { name: /No GST sales.*₹30/ })).toBeInTheDocument();
+  });
+
+  it('shows turnover and tax payable instead of the GST table for a composition outlet', async () => {
+    asOwner();
+    const composition = { turnover: 117050, taxPayable: 5853 };
+    mockApi({
+      'GET /api/reports/sales': () =>
+        json({
+          ...REPORT,
+          composition,
+          summary: { ...REPORT.summary, gstBreakup: [], cgst: 0, sgst: 0 },
+        }),
+    });
+    renderRoute('/reports');
+    const strip = await screen.findByRole('group', { name: 'Composition' }, { timeout: 15_000 });
+    expect(within(strip).getByText('Turnover (composition)')).toBeInTheDocument();
+    expect(within(strip).getByText('₹1,170.50')).toBeInTheDocument();
+    expect(within(strip).getByText('Composition tax payable (5%)')).toBeInTheDocument();
+    expect(within(strip).getByText('₹58.53')).toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: 'GST by rate' })).toBeNull();
+  });
+
+  it('leaves the composition figures out for a regular outlet', async () => {
+    asOwner();
+    mockApi({ 'GET /api/reports/sales': () => json(REPORT) });
+    renderRoute('/reports');
+    await screen.findByRole('table', { name: 'GST by rate' }, { timeout: 15_000 });
+    expect(screen.queryByText('Turnover (composition)')).toBeNull();
   });
 
   it('leaves the No-GST row out when everything carried GST', async () => {

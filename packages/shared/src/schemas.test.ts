@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   createUserSchema,
-  gstinSchema,
   outletSettingsSchema,
   phoneSchema,
   pinSchema,
@@ -25,16 +24,6 @@ describe('pinSchema', () => {
 
   it.each(['123', '1234567', '12a4'])('rejects %s', (value) => {
     expect(pinSchema.safeParse(value).success).toBe(false);
-  });
-});
-
-describe('gstinSchema', () => {
-  it('accepts a well-formed GSTIN', () => {
-    expect(gstinSchema.parse('29ABCDE1234F1Z5')).toBe('29ABCDE1234F1Z5');
-  });
-
-  it.each(['29abcde1234f1z5', '29ABCDE1234F1Z'])('rejects %s', (value) => {
-    expect(gstinSchema.safeParse(value).success).toBe(false);
   });
 });
 

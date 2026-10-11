@@ -335,7 +335,7 @@ describe('print jobs', () => {
     const billJob = jobs.find((j: { kind: string }) => j.kind === 'BILL');
     expect(billJob.payload).toMatchObject({
       kind: 'BILL',
-      title: 'Tax Invoice',
+      taxScheme: 'REGULAR',
       billNo: 1,
       status: 'OPEN',
       tableName: 'T1',

@@ -1,11 +1,11 @@
-import { formatPaise, type PaymentMode } from '@rpos/shared';
+import { formatPaise, type PaymentMode, type TaxScheme } from '@rpos/shared';
 import { escapeHtml } from '@/shared/lib/escape';
 import { PRINT_TIME_ZONE } from '@/shared/lib/when';
 
 /** Mirrors PrintService.buildBillPayload() in the API. */
 export interface BillPrintPayload {
   kind: 'BILL';
-  title: 'Tax Invoice' | 'Bill of Supply';
+  taxScheme: TaxScheme;
   outlet: {
     name: string;
     address: string | null;
@@ -62,6 +62,17 @@ export interface BillPrintPayload {
   due: number;
 }
 
+/** The heading printed on a bill: only a GST-registered outlet may call it a Tax Invoice. */
+export function billTitle(scheme: TaxScheme): 'Tax Invoice' | 'Bill of Supply' | 'Bill' {
+  if (scheme === 'REGULAR') return 'Tax Invoice';
+  if (scheme === 'COMPOSITION') return 'Bill of Supply';
+  return 'Bill';
+}
+
+const COMPOSITION_DECLARATION =
+  'Composition taxable person, not eligible to collect tax on supplies';
+const RESTAURANT_SAC = 'SAC 996331';
+
 const MODE_LABEL: Record<PaymentMode, string> = { CASH: 'Cash', UPI: 'UPI', CARD: 'Card' };
 
 const row = (label: string, amount: string, strong = false) =>
@@ -86,7 +97,9 @@ export function renderBillTicket(p: BillPrintPayload): string {
   const outlet = [
     p.outlet.address && `<div class="center">${e(p.outlet.address)}</div>`,
     p.outlet.phone && `<div class="center">Ph: ${e(p.outlet.phone)}</div>`,
-    p.outlet.gstin && `<div class="center">GSTIN: ${e(p.outlet.gstin)}</div>`,
+    p.taxScheme !== 'NONE' &&
+      p.outlet.gstin &&
+      `<div class="center">GSTIN: ${e(p.outlet.gstin)}</div>`,
     p.outlet.fssaiNumber && `<div class="center">FSSAI: ${e(p.outlet.fssaiNumber)}</div>`,
     p.outlet.billHeader && `<div class="center">${e(p.outlet.billHeader)}</div>`,
   ]
@@ -137,7 +150,7 @@ ${p.status === 'VOID' ? '<div class="void">VOID</div>' : ''}
 ${p.outlet.logoUrl ? `<img class="logo" src="${e(absolute(p.outlet.logoUrl))}" alt="">` : ''}
 <div class="center name">${e(p.outlet.name)}</div>
 ${outlet}
-<div class="center title">${e(p.title)}</div>
+<div class="center title">${e(billTitle(p.taxScheme))}</div>
 <hr>
 ${row(`Bill No: ${e(p.financialYear)}/${p.billNo}`, e(when))}
 ${row(where, p.guests ? `Guests: ${p.guests}` : '')}
@@ -151,6 +164,8 @@ ${totals}
 ${row('TOTAL', money(p.total), true)}
 ${payments ? `<hr>${payments}` : ''}
 ${p.due > 0 ? row('Due', money(p.due), true) : ''}
+${p.taxScheme === 'REGULAR' ? `<div class="center">${RESTAURANT_SAC}</div>` : ''}
+${p.taxScheme === 'COMPOSITION' ? `<div class="center">${COMPOSITION_DECLARATION}</div>` : ''}
 ${p.outlet.billFooter ? `<hr><div class="center">${e(p.outlet.billFooter)}</div>` : ''}
 </body></html>`;
 }

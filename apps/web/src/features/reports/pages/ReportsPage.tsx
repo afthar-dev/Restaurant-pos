@@ -92,7 +92,7 @@ export function ReportsPage() {
         !report.isError && <LoadingScreen />
       ) : (
         <>
-          <SummaryCards summary={data.summary} />
+          <SummaryCards summary={data.summary} composition={data.composition} />
           {data.days.length === 0 ? (
             <EmptyState
               icon={<CalendarX />}

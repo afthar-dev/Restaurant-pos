@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type BusinessDayStatus, type OrderType, type PaymentMode } from '@prisma/client';
-import type { ReportRange } from '@rpos/shared';
+import { COMPOSITION_RESTAURANT_RATE_BP, type ReportRange } from '@rpos/shared';
 import { notFound } from '../common/master-data';
 import { gstSummary } from '../billing/gst-summary';
 import { PrismaService } from '../prisma/prisma.service';
@@ -68,7 +68,7 @@ export class SalesReportService {
        WHERE outlet_id = ${outletId}::uuid
          AND (opened_at AT TIME ZONE ${TIME_ZONE})::date BETWEEN ${range.from}::date AND ${range.to}::date
        ORDER BY opened_at`;
-    return this.summarise(range, days);
+    return this.summarise(outletId, range, days);
   }
 
   /** One business day, by id: its figures stay together when it runs past midnight. */
@@ -78,10 +78,14 @@ export class SalesReportService {
         FROM business_days
        WHERE outlet_id = ${outletId}::uuid AND id = ${businessDayId}::uuid`;
     if (days.length === 0) throw notFound('Business day');
-    return this.summarise({ from: days[0]!.date, to: days[0]!.date }, days);
+    return this.summarise(outletId, { from: days[0]!.date, to: days[0]!.date }, days);
   }
 
-  private async summarise(range: ReportRange, days: DayRow[]) {
+  private async summarise(outletId: string, range: ReportRange, days: DayRow[]) {
+    const { taxScheme } = await this.prisma.outlet.findUniqueOrThrow({
+      where: { id: outletId },
+      select: { taxScheme: true },
+    });
     const dayIds = days.map((d) => d.id);
     const live = { businessDayId: { in: dayIds }, status: { not: 'VOID' as const } };
 
@@ -202,6 +206,14 @@ export class SalesReportService {
         // What is left of sales once the GST collected and the expenses are taken off.
         net: total - (sums.cgst ?? 0) - (sums.sgst ?? 0) - expenseTotal,
       },
+      // A composition outlet owes a flat share of its turnover instead of collecting GST.
+      composition:
+        taxScheme === 'COMPOSITION'
+          ? {
+              turnover: total,
+              taxPayable: Math.round((total * COMPOSITION_RESTAURANT_RATE_BP) / 10000),
+            }
+          : null,
       items: await this.items(dayIds),
       categories: await this.categories(dayIds),
       hours: await this.hours(dayIds),
