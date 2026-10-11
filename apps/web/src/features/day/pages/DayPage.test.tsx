@@ -452,6 +452,14 @@ describe('renderDayReport', () => {
     expect(renderDayReport(report(), 'Spice Garden')).not.toContain('Reopened');
   });
 
+  it('prints the reprinted bills, only when there are any', () => {
+    const html = renderDayReport(report({ reprints: [{ billNo: 135, count: 2 }] }), 'Spice Garden');
+    expect(html).toContain('Reprinted bills');
+    expect(html).toContain('Bill 135');
+    expect(html).toContain('reprinted 2×');
+    expect(renderDayReport(report(), 'Spice Garden')).not.toContain('Reprinted bills');
+  });
+
   it('prints the refunds, per mode, and the cash refunded in the drawer tally', () => {
     const base = report();
     const html = renderDayReport(

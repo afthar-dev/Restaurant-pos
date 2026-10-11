@@ -161,6 +161,7 @@ export function BillView({
         <button
           type="button"
           className={`${secondaryButton} min-h-11`}
+          disabled={printing.isPending}
           onClick={() => void print()}
         >
           Print

@@ -8,9 +8,11 @@ export async function printBillHere(
   billId: string,
   printHtml: PrintHtml = printHtmlInIframe,
   paperWidthMm: 58 | 80 = 80,
+  /** The copy number this print was given; without it the latest one is used. */
+  copy?: number,
 ): Promise<void> {
   const payload = await fetchBillPrintPayload(billId, paperWidthMm);
-  await printHtml(renderBillTicket(payload));
+  await printHtml(renderBillTicket(copy === undefined ? payload : { ...payload, copy }));
 }
 
 /**
@@ -22,8 +24,8 @@ export async function printBill(
   printHtml: PrintHtml = printHtmlInIframe,
   paperWidthMm: 58 | 80 = 80,
 ): Promise<'queued' | 'printed-here'> {
-  const { queued } = await queueBillPrint(billId);
+  const { queued, copy } = await queueBillPrint(billId);
   if (queued > 0) return 'queued';
-  await printBillHere(billId, printHtml, paperWidthMm);
+  await printBillHere(billId, printHtml, paperWidthMm, copy);
   return 'printed-here';
 }

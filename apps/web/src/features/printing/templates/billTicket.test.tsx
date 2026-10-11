@@ -312,6 +312,22 @@ describe('bill printing', () => {
       'paperWidthMm=80',
     );
   });
+
+  it('prints the copy number its own tap was given, even if a later tap already raised the count', async () => {
+    useSession.getState().setSession(sessionBody('CASHIER', ['bill.print']));
+    let taps = 0;
+    mockApi({
+      'POST /api/bills/b1/print': () => json({ id: 'b1', queued: 0, copy: ++taps }, 201),
+      // Both taps were counted before either payload is read: the payload says the latest.
+      'GET /api/bills/b1/print-payload': () => json({ ...billPayload, copy: 2 }),
+    });
+    const printHtml = vi.fn(async (_html: string) => undefined);
+    await Promise.all([printBill('b1', printHtml), printBill('b1', printHtml)]);
+    const pages = printHtml.mock.calls.map((c) => c[0]);
+    expect(pages.some((h) => h.includes('REPRINT #1'))).toBe(true);
+    expect(pages.some((h) => h.includes('REPRINT #2'))).toBe(true);
+    expect(new Set(pages.map((h) => /REPRINT #[0-9]+/.exec(h)?.[0])).size).toBe(2);
+  });
 });
 
 describe('totals block order and old queued payloads', () => {

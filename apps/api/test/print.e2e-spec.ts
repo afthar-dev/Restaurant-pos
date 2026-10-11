@@ -291,7 +291,7 @@ describe('print jobs', () => {
       .post(`/api/bills/${bill.id}/print`)
       .set(cashier.auth)
       .expect(201);
-    expect(reprint.body).toEqual({ id: bill.id, queued: 0 });
+    expect(reprint.body).toEqual({ id: bill.id, queued: 0, copy: 1 });
     const payload = await ctx
       .http()
       .get(`/api/bills/${bill.id}/print-payload?paperWidthMm=58`)
@@ -493,7 +493,12 @@ describe('print jobs', () => {
       const { bill } = await newBill();
       const first = await ctx.http().get(`/api/bills/${bill.id}/print-payload`).set(owner.auth);
       expect(first.body.copy).toBe(0);
-      await ctx.http().post(`/api/bills/${bill.id}/print`).set(owner.auth).expect(201);
+      const again = await ctx
+        .http()
+        .post(`/api/bills/${bill.id}/print`)
+        .set(owner.auth)
+        .expect(201);
+      expect(again.body).toEqual({ id: bill.id, queued: 0, copy: 1 });
       const second = await ctx.http().get(`/api/bills/${bill.id}/print-payload`).set(owner.auth);
       expect(second.body.copy).toBe(1);
     });

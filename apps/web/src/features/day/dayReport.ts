@@ -112,6 +112,10 @@ ${section(
     .join(''),
 )}
 ${section(
+  'Reprinted bills',
+  r.reprints.map((b) => row(`Bill ${b.billNo}`, `reprinted ${b.count}×`)).join(''),
+)}
+${section(
   'Voided bills',
   r.voids
     .map((v) => row(`Bill ${v.billNo}${v.reason ? ` · ${e(v.reason)}` : ''}`, money(v.total)))

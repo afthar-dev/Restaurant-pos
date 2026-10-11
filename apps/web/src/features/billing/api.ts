@@ -65,4 +65,4 @@ export const fetchBillPrintPayload = (billId: string, paperWidthMm: 58 | 80) =>
 
 /** Queues the bill on the bill printer; `queued` is 0 when no bill printer is set up. */
 export const queueBillPrint = (billId: string) =>
-  apiFetch<{ queued: number }>(`/api/bills/${billId}/print`, { method: 'POST' });
+  apiFetch<{ queued: number; copy: number }>(`/api/bills/${billId}/print`, { method: 'POST' });

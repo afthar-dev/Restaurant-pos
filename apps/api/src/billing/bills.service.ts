@@ -532,7 +532,7 @@ export class BillsService {
       );
       return printCount - 1;
     });
-    return { id: billId, queued: await this.print.queueBillJobs(billId, copy) };
+    return { id: billId, queued: await this.print.queueBillJobs(billId, copy), copy };
   }
 
   /** Queues a new bill on the bill printers; a print problem never fails billing (§5.6.4). */
