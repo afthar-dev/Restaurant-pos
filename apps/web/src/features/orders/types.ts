@@ -42,6 +42,8 @@ export interface ActiveOrder {
   itemCount: number;
   subtotal: number;
   createdAt: string;
+  /** Kitchen tickets still open: waiting or cooking, and ready to serve. */
+  kitchen: { cooking: number; ready: number };
 }
 
 export interface OrderLine {

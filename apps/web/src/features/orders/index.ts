@@ -6,6 +6,6 @@ export { ParcelList } from './components/ParcelList';
 export { QrInbox } from './components/qr/QrInbox';
 export { floorKeys, orderKeys, qrKeys } from './keys';
 export { useRefreshOrder } from './mutations';
-export { useOrder, useQrPending } from './queries';
+export { useActiveOrders, useFloorStatus, useOrder, useQrPending } from './queries';
 export { orderLabel, type Order, type OrderLine, type QrRequest } from './types';
 export { useReadyAlerts } from './useReadyAlerts';

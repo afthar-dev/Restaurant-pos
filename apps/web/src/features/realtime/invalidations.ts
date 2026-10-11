@@ -22,6 +22,9 @@ export const INVALIDATIONS: Record<string, (payload: Payload) => QueryKey[]> = {
     qrKeys.pending(),
     // A moved order shows its new table on the kitchen screen.
     kitchenKeys.all,
+    // Unpaid bills and expected cash on the owner's Home.
+    dayKeys.closeCheck,
+    dayKeys.reports,
   ],
   'qr.submitted': (p) => [
     qrKeys.pending(),
@@ -36,13 +39,23 @@ export const INVALIDATIONS: Record<string, (payload: Payload) => QueryKey[]> = {
     floorKeys.all,
     // Bills, payments and voids move the sales figures on Home and Reports.
     reportKeys.all,
+    dayKeys.closeCheck,
+    dayKeys.reports,
   ],
-  'kot.created': (p) => [kitchenKeys.all, orderKeys.detail(orderId(p))],
-  'kot.updated': (p) => [kitchenKeys.all, orderKeys.detail(orderId(p))],
+  // The active orders carry the cooking and ready counts shown on Home.
+  'kot.created': (p) => [kitchenKeys.all, orderKeys.detail(orderId(p)), orderKeys.active()],
+  'kot.updated': (p) => [kitchenKeys.all, orderKeys.detail(orderId(p)), orderKeys.active()],
   'menu.availability': () => [menuKeys.all],
   // A closed or reopened day changes which purchases and expenses can still be voided.
-  'day.updated': () => [dayKeys.current, expenseKeys.all, stockKeys.all, reportKeys.all],
+  'day.updated': () => [
+    dayKeys.current,
+    dayKeys.closeCheck,
+    dayKeys.reports,
+    expenseKeys.all,
+    stockKeys.all,
+    reportKeys.all,
+  ],
   'print.job': () => [printKeys.jobs],
-  'expense.updated': () => [expenseKeys.all, dayKeys.closeCheck, reportKeys.all],
+  'expense.updated': () => [expenseKeys.all, dayKeys.closeCheck, dayKeys.reports, reportKeys.all],
   'stock.updated': () => [stockKeys.all],
 };
