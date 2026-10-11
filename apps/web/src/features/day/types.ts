@@ -74,6 +74,8 @@ export interface DayReport {
     /** Notes and coins counted at close; null if the day was closed with a typed total. */
     closeCount: CloseCount | null;
     closeReasonCode: string | null;
+    /** The first count checked on the day (paise), only when it differs from the closing count. */
+    firstCount: number | null;
   };
   sales: {
     bills: number;

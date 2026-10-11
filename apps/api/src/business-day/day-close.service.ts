@@ -46,9 +46,16 @@ export class DayCloseService {
    * What closing would show for a counted figure, once the manager has counted: the expected
    * cash, the variance and whether the variance needs a reason. Changes and records nothing.
    */
-  async checkCount(outletId: string, countedCash: number) {
-    const day = await this.prisma.businessDay.findFirst({ where: { outletId, status: 'OPEN' } });
+  async checkCount(outletId: string, dayId: string, countedCash: number) {
+    const day = await this.prisma.businessDay.findFirst({
+      where: { id: dayId, outletId, status: 'OPEN' },
+    });
     if (!day) throw dayNotOpen();
+    // The first count checked is kept, once, so a later re-count that matches is still visible.
+    await this.prisma.businessDay.updateMany({
+      where: { id: day.id, firstCountedCash: null },
+      data: { firstCountedCash: countedCash },
+    });
     const { expected } = await this.expectedCash(this.prisma, day);
     const variance = countedCash - expected;
     const outlet = await this.prisma.outlet.findUniqueOrThrow({ where: { id: outletId } });
@@ -119,6 +126,9 @@ export class DayCloseService {
             variance,
             ...(request.reasonCode ? { reasonCode: request.reasonCode } : {}),
             ...(request.count ? { count: request.count } : {}),
+            ...(day.firstCountedCash !== null && day.firstCountedCash !== request.countedCash
+              ? { firstCount: day.firstCountedCash }
+              : {}),
           },
         },
         tx,
@@ -173,6 +183,7 @@ export class DayCloseService {
           variance: null,
           closeNote: null,
           closeReasonCode: null,
+          firstCountedCash: null,
           closeCount: Prisma.DbNull,
         },
       });
@@ -191,6 +202,7 @@ export class DayCloseService {
             countedCash: day.countedCash,
             variance: day.variance,
             closeReasonCode: day.closeReasonCode,
+            firstCount: day.firstCountedCash,
             closeCount: day.closeCount ?? null,
           },
         },
@@ -367,6 +379,11 @@ export class DayCloseService {
         closeNote: day.closeNote,
         closeCount: day.closeCount as CloseCount | null,
         closeReasonCode: day.closeReasonCode,
+        // Only when the first count checked was not the count the day closed with.
+        firstCount:
+          day.firstCountedCash !== null && day.firstCountedCash !== day.countedCash
+            ? day.firstCountedCash
+            : null,
       },
       sales: {
         bills: live.length,

@@ -50,6 +50,7 @@ const report = (partial: Partial<DayReport> = {}): DayReport => ({
     closeNote: 'Short ₹2',
     closeCount: null,
     closeReasonCode: null,
+    firstCount: null,
   },
   sales: {
     bills: 2,
@@ -279,6 +280,45 @@ describe('Day close', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Yes, close the day' }));
       await expect.poll(() => callsTo(mock, 'POST', '/api/business-day/close').length).toBe(1);
       expect(closeBody(mock)).toMatchObject({ countedCash: 173000, reasonCode: 'COUNT_ERROR' });
+    });
+
+    it('starts the check over when the server refuses the close', async () => {
+      as(MANAGER);
+      const mock = mockApi({
+        'GET /api/business-day/current': () => json(today),
+        'GET /api/business-day': () => json([]),
+        'GET /api/business-day/close-check': () => json(clear),
+        [CHECK]: () => json(checked, 201),
+        'POST /api/business-day/close': () =>
+          json({ code: 'REASON_REQUIRED', message: 'Say why.' }, 400),
+      });
+      renderRoute('/day');
+      await countNotes();
+      fireEvent.click(screen.getByRole('button', { name: 'Check count' }));
+      await screen.findByText('Expected in drawer');
+      fireEvent.click(screen.getByRole('button', { name: 'Close day' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Yes, close the day' }));
+      await expect.poll(() => callsTo(mock, 'POST', '/api/business-day/close').length).toBe(1);
+      await screen.findByRole('button', { name: 'Check count' });
+      expect(screen.queryByText('Expected in drawer')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Close day' })).toBeDisabled();
+    });
+
+    it('uses the reason note as the note when Other is chosen, without a second note box', async () => {
+      as(MANAGER);
+      const mock = setup({ expected: 103200, variance: 69800, needsReason: true });
+      renderRoute('/day');
+      await countNotes();
+      expect(screen.getByLabelText('Note')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Check count' }));
+      const reasons = await screen.findByRole('radiogroup', { name: 'Reason' });
+      fireEvent.click(within(reasons).getByRole('radio', { name: 'Other' }));
+      expect(screen.queryByLabelText('Note')).toBeNull();
+      fireEvent.change(screen.getByLabelText('What happened'), { target: { value: 'Tip jar' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Close day' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Yes, close the day' }));
+      await expect.poll(() => callsTo(mock, 'POST', '/api/business-day/close').length).toBe(1);
+      expect(closeBody(mock)).toMatchObject({ reasonCode: 'OTHER', note: 'Tip jar' });
     });
 
     it('asks to check again when the count changes after a check', async () => {
@@ -548,6 +588,22 @@ describe('Day close', () => {
     expect(within(block).getByText('Counting error')).toBeInTheDocument();
   });
 
+  it('shows the first count when it differs from the closing count', async () => {
+    as(OWNER, 'OWNER');
+    const base = withCount();
+    mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/business-day': () => json(days),
+      'GET /api/business-day/d2/report': () =>
+        json({ ...base, day: { ...base.day, firstCount: 120000 } }),
+    });
+    renderRoute('/day');
+    fireEvent.click(await screen.findByRole('button', { name: /^6 Oct/ }));
+    const shown = await screen.findByRole('region', { name: 'Day report' });
+    expect(within(shown).getByText('First count')).toBeInTheDocument();
+    expect(within(shown).getByText('₹1,200', { selector: '.tabular-nums' })).toBeInTheDocument();
+  });
+
   it('has no cash count block for a day closed with a typed total', async () => {
     as(OWNER, 'OWNER');
     mockApi({
@@ -608,6 +664,13 @@ describe('renderDayReport', () => {
     expect(html).toContain('Reason');
     expect(html).toContain('Counting error');
     expect(renderDayReport(report(), 'Spice Garden')).not.toContain('Cash count');
+    expect(html).not.toContain('First count');
+    const base = withCount();
+    const first = renderDayReport(
+      { ...base, day: { ...base.day, firstCount: 120000 } },
+      'Spice Garden',
+    );
+    expect(first).toContain('First count');
   });
 
   it('prints who reopened the day and the earlier close', () => {

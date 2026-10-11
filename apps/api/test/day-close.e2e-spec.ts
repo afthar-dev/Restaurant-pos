@@ -93,6 +93,48 @@ describe('closing the business day', () => {
       await checkCount(1, waiter).expect(403);
     });
 
+    it('remembers the first count checked, once, and reports it when the close differs', async () => {
+      await checkCount(150000).expect(201);
+      await checkCount(173000).expect(201);
+      expect((await ctx.prisma.businessDay.findFirstOrThrow()).firstCountedCash).toBe(150000);
+      const res = await close({ countedCash: 173000, reasonCode: 'COUNT_ERROR' }).expect(201);
+      expect(res.body.day.firstCount).toBe(150000);
+      const audit = await ctx.prisma.auditEntry.findFirstOrThrow({
+        where: { action: 'day.close' },
+      });
+      expect(audit.after).toMatchObject({ counted: 173000, firstCount: 150000 });
+    });
+
+    it('reports no first count when it is the same as the close', async () => {
+      await checkCount(100000).expect(201);
+      const res = await close({ countedCash: 100000 }).expect(201);
+      expect(res.body.day.firstCount).toBeNull();
+    });
+
+    it('clears the first count when the day is reopened', async () => {
+      await checkCount(99000).expect(201);
+      await close({ countedCash: 100000 }).expect(201);
+      await ctx
+        .http()
+        .post(`/api/business-day/${dayId}/reopen`)
+        .set(owner.auth)
+        .send({ reason: 'Missed a bill' })
+        .expect(201);
+      expect((await ctx.prisma.businessDay.findFirstOrThrow()).firstCountedCash).toBeNull();
+    });
+
+    it('refuses to check a count for a day that is not the open one', async () => {
+      const other = '00000000-0000-4000-8000-000000000009';
+      const res = await ctx
+        .http()
+        .post(`/api/business-day/${other}/close/check-count`)
+        .set(manager.auth)
+        .send({ countedCash: 1 })
+        .expect(409);
+      expect(res.body.code).toBe('DAY_NOT_OPEN');
+      expect((await ctx.prisma.businessDay.findFirstOrThrow()).firstCountedCash).toBeNull();
+    });
+
     it('refuses a count that does not add up to the counted cash', async () => {
       const res = await close({ countedCash: 100000, count }).expect(400);
       expect(res.body.code).toBe('COUNT_MISMATCH');
@@ -407,6 +449,7 @@ describe('closing the business day', () => {
       countedCash: 99000,
       variance: -1000,
       closeReasonCode: null,
+      firstCount: null,
       closeCount: null,
     });
 

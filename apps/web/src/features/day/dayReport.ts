@@ -153,6 +153,7 @@ ${section(
     ...(r.day.closeCount
       ? countRows(r.day.closeCount).map((c) => row(c.label, money(c.amount)))
       : []),
+    r.day.firstCount !== null ? row('First count', money(r.day.firstCount)) : '',
     r.day.closeReasonCode ? row('Reason', e(varianceReasonLabel(r.day.closeReasonCode)!)) : '',
   ].join(''),
 )}

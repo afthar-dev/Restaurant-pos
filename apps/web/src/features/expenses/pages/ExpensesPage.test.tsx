@@ -176,6 +176,7 @@ describe('day report printout', () => {
         closeNote: null,
         closeCount: null,
         closeReasonCode: null,
+        firstCount: null,
       },
       sales: {
         bills: 0,

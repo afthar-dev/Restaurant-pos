@@ -54,10 +54,10 @@ export class BusinessDayController {
   @RequirePermissions('day.openClose')
   checkCount(
     @CurrentUser() user: AuthUser,
-    @Param('id', ParseUUIDPipe) _id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodBody(checkCountSchema)) body: CheckCountRequest,
   ) {
-    return this.closing.checkCount(user.outletId, body.countedCash);
+    return this.closing.checkCount(user.outletId, id, body.countedCash);
   }
 
   @Post('close')

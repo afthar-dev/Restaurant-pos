@@ -509,23 +509,25 @@ enum PrintJobStatus {
 }
 
 model BusinessDay {
-  id              String            @id @default(uuid()) @db.Uuid
-  outletId        String            @map("outlet_id") @db.Uuid
-  status          BusinessDayStatus @default(OPEN)
-  openingCash     Int               @map("opening_cash")
-  openedById      String            @map("opened_by_id") @db.Uuid
-  openedAt        DateTime          @default(now()) @map("opened_at") @db.Timestamptz(3)
-  closedById      String?           @map("closed_by_id") @db.Uuid
-  closedAt        DateTime?         @map("closed_at") @db.Timestamptz(3)
-  expectedCash    Int?              @map("expected_cash")
-  countedCash     Int?              @map("counted_cash")
-  variance        Int?
-  closeNote       String?           @map("close_note")
+  id               String            @id @default(uuid()) @db.Uuid
+  outletId         String            @map("outlet_id") @db.Uuid
+  status           BusinessDayStatus @default(OPEN)
+  openingCash      Int               @map("opening_cash")
+  openedById       String            @map("opened_by_id") @db.Uuid
+  openedAt         DateTime          @default(now()) @map("opened_at") @db.Timestamptz(3)
+  closedById       String?           @map("closed_by_id") @db.Uuid
+  closedAt         DateTime?         @map("closed_at") @db.Timestamptz(3)
+  expectedCash     Int?              @map("expected_cash")
+  countedCash      Int?              @map("counted_cash")
+  variance         Int?
+  closeNote        String?           @map("close_note")
   /// The notes and coins counted at close: { notes: { "500": 3 }, coins: paise }.
-  closeCount      Json?             @map("close_count")
-  closeReasonCode String?           @map("close_reason_code")
-  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  closeCount       Json?             @map("close_count")
+  closeReasonCode  String?           @map("close_reason_code")
+  /// The first count checked on the day (paise), set once; shown on the report if the close differs.
+  firstCountedCash Int?              @map("first_counted_cash")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   outlet    Outlet     @relation(fields: [outletId], references: [id])
   openedBy  User       @relation("DayOpenedBy", fields: [openedById], references: [id])

@@ -160,7 +160,11 @@ function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
     // Blockers found by the server show in the list above, not as an error.
     onFailed: (failure, blocked) => {
       setConfirming(false);
-      if (!blocked) setError(describeError(failure));
+      if (!blocked) {
+        // The figures shown may be stale (a payment or expense came in): check again.
+        setChecked(null);
+        setError(describeError(failure));
+      }
     },
   });
 
@@ -283,14 +287,16 @@ function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
             )}
           </Block>
         )}
-        <Field id={`${id}-note`} label="Note">
-          <input
-            id={`${id}-note`}
-            className={inputClass}
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
-        </Field>
+        {!(needsReason && reason.code === 'OTHER') && (
+          <Field id={`${id}-note`} label="Note">
+            <input
+              id={`${id}-note`}
+              className={inputClass}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </Field>
+        )}
         <ErrorNote message={error} />
         {confirming ? (
           <ConfirmBar
@@ -407,12 +413,17 @@ function ReportView({
           )}
           {report.day.closeNote && <p className="text-muted">Note: {report.day.closeNote}</p>}
         </Block>
-        {(report.day.closeCount || report.day.closeReasonCode) && (
+        {(report.day.closeCount ||
+          report.day.closeReasonCode ||
+          report.day.firstCount !== null) && (
           <Block title="Cash count">
             {report.day.closeCount &&
               countRows(report.day.closeCount).map((c) => (
                 <Row key={c.label} label={c.label} value={rupees(c.amount)} />
               ))}
+            {report.day.firstCount !== null && (
+              <Row label="First count" value={rupees(report.day.firstCount)} />
+            )}
             {report.day.closeReasonCode && (
               <Row label="Reason" value={varianceReasonLabel(report.day.closeReasonCode)!} />
             )}

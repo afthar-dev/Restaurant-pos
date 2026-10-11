@@ -76,7 +76,12 @@ describe('HomePage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Welcome, Asha' })).toBeVisible();
     expect(await screen.findByText('2 QR orders waiting for approval')).toBeInTheDocument();
     expect(await screen.findByText('Before closing the day')).toBeInTheDocument();
-    expect(screen.getByText('₹1,022')).toBeInTheDocument();
+    // The manager counts the cash blind: no expected figure, and the check is asked for blind.
+    expect(screen.queryByText('Cash expected')).toBeNull();
+    expect(screen.queryByText('₹1,022')).toBeNull();
+    const urls = callsTo(mockOf, 'GET', '/api/business-day/close-check').map(([u]) => String(u));
+    expect(urls.length).toBeGreaterThan(0);
+    expect(urls.every((u) => u.includes('blind=1'))).toBe(true);
     expect(await screen.findByText('Onion')).toBeInTheDocument();
     // Today's figures and the owner's dashboard are for people with the reports.
     expect(screen.queryByRole('heading', { name: 'Right now' })).toBeNull();
