@@ -11,6 +11,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { reasonOf } from '../common/reason';
 import {
   cancelItemSchema,
   cancelOrderSchema,
@@ -57,7 +58,15 @@ export class KotsController {
     @Headers('if-match') ifMatch: string | undefined,
     @Body(new ZodBody(cancelItemSchema)) body: CancelItemRequest,
   ) {
-    return this.kots.cancelItem(actor, user, id, itemId, ifMatch, body.reason, body.quantity);
+    return this.kots.cancelItem(
+      actor,
+      user,
+      id,
+      itemId,
+      ifMatch,
+      reasonOf('cancel', body),
+      body.quantity,
+    );
   }
 
   @Post('orders/:id/void')
@@ -69,7 +78,7 @@ export class KotsController {
     @Headers('if-match') ifMatch: string | undefined,
     @Body(new ZodBody(cancelOrderSchema)) body: CancelOrderRequest,
   ) {
-    return this.kots.voidOrder(actor, user, id, ifMatch, body.reason);
+    return this.kots.voidOrder(actor, user, id, ifMatch, reasonOf('cancel', body));
   }
 
   @Post('kots/:id/served')

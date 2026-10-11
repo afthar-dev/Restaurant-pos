@@ -56,3 +56,23 @@ export interface SalesReport {
   /** Bills by India hour (0–23), only hours with bills. */
   hours: { hour: number; bills: number; total: number }[];
 }
+
+export interface AccountabilityFigure {
+  count: number;
+  amount: number;
+}
+
+/** Mirrors AccountabilityService in apps/api/src/reports/accountability.service.ts. */
+export interface AccountabilityReport {
+  byReason: { kind: 'discount' | 'void' | 'cancel'; code: string; count: number; amount: number }[];
+  byStaff: {
+    userId: string;
+    name: string;
+    discounts: AccountabilityFigure;
+    voids: AccountabilityFigure;
+    cancels: AccountabilityFigure;
+    reprints: number;
+    cashOut: AccountabilityFigure;
+    modeChanges: number;
+  }[];
+}

@@ -29,6 +29,7 @@ import {
 import { DEVICE_COOKIE } from '../auth/cookies';
 import { RequirePermissions } from '../auth/decorators';
 import { ApiError } from '../common/api-error';
+import { reasonOf } from '../common/reason';
 import { CurrentUser, type AuthUser, type RequestContext } from '../common/request-context';
 import { ZodBody } from '../common/zod-body.pipe';
 import { OrdersService } from './orders.service';
@@ -103,7 +104,7 @@ export class OrdersController {
     @Headers('if-match') ifMatch: string | undefined,
     @Body(new ZodBody(cancelOrderSchema)) body: CancelOrderRequest,
   ) {
-    return this.orders.cancel(user, id, ifMatch, body.reason);
+    return this.orders.cancel(user, id, ifMatch, reasonOf('cancel', body));
   }
 
   @Post(':id/move')

@@ -53,11 +53,15 @@ export const addPayment = (billId: string, idempotencyKey: string, body: Payment
     body,
   });
 
-export const voidBill = (billId: string, reason: string, overrideToken?: string) =>
+export const voidBill = (
+  billId: string,
+  reason: { reasonCode: string; note?: string },
+  overrideToken?: string,
+) =>
   apiFetch(`/api/bills/${billId}/void`, {
     method: 'POST',
     headers: overrideHeader(overrideToken),
-    body: { reason },
+    body: reason,
   });
 
 export const fetchBillPrintPayload = (billId: string, paperWidthMm: 58 | 80) =>

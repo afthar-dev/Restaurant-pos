@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { gstinSchema } from './gstin';
 import { priceSchema } from './menu';
+import { DISCOUNT_REASONS, VOID_REASONS, reasonRequestFields, refineReason } from './reasons';
 
 export const PAYMENT_MODES = ['CASH', 'UPI', 'CARD'] as const;
 export type PaymentMode = (typeof PAYMENT_MODES)[number];
@@ -35,16 +36,22 @@ export const createBillSchema = z.strictObject({
 });
 export type CreateBillRequest = z.infer<typeof createBillSchema>;
 
-export const billDiscountSchema = z.strictObject({
-  /** Omit to keep the bill discount, null to remove it. */
-  bill: discountSchema.nullable().optional(),
-  items: z
-    .array(z.strictObject({ billItemId: z.uuid(), discount: discountSchema.nullable() }))
-    .max(200)
-    .default([]),
-  /** Required (checked by the server) whenever any discount is above zero. */
-  reason: z.string().trim().max(140).optional(),
-});
+export const billDiscountSchema = refineReason(
+  z.strictObject({
+    /** Omit to keep the bill discount, null to remove it. */
+    bill: discountSchema.nullable().optional(),
+    items: z
+      .array(z.strictObject({ billItemId: z.uuid(), discount: discountSchema.nullable() }))
+      .max(200)
+      .default([]),
+    /**
+     * A reason is required (checked by the server) whenever any discount is above zero.
+     * `reason` is the older free text; it counts as OTHER.
+     */
+    ...reasonRequestFields(DISCOUNT_REASONS),
+  }),
+  false,
+);
 export type BillDiscountRequest = z.infer<typeof billDiscountSchema>;
 
 export const addPaymentSchema = z.strictObject({
@@ -66,7 +73,7 @@ export const billCustomerSchema = z.strictObject({
 });
 export type BillCustomerRequest = z.infer<typeof billCustomerSchema>;
 
-export const voidBillSchema = z.strictObject({ reason: reasonSchema });
+export const voidBillSchema = refineReason(z.strictObject(reasonRequestFields(VOID_REASONS)), true);
 export type VoidBillRequest = z.infer<typeof voidBillSchema>;
 
 export const moveOrderSchema = z.strictObject({ tableId: z.uuid() });

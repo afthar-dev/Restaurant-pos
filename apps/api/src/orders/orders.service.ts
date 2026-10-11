@@ -1,3 +1,4 @@
+import type { ResolvedReason } from '@rpos/shared';
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Order, OrderSource, Prisma } from '@prisma/client';
@@ -278,7 +279,12 @@ export class OrdersService {
   }
 
   /** Cancels an order with nothing in the kitchen (wrong table, customer left). */
-  async cancel(actor: AuthUser, orderId: string, ifMatch: string | undefined, reason: string) {
+  async cancel(
+    actor: AuthUser,
+    orderId: string,
+    ifMatch: string | undefined,
+    reason: ResolvedReason,
+  ) {
     const view = await this.mutate(actor, orderId, ifMatch, async ({ tx, order }) => {
       if (order.status !== 'OPEN' && order.status !== 'PENDING_APPROVAL') throw orderNotOpen();
       const sent = await tx.orderItem.count({ where: { orderId, status: 'SENT' } });
@@ -291,13 +297,20 @@ export class OrdersService {
       }
       await tx.orderItem.updateMany({
         where: { orderId, status: 'NEW' },
-        data: { status: 'CANCELLED', cancelReason: reason, cancelledById: actor.id },
+        data: {
+          status: 'CANCELLED',
+          cancelReason: reason.text,
+          cancelReasonCode: reason.code,
+          cancelledById: actor.id,
+          cancelledAt: new Date(),
+        },
       });
       await tx.order.update({
         where: { id: orderId },
         data: {
           status: 'CANCELLED',
-          cancelReason: reason,
+          cancelReason: reason.text,
+          cancelReasonCode: reason.code,
           cancelledById: actor.id,
           closedAt: new Date(),
         },
@@ -310,7 +323,8 @@ export class OrdersService {
           action: 'order.cancel',
           entity: 'order',
           entityId: orderId,
-          reason,
+          reason: reason.text,
+          after: { reasonCode: reason.code },
         },
         tx,
       );

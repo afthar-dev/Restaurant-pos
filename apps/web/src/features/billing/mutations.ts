@@ -103,8 +103,13 @@ export function useSetCustomer(bill: Bill) {
 export function useVoidBill(bill: Bill) {
   const refresh = useRefreshOrder();
   return useMutation({
-    mutationFn: ({ reason, overrideToken }: { reason: string; overrideToken?: string }) =>
-      voidBill(bill.id, reason, overrideToken),
+    mutationFn: ({
+      reason,
+      overrideToken,
+    }: {
+      reason: { reasonCode: string; note?: string };
+      overrideToken?: string;
+    }) => voidBill(bill.id, reason, overrideToken),
     onSuccess: () => refresh(bill.orderId),
   });
 }

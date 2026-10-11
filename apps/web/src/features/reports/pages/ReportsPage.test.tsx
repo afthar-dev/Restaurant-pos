@@ -239,6 +239,82 @@ describe('ReportsPage', () => {
     expect(await screen.findByText('Choose at most 92 days')).toBeInTheDocument();
   });
 
+  describe('Discounts & voids tab', () => {
+    const ACCOUNTABILITY = {
+      byReason: [
+        { kind: 'discount', code: 'COMPLIMENTARY', count: 2, amount: 1500 },
+        { kind: 'void', code: 'DUPLICATE', count: 1, amount: 40950 },
+        { kind: 'cancel', code: 'CHANGED_MIND', count: 1, amount: 18000 },
+      ],
+      byStaff: [
+        {
+          userId: 'u1',
+          name: 'Kavya',
+          discounts: { count: 1, amount: 500 },
+          voids: { count: 0, amount: 0 },
+          cancels: { count: 0, amount: 0 },
+          reprints: 2,
+          cashOut: { count: 0, amount: 0 },
+          modeChanges: 0,
+        },
+        {
+          userId: 'u2',
+          name: 'Meena',
+          discounts: { count: 1, amount: 1000 },
+          voids: { count: 1, amount: 40950 },
+          cancels: { count: 1, amount: 18000 },
+          reprints: 0,
+          cashOut: { count: 0, amount: 0 },
+          modeChanges: 0,
+        },
+      ],
+    };
+
+    async function openTab() {
+      renderRoute('/reports');
+      const tab = await screen.findByRole(
+        'tab',
+        { name: 'Discounts & voids' },
+        { timeout: 15_000 },
+      );
+      fireEvent.mouseDown(tab);
+      fireEvent.click(tab);
+    }
+
+    it('shows totals by reason and by staff member for the chosen dates', async () => {
+      asOwner();
+      const mock = mockApi({
+        'GET /api/reports/sales': () => json(REPORT),
+        'GET /api/reports/accountability': () => json(ACCOUNTABILITY),
+      });
+      await openTab();
+      const reasons = await screen.findByRole('table', { name: 'By reason' });
+      expect(within(reasons).getByText('Complimentary')).toBeInTheDocument();
+      expect(within(reasons).getByText('Duplicate bill')).toBeInTheDocument();
+      expect(within(reasons).getByText('Customer changed mind')).toBeInTheDocument();
+      expect(within(reasons).getByText('₹15')).toBeInTheDocument();
+      const staff = screen.getByRole('table', { name: 'By staff' });
+      const kavya = within(staff).getByRole('row', { name: /Kavya/ });
+      expect(within(kavya).getByText('1 · ₹5')).toBeInTheDocument();
+      expect(within(kavya).getByText('2')).toBeInTheDocument();
+      const meena = within(staff).getByRole('row', { name: /Meena/ });
+      expect(within(meena).getByText('1 · ₹409.50')).toBeInTheDocument();
+      const url = String(callsTo(mock, 'GET', '/api/reports/accountability')[0]?.[0]);
+      expect(url).toMatch(/from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}/);
+    });
+
+    it('says so when there was nothing to review', async () => {
+      asOwner();
+      mockApi({
+        'GET /api/reports/sales': () => json(REPORT),
+        'GET /api/reports/accountability': () => json({ byReason: [], byStaff: [] }),
+      });
+      await openTab();
+      expect(await screen.findByText('No discounts, voids or cancellations')).toBeInTheDocument();
+      expect(screen.queryByRole('table', { name: 'By reason' })).toBeNull();
+    });
+  });
+
   it('is only for the owner', async () => {
     useSession.getState().setSession(sessionBody('MANAGER', ['reports.dayClose']));
     mockApi({});

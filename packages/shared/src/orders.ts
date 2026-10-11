@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { priceSchema } from './menu';
+import { CANCEL_REASONS, reasonRequestFields, refineReason } from './reasons';
 
 export const ORDER_TYPES = ['DINE_IN', 'PARCEL'] as const;
 export type OrderType = (typeof ORDER_TYPES)[number];
@@ -67,19 +68,19 @@ export const updateOrderItemSchema = z
   .refine((v) => v.quantity !== undefined || v.note !== undefined, 'Nothing to change');
 export type UpdateOrderItemRequest = z.infer<typeof updateOrderItemSchema>;
 
-const reasonSchema = z
-  .string()
-  .trim()
-  .min(3, 'Give a short reason')
-  .max(200, 'Keep the reason under 200 characters');
-
-export const cancelItemSchema = z.strictObject({
-  reason: reasonSchema,
-  quantity: z.number().int().min(1).max(99).optional(),
-});
+export const cancelItemSchema = refineReason(
+  z.strictObject({
+    ...reasonRequestFields(CANCEL_REASONS),
+    quantity: z.number().int().min(1).max(99).optional(),
+  }),
+  true,
+);
 export type CancelItemRequest = z.infer<typeof cancelItemSchema>;
 
-export const cancelOrderSchema = z.strictObject({ reason: reasonSchema });
+export const cancelOrderSchema = refineReason(
+  z.strictObject(reasonRequestFields(CANCEL_REASONS)),
+  true,
+);
 export type CancelOrderRequest = z.infer<typeof cancelOrderSchema>;
 
 export const kdsStatusSchema = z.strictObject({

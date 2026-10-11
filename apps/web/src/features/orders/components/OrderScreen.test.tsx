@@ -315,9 +315,7 @@ describe('OrderPanel', () => {
     renderWithProviders(<OrderPanel orderId="o1" />);
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel Paneer Tikka' }));
     const dialog = screen.getByRole('dialog', { name: 'Cancel Paneer Tikka' });
-    fireEvent.change(within(dialog).getByLabelText('Reason'), {
-      target: { value: 'Customer changed mind' },
-    });
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Customer changed mind' }));
     fireEvent.change(within(dialog).getByLabelText('How many'), { target: { value: '1' } });
     await within(dialog).findByRole('option', { name: 'Meera' });
     fireEvent.change(within(dialog).getByLabelText('Manager'), { target: { value: 'm1' } });
@@ -333,7 +331,7 @@ describe('OrderPanel', () => {
     const [call] = callsTo(mock, 'POST', '/api/orders/o1/items/l2/cancel');
     expect(new Headers(call?.[1]?.headers).get('x-override-token')).toBe('ov-1');
     expect(JSON.parse(String(call?.[1]?.body))).toEqual({
-      reason: 'Customer changed mind',
+      reasonCode: 'CHANGED_MIND',
       quantity: 1,
     });
   });
@@ -348,9 +346,20 @@ describe('OrderPanel', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel Paneer Tikka' }));
     const dialog = screen.getByRole('dialog', { name: 'Cancel Paneer Tikka' });
     expect(within(dialog).queryByLabelText('Manager PIN')).toBeNull();
-    fireEvent.change(within(dialog).getByLabelText('Reason'), { target: { value: 'Burnt' } });
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Other' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel dish' }));
+    expect(await within(dialog).findByText('Choose a reason.')).toBeInTheDocument();
+    expect(callsTo(mock, 'POST', '/api/orders/o1/items/l2/cancel')).toHaveLength(0);
+    fireEvent.change(within(dialog).getByLabelText('What happened'), {
+      target: { value: 'Burnt' },
+    });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel dish' }));
     await expect.poll(() => callsTo(mock, 'POST', '/api/orders/o1/items/l2/cancel').length).toBe(1);
+    expect(body(mock, 'POST', '/api/orders/o1/items/l2/cancel')).toEqual({
+      reasonCode: 'OTHER',
+      note: 'Burnt',
+      quantity: 2,
+    });
   });
 
   it('cancels an order that has nothing in the kitchen', async () => {
@@ -363,11 +372,9 @@ describe('OrderPanel', () => {
     });
     renderWithProviders(<OrderPanel orderId="o1" onClosed={onClosed} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel order' }));
-    fireEvent.change(screen.getByLabelText('Why cancel this order?'), {
-      target: { value: 'Wrong table' },
-    });
+    fireEvent.click(screen.getByRole('radio', { name: 'Wrong dish' }));
     fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel order' }));
     await expect.poll(() => onClosed.mock.calls.length).toBe(1);
-    expect(body(mock, 'POST', '/api/orders/o1/cancel')).toEqual({ reason: 'Wrong table' });
+    expect(body(mock, 'POST', '/api/orders/o1/cancel')).toEqual({ reasonCode: 'WRONG_DISH' });
   });
 });

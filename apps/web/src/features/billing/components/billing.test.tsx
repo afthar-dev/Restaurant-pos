@@ -188,15 +188,13 @@ describe('discounts', () => {
     fireEvent.change(within(sheet).getByLabelText('Discount on the bill (%)'), {
       target: { value: '10' },
     });
-    fireEvent.change(within(sheet).getByLabelText('Reason'), {
-      target: { value: 'Regular guest' },
-    });
+    fireEvent.click(within(sheet).getByRole('radio', { name: 'Regular customer' }));
     fireEvent.click(within(sheet).getByRole('button', { name: 'Apply discount' }));
     await expect.poll(() => callsTo(mock, 'PUT', '/api/bills/b1/discount').length).toBe(1);
     expect(body(mock, 'PUT', '/api/bills/b1/discount')).toEqual({
       bill: { kind: 'PERCENT', value: 1000 },
       items: [],
-      reason: 'Regular guest',
+      reasonCode: 'REGULAR',
     });
     expect(header(mock, 'PUT', '/api/bills/b1/discount', 'If-Match')).toBe('4');
   });
@@ -213,13 +211,17 @@ describe('discounts', () => {
     fireEvent.change(within(sheet).getByLabelText('₹ off Tandoori Roti'), {
       target: { value: '10' },
     });
-    fireEvent.change(within(sheet).getByLabelText('Reason'), { target: { value: 'Burnt' } });
+    fireEvent.click(within(sheet).getByRole('radio', { name: 'Other' }));
+    fireEvent.change(within(sheet).getByLabelText('What happened'), {
+      target: { value: 'Burnt' },
+    });
     fireEvent.click(within(sheet).getByRole('button', { name: 'Apply discount' }));
     await expect.poll(() => callsTo(mock, 'PUT', '/api/bills/b1/discount').length).toBe(1);
     expect(body(mock, 'PUT', '/api/bills/b1/discount')).toEqual({
       bill: null,
       items: [{ billItemId: 'bl2', discount: { kind: 'FLAT', value: 1000 } }],
-      reason: 'Burnt',
+      reasonCode: 'OTHER',
+      note: 'Burnt',
     });
   });
 
@@ -232,6 +234,23 @@ describe('discounts', () => {
     fireEvent.change(within(sheet).getByLabelText('Discount on the bill (%)'), {
       target: { value: '5' },
     });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Apply discount' }));
+    expect(await within(sheet).findByText('Give a reason for the discount.')).toBeInTheDocument();
+    expect(callsTo(mock, 'PUT', '/api/bills/b1/discount')).toHaveLength(0);
+  });
+
+  it('needs a note when the reason is Other', async () => {
+    as(CASHIER);
+    const mock = mockApi({ 'GET /api/orders/o1/bills': () => json([bill()]) });
+    renderWithProviders(<BillArea order={billedOrder()} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Discount' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Discount on bill 12' });
+    expect(within(sheet).queryByLabelText('What happened')).toBeNull();
+    fireEvent.change(within(sheet).getByLabelText('Discount on the bill (%)'), {
+      target: { value: '5' },
+    });
+    fireEvent.click(within(sheet).getByRole('radio', { name: 'Other' }));
+    expect(within(sheet).getByLabelText('What happened')).toBeInTheDocument();
     fireEvent.click(within(sheet).getByRole('button', { name: 'Apply discount' }));
     expect(await within(sheet).findByText('Give a reason for the discount.')).toBeInTheDocument();
     expect(callsTo(mock, 'PUT', '/api/bills/b1/discount')).toHaveLength(0);
@@ -265,7 +284,7 @@ describe('discounts', () => {
     fireEvent.change(within(sheet).getByLabelText('Discount on the bill (%)'), {
       target: { value: '20' },
     });
-    fireEvent.change(within(sheet).getByLabelText('Reason'), { target: { value: 'Complaint' } });
+    fireEvent.click(within(sheet).getByRole('radio', { name: 'Complaint' }));
     fireEvent.click(within(sheet).getByRole('button', { name: 'Apply discount' }));
     expect(
       await within(sheet).findByText('This discount needs a manager. The cashier limit is ₹45.'),
@@ -299,7 +318,7 @@ describe('discounts', () => {
     fireEvent.change(within(sheet).getByLabelText('Discount on the bill (%)'), {
       target: { value: '5' },
     });
-    fireEvent.change(within(sheet).getByLabelText('Reason'), { target: { value: 'Regular' } });
+    fireEvent.click(within(sheet).getByRole('radio', { name: 'Regular customer' }));
     fireEvent.click(within(sheet).getByRole('button', { name: 'Apply discount' }));
     expect(
       await within(sheet).findByText(

@@ -102,7 +102,7 @@ export function useSetLineQuantity(order: Order, line: OrderLine) {
 }
 
 export interface CancelLineInput {
-  reason: string;
+  reason: { reasonCode: string; note?: string };
   quantity: number;
   /** Resolves a manager's approval when the user may not cancel sent dishes alone. */
   overrideToken?: () => Promise<string>;
@@ -112,7 +112,7 @@ export function useCancelLine(order: Order, line: OrderLine, onDone: () => void)
   const refresh = useRefreshOrder();
   return useMutation({
     mutationFn: async ({ reason, quantity, overrideToken }: CancelLineInput) =>
-      cancelLine(order.id, line.id, { reason, quantity }, await overrideToken?.()),
+      cancelLine(order.id, line.id, { ...reason, quantity }, await overrideToken?.()),
     onSuccess: async () => {
       await refresh(order.id);
       onDone();
@@ -123,7 +123,7 @@ export function useCancelLine(order: Order, line: OrderLine, onDone: () => void)
 export function useCancelOrder(order: Order, onClosed?: () => void) {
   const refresh = useRefreshOrder();
   return useMutation({
-    mutationFn: (reason: string) => cancelOrder(order.id, reason),
+    mutationFn: (reason: { reasonCode: string; note?: string }) => cancelOrder(order.id, reason),
     onSuccess: async () => {
       await refresh(order.id);
       onClosed?.();

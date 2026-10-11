@@ -11,6 +11,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
+import { reasonOf } from '../common/reason';
 import {
   addPaymentSchema,
   billCustomerSchema,
@@ -114,7 +115,7 @@ export class BillsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodBody(voidBillSchema)) body: VoidBillRequest,
   ) {
-    return this.bills.void(actor, user, id, body.reason);
+    return this.bills.void(actor, user, id, reasonOf('void', body));
   }
 
   @Post('bills/:id/print')

@@ -552,26 +552,28 @@ model Counter {
 }
 
 model Order {
-  id            String      @id @default(uuid()) @db.Uuid
-  outletId      String      @map("outlet_id") @db.Uuid
-  businessDayId String      @map("business_day_id") @db.Uuid
-  type          OrderType
-  source        OrderSource
-  status        OrderStatus @default(OPEN)
-  tableId       String?     @map("table_id") @db.Uuid
-  tokenNo       Int?        @map("token_no")
-  guests        Int?
-  customerName  String?     @map("customer_name")
-  waiterId      String?     @map("waiter_id") @db.Uuid
-  createdById   String?     @map("created_by_id") @db.Uuid
-  version       Int         @default(0)
-  cancelReason  String?     @map("cancel_reason")
-  cancelledById String?     @map("cancelled_by_id") @db.Uuid
-  closedAt      DateTime?   @map("closed_at") @db.Timestamptz(3)
+  id               String      @id @default(uuid()) @db.Uuid
+  outletId         String      @map("outlet_id") @db.Uuid
+  businessDayId    String      @map("business_day_id") @db.Uuid
+  type             OrderType
+  source           OrderSource
+  status           OrderStatus @default(OPEN)
+  tableId          String?     @map("table_id") @db.Uuid
+  tokenNo          Int?        @map("token_no")
+  guests           Int?
+  customerName     String?     @map("customer_name")
+  waiterId         String?     @map("waiter_id") @db.Uuid
+  createdById      String?     @map("created_by_id") @db.Uuid
+  version          Int         @default(0)
+  cancelReason     String?     @map("cancel_reason")
+  /// One of CANCEL_REASONS; null on rows from before reason codes.
+  cancelReasonCode String?     @map("cancel_reason_code")
+  cancelledById    String?     @map("cancelled_by_id") @db.Uuid
+  closedAt         DateTime?   @map("closed_at") @db.Timestamptz(3)
   /// Set when this order was merged into another; its table stays held by that order.
-  mergedIntoId  String?     @map("merged_into_id") @db.Uuid
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  mergedIntoId     String?     @map("merged_into_id") @db.Uuid
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   outlet        Outlet         @relation(fields: [outletId], references: [id])
   businessDay   BusinessDay    @relation(fields: [businessDayId], references: [id])
@@ -593,33 +595,37 @@ model Order {
 }
 
 model OrderItem {
-  id              String          @id @default(uuid()) @db.Uuid
-  orderId         String          @map("order_id") @db.Uuid
-  itemId          String          @map("item_id") @db.Uuid
-  variantId       String          @map("variant_id") @db.Uuid
-  itemName        String          @map("item_name")
-  variantName     String          @map("variant_name")
-  unitPrice       Int             @map("unit_price")
+  id               String          @id @default(uuid()) @db.Uuid
+  orderId          String          @map("order_id") @db.Uuid
+  itemId           String          @map("item_id") @db.Uuid
+  variantId        String          @map("variant_id") @db.Uuid
+  itemName         String          @map("item_name")
+  variantName      String          @map("variant_name")
+  unitPrice        Int             @map("unit_price")
   /// Per unit; parcel orders only.
-  packagingCharge Int             @default(0) @map("packaging_charge")
+  packagingCharge  Int             @default(0) @map("packaging_charge")
   /// Null when the dish had no GST (cgstBp and sgstBp are then 0).
-  taxRateId       String?         @map("tax_rate_id") @db.Uuid
-  cgstBp          Int             @map("cgst_bp")
-  sgstBp          Int             @map("sgst_bp")
-  quantity        Int
+  taxRateId        String?         @map("tax_rate_id") @db.Uuid
+  cgstBp           Int             @map("cgst_bp")
+  sgstBp           Int             @map("sgst_bp")
+  quantity         Int
   /// [{id, name, price}] at the time of ordering.
-  addons          Json            @default("[]")
+  addons           Json            @default("[]")
   /// [{itemName, variantName, quantity}] per one combo, for KOTs.
-  comboComponents Json            @default("[]") @map("combo_components")
-  note            String?
-  stationId       String          @map("station_id") @db.Uuid
-  status          OrderItemStatus @default(NEW)
-  kotId           String?         @map("kot_id") @db.Uuid
-  cancelReason    String?         @map("cancel_reason")
-  cancelledById   String?         @map("cancelled_by_id") @db.Uuid
-  createdById     String          @map("created_by_id") @db.Uuid
-  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  comboComponents  Json            @default("[]") @map("combo_components")
+  note             String?
+  stationId        String          @map("station_id") @db.Uuid
+  status           OrderItemStatus @default(NEW)
+  kotId            String?         @map("kot_id") @db.Uuid
+  cancelReason     String?         @map("cancel_reason")
+  /// One of CANCEL_REASONS; null on rows from before reason codes.
+  cancelReasonCode String?         @map("cancel_reason_code")
+  /// When the dish was cancelled; null on rows from before this column.
+  cancelledAt      DateTime?       @map("cancelled_at") @db.Timestamptz(3)
+  cancelledById    String?         @map("cancelled_by_id") @db.Uuid
+  createdById      String          @map("created_by_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   order     Order       @relation(fields: [orderId], references: [id])
   variant   ItemVariant @relation(fields: [variantId], references: [id])
@@ -737,43 +743,47 @@ enum DiscountKind {
 
 /// One printed bill. Amounts are paise and are written only from bill-calc.ts.
 model Bill {
-  id             String        @id @default(uuid()) @db.Uuid
-  outletId       String        @map("outlet_id") @db.Uuid
-  businessDayId  String        @map("business_day_id") @db.Uuid
-  orderId        String        @map("order_id") @db.Uuid
-  billNo         Int           @map("bill_no")
-  financialYear  String        @map("financial_year")
-  status         BillStatus    @default(OPEN)
-  taxScheme      TaxScheme     @map("tax_scheme")
-  grossSubtotal  Int           @map("gross_subtotal")
-  itemDiscount   Int           @map("item_discount")
-  subtotal       Int
-  discountKind   DiscountKind? @map("discount_kind")
-  discountValue  Int?          @map("discount_value")
-  billDiscount   Int           @default(0) @map("bill_discount")
-  discountReason String?       @map("discount_reason")
-  discountById   String?       @map("discount_by_id") @db.Uuid
+  id                 String        @id @default(uuid()) @db.Uuid
+  outletId           String        @map("outlet_id") @db.Uuid
+  businessDayId      String        @map("business_day_id") @db.Uuid
+  orderId            String        @map("order_id") @db.Uuid
+  billNo             Int           @map("bill_no")
+  financialYear      String        @map("financial_year")
+  status             BillStatus    @default(OPEN)
+  taxScheme          TaxScheme     @map("tax_scheme")
+  grossSubtotal      Int           @map("gross_subtotal")
+  itemDiscount       Int           @map("item_discount")
+  subtotal           Int
+  discountKind       DiscountKind? @map("discount_kind")
+  discountValue      Int?          @map("discount_value")
+  billDiscount       Int           @default(0) @map("bill_discount")
+  discountReason     String?       @map("discount_reason")
+  /// One of DISCOUNT_REASONS; null when there is no discount or on rows from before reason codes.
+  discountReasonCode String?       @map("discount_reason_code")
+  discountById       String?       @map("discount_by_id") @db.Uuid
   /// Bill-level packaging (outlet setting, first parcel bill of an order).
-  billPackaging  Int           @default(0) @map("bill_packaging")
-  packaging      Int
-  taxable        Int
-  cgst           Int
-  sgst           Int
-  roundOff       Int           @map("round_off")
-  total          Int
-  paidAt         DateTime?     @map("paid_at") @db.Timestamptz(3)
+  billPackaging      Int           @default(0) @map("bill_packaging")
+  packaging          Int
+  taxable            Int
+  cgst               Int
+  sgst               Int
+  roundOff           Int           @map("round_off")
+  total              Int
+  paidAt             DateTime?     @map("paid_at") @db.Timestamptz(3)
   /// Optional B2B customer, entered at the counter.
-  customerName   String?       @map("customer_name")
-  customerGstin  String?       @map("customer_gstin")
+  customerName       String?       @map("customer_name")
+  customerGstin      String?       @map("customer_gstin")
   /// Times this bill was printed; the first is the original, later ones are reprints.
-  printCount     Int           @default(0) @map("print_count")
-  voidReason     String?       @map("void_reason")
-  voidedById     String?       @map("voided_by_id") @db.Uuid
-  voidedAt       DateTime?     @map("voided_at") @db.Timestamptz(3)
-  createdById    String        @map("created_by_id") @db.Uuid
-  version        Int           @default(0)
-  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  printCount         Int           @default(0) @map("print_count")
+  voidReason         String?       @map("void_reason")
+  /// One of VOID_REASONS; null on rows from before reason codes.
+  voidReasonCode     String?       @map("void_reason_code")
+  voidedById         String?       @map("voided_by_id") @db.Uuid
+  voidedAt           DateTime?     @map("voided_at") @db.Timestamptz(3)
+  createdById        String        @map("created_by_id") @db.Uuid
+  version            Int           @default(0)
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   outlet      Outlet      @relation(fields: [outletId], references: [id])
   businessDay BusinessDay @relation(fields: [businessDayId], references: [id])

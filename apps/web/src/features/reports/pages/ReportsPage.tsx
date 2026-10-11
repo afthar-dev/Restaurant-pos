@@ -6,7 +6,10 @@ import {
   LoadingScreen,
   PageHeader,
   secondaryButton,
+  Tabs,
+  TabPanel,
 } from '@/shared/ui';
+import { AccountabilityTab } from '../components/AccountabilityTab';
 import { CategoriesTable, DaysTable, ItemsTable } from '../components/ReportTables';
 import { RangePicker } from '../components/RangePicker';
 import { SummaryCards } from '../components/SummaryCards';
@@ -51,6 +54,7 @@ function downloadDishes(report: SalesReport) {
 /** Sales over a date range for the owner, with CSV export for the accountant. */
 export function ReportsPage() {
   const [range, setRange] = useState<DateRange>(() => presetRange('today'));
+  const [tab, setTab] = useState('sales');
   const report = useSalesReport(range);
   const data = report.data;
 
@@ -61,24 +65,26 @@ export function ReportsPage() {
           title="Sales report"
           description="Sales, payments, dishes and expenses for any dates. Download CSV files for your accountant."
         />
-        <div className="flex gap-2">
-          {(
-            [
-              ['Days CSV', downloadDays],
-              ['Dishes CSV', downloadDishes],
-            ] as const
-          ).map(([label, download]) => (
-            <button
-              key={label}
-              type="button"
-              className={secondaryButton}
-              disabled={!data || report.isPlaceholderData}
-              onClick={() => data && download(data)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {tab === 'sales' && (
+          <div className="flex gap-2">
+            {(
+              [
+                ['Days CSV', downloadDays],
+                ['Dishes CSV', downloadDishes],
+              ] as const
+            ).map(([label, download]) => (
+              <button
+                key={label}
+                type="button"
+                className={secondaryButton}
+                disabled={!data || report.isPlaceholderData}
+                onClick={() => data && download(data)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <RangePicker range={range} onChange={setRange} />
       <p className="text-sm text-muted">
@@ -87,31 +93,46 @@ export function ReportsPage() {
           : `${dateLabel(range.from)} – ${dateLabel(range.to)}`}
         {report.isFetching && ' · updating…'}
       </p>
-      <ErrorNote message={report.isError ? describeError(report.error) : null} />
-      {!data ? (
-        !report.isError && <LoadingScreen />
-      ) : (
-        <>
-          <SummaryCards summary={data.summary} composition={data.composition} />
-          {data.days.length === 0 ? (
-            <EmptyState
-              icon={<CalendarX />}
-              title="No business days in this range"
-              description="Pick other dates, or open a day on the POS screen to start recording sales."
-            />
+      <Tabs
+        value={tab}
+        onValueChange={setTab}
+        label="Report"
+        tabs={[
+          { value: 'sales', label: 'Sales' },
+          { value: 'accountability', label: 'Discounts & voids' },
+        ]}
+      >
+        <TabPanel value="sales" className="flex flex-col gap-4">
+          <ErrorNote message={report.isError ? describeError(report.error) : null} />
+          {!data ? (
+            !report.isError && <LoadingScreen />
           ) : (
             <>
-              <SalesCharts report={data} />
-              <h2 className="text-lg font-semibold">Days</h2>
-              <DaysTable days={data.days} />
-              <h2 className="text-lg font-semibold">Dishes</h2>
-              <ItemsTable items={data.items} />
-              <h2 className="text-lg font-semibold">Categories</h2>
-              <CategoriesTable categories={data.categories} />
+              <SummaryCards summary={data.summary} composition={data.composition} />
+              {data.days.length === 0 ? (
+                <EmptyState
+                  icon={<CalendarX />}
+                  title="No business days in this range"
+                  description="Pick other dates, or open a day on the POS screen to start recording sales."
+                />
+              ) : (
+                <>
+                  <SalesCharts report={data} />
+                  <h2 className="text-lg font-semibold">Days</h2>
+                  <DaysTable days={data.days} />
+                  <h2 className="text-lg font-semibold">Dishes</h2>
+                  <ItemsTable items={data.items} />
+                  <h2 className="text-lg font-semibold">Categories</h2>
+                  <CategoriesTable categories={data.categories} />
+                </>
+              )}
             </>
           )}
-        </>
-      )}
+        </TabPanel>
+        <TabPanel value="accountability" className="flex flex-col gap-4">
+          <AccountabilityTab range={range} />
+        </TabPanel>
+      </Tabs>
     </section>
   );
 }

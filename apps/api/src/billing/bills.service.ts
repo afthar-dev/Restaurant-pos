@@ -1,7 +1,9 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Bill, DiscountKind, OrderItem, Prisma } from '@prisma/client';
+import { resolveReason } from '@rpos/shared';
 import type {
+  ResolvedReason,
   BillCustomerRequest,
   BillDiscountRequest,
   CreateBillRequest,
@@ -264,7 +266,7 @@ export class BillsService {
     actor: AuthUser,
     requester: AuthUser,
     billId: string,
-    reason: string,
+    reason: ResolvedReason,
   ): Promise<BillView> {
     const orderId = await this.orderOf(requester.outletId, billId);
     await this.orders.mutate(requester, orderId, undefined, async ({ tx, order }) => {
@@ -304,7 +306,13 @@ export class BillsService {
       const voidedAt = new Date();
       await tx.bill.update({
         where: { id: billId },
-        data: { status: 'VOID', voidReason: reason, voidedById: actor.id, voidedAt },
+        data: {
+          status: 'VOID',
+          voidReason: reason.text,
+          voidReasonCode: reason.code,
+          voidedById: actor.id,
+          voidedAt,
+        },
       });
       // The customer gets the money back: refunded on the day of the void, which is this
       // open day (a bill can only be voided on its own day).
@@ -322,7 +330,7 @@ export class BillsService {
           action: 'bill.void',
           entity: 'bill',
           entityId: billId,
-          reason,
+          reason: reason.text,
           before: {
             billNo: bill.billNo,
             status: bill.status,
@@ -331,6 +339,7 @@ export class BillsService {
           },
           after: {
             status: 'VOID',
+            reasonCode: reason.code,
             requestedBy: requester.id,
             refunded: paid._sum.amount ?? 0,
           },
@@ -448,10 +457,11 @@ export class BillsService {
       });
 
       const totalDiscount = after.itemDiscount + after.billDiscount;
-      const reason = request.reason?.trim() ?? '';
-      if (totalDiscount > 0 && reason.length < 3) {
+      const reason = resolveReason('discount', request);
+      if (totalDiscount > 0 && (!reason || (reason.code === 'OTHER' && reason.text.length < 3))) {
         throw new ApiError(HttpStatus.BAD_REQUEST, 'VALIDATION', 'Give a reason for the discount.');
       }
+      const discountReason = totalDiscount > 0 ? reason : null;
       let approver: AuthUser = user;
       const outlet = await tx.outlet.findUniqueOrThrow({ where: { id: user.outletId } });
       const allowed = Math.floor((after.grossSubtotal * outlet.cashierDiscountCapBp) / 10000);
@@ -472,7 +482,8 @@ export class BillsService {
       await tx.bill.update({
         where: { id: billId },
         data: {
-          discountReason: totalDiscount > 0 ? reason : null,
+          discountReason: discountReason?.text ?? null,
+          discountReasonCode: discountReason?.code ?? null,
           discountById: totalDiscount > 0 ? approver.id : null,
         },
       });
@@ -490,10 +501,11 @@ export class BillsService {
           action: 'bill.discount',
           entity: 'bill',
           entityId: billId,
-          reason: reason || null,
+          reason: reason?.text ?? null,
           before: snapshot(before),
           after: {
             ...snapshot(after),
+            ...(reason ? { reasonCode: reason.code } : {}),
             ...(approver.id !== user.id ? { requestedBy: user.id } : {}),
           },
         },

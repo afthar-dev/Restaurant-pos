@@ -40,7 +40,7 @@ export const setLineQuantity = (order: Versioned, lineId: string, quantity: numb
 export const cancelLine = (
   orderId: string,
   lineId: string,
-  body: { reason: string; quantity: number },
+  body: { reasonCode: string; note?: string; quantity: number },
   overrideToken?: string,
 ) =>
   apiFetch(`/api/orders/${orderId}/items/${lineId}/cancel`, {
@@ -49,8 +49,8 @@ export const cancelLine = (
     body,
   });
 
-export const cancelOrder = (orderId: string, reason: string) =>
-  apiFetch(`/api/orders/${orderId}/cancel`, { method: 'POST', body: { reason } });
+export const cancelOrder = (orderId: string, reason: { reasonCode: string; note?: string }) =>
+  apiFetch(`/api/orders/${orderId}/cancel`, { method: 'POST', body: reason });
 
 export const sendKot = (orderId: string, idempotencyKey: string) =>
   apiFetch(`/api/orders/${orderId}/kot`, {
