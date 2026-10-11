@@ -233,3 +233,44 @@ describe('SettlePanel keys', () => {
     dialog.remove();
   });
 });
+
+describe('SettlePanel customer GSTIN', () => {
+  const customerCalls = (mock: ReturnType<typeof mockApi>) =>
+    callsTo(mock, 'PATCH', '/api/bills/b1/customer');
+
+  it('adds a customer through the form and shows Bill to with Edit', async () => {
+    const withCustomer = bill({
+      customer: { name: 'Acme Foods', gstin: '27ABCDE1234F1Z5' },
+    });
+    const { mock, view } = setup({ 'PATCH /api/bills/b1/customer': () => json(withCustomer) });
+    fireEvent.click(screen.getByRole('button', { name: 'Add customer GSTIN' }));
+    fireEvent.change(screen.getByLabelText('Customer name'), { target: { value: 'Acme Foods' } });
+    fireEvent.change(screen.getByLabelText('Customer GSTIN'), {
+      target: { value: '27abcde1234f1z5' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save customer' }));
+    await expect.poll(() => customerCalls(mock).length).toBe(1);
+    expect(JSON.parse(String(customerCalls(mock)[0]?.[1]?.body))).toEqual({
+      name: 'Acme Foods',
+      gstin: '27ABCDE1234F1Z5',
+    });
+    view.rerender(
+      <QueryClientProvider client={view.queryClient}>
+        <SettlePanel bill={withCustomer} onPaid={vi.fn()} onMore={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    expect(
+      await screen.findByText('Bill to: Acme Foods · GSTIN 27ABCDE1234F1Z5'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit customer' })).toBeInTheDocument();
+  });
+
+  it('refuses a malformed GSTIN without calling the server', () => {
+    const { mock } = setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Add customer GSTIN' }));
+    fireEvent.change(screen.getByLabelText('Customer GSTIN'), { target: { value: 'abc' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save customer' }));
+    expect(screen.getByText('Enter a valid 15-character GSTIN')).toBeInTheDocument();
+    expect(customerCalls(mock)).toHaveLength(0);
+  });
+});

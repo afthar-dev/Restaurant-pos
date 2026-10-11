@@ -761,6 +761,9 @@ model Bill {
   roundOff       Int           @map("round_off")
   total          Int
   paidAt         DateTime?     @map("paid_at") @db.Timestamptz(3)
+  /// Optional B2B customer, entered at the counter.
+  customerName   String?       @map("customer_name")
+  customerGstin  String?       @map("customer_gstin")
   voidReason     String?       @map("void_reason")
   voidedById     String?       @map("voided_by_id") @db.Uuid
   voidedAt       DateTime?     @map("voided_at") @db.Timestamptz(3)

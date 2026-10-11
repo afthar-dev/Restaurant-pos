@@ -5,6 +5,7 @@ import {
   Headers,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Put,
   Query,
@@ -12,10 +13,12 @@ import {
 } from '@nestjs/common';
 import {
   addPaymentSchema,
+  billCustomerSchema,
   billDiscountSchema,
   createBillSchema,
   voidBillSchema,
   type AddPaymentRequest,
+  type BillCustomerRequest,
   type BillDiscountRequest,
   type VoidBillRequest,
   type CreateBillRequest,
@@ -80,6 +83,16 @@ export class BillsController {
       typeof token === 'string' ? token : undefined,
       body,
     );
+  }
+
+  @Patch('bills/:id/customer')
+  @RequirePermissions('bill.print')
+  customer(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodBody(billCustomerSchema)) body: BillCustomerRequest,
+  ) {
+    return this.bills.setCustomer(user, id, body);
   }
 
   @Post('bills/:id/payments')

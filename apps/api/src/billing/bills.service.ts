@@ -1,7 +1,12 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Bill, DiscountKind, OrderItem, Prisma } from '@prisma/client';
-import type { BillDiscountRequest, CreateBillRequest, Permission } from '@rpos/shared';
+import type {
+  BillCustomerRequest,
+  BillDiscountRequest,
+  CreateBillRequest,
+  Permission,
+} from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
 import { OverrideService } from '../auth/override.service';
 import { BusinessDayService } from '../business-day/business-day.service';
@@ -335,6 +340,45 @@ export class BillsService {
     });
     this.changed(requester.outletId, billId, orderId);
     return this.get(requester.outletId, billId);
+  }
+
+  /**
+   * Sets or clears the B2B customer printed under the bill header. Allowed while the bill is
+   * open or paid and its business day is still open; a field left out is kept.
+   */
+  async setCustomer(
+    user: AuthUser,
+    billId: string,
+    request: BillCustomerRequest,
+  ): Promise<BillView> {
+    const orderId = await this.orderOf(user.outletId, billId);
+    await this.orders.mutate(user, orderId, undefined, async ({ tx }) => {
+      const bill = await this.lockBill(tx, user.outletId, billId, undefined);
+      if (bill.status === 'VOID') {
+        throw new ApiError(HttpStatus.CONFLICT, 'BILL_VOID', 'This bill is void.');
+      }
+      const day = await this.days.requireOpen(tx, user.outletId);
+      if (bill.businessDayId !== day.id) {
+        throw new ApiError(HttpStatus.CONFLICT, 'DAY_CLOSED', 'This bill belongs to a closed day.');
+      }
+      const customerName = request.name === undefined ? bill.customerName : request.name || null;
+      const customerGstin = request.gstin === undefined ? bill.customerGstin : request.gstin;
+      await tx.bill.update({ where: { id: billId }, data: { customerName, customerGstin } });
+      await this.audit.record(
+        {
+          outletId: user.outletId,
+          actorId: user.id,
+          action: 'bill.customer',
+          entity: 'bill',
+          entityId: billId,
+          before: { name: bill.customerName, gstin: bill.customerGstin },
+          after: { name: customerName, gstin: customerGstin },
+        },
+        tx,
+      );
+    });
+    this.changed(user.outletId, billId, orderId);
+    return this.get(user.outletId, billId);
   }
 
   /** The bill's order id, checked against the outlet (for locking the order first). */

@@ -39,6 +39,9 @@ export const billPayload: BillPrintPayload = {
       addons: ['Cheese'],
       quantity: 2,
       unitPrice: 21000,
+      rate: 21000,
+      gross: 42000,
+      lineDiscount: 0,
       amount: 42000,
     },
     {
@@ -47,9 +50,13 @@ export const billPayload: BillPrintPayload = {
       addons: [],
       quantity: 1,
       unitPrice: 3000,
+      rate: 3000,
+      gross: 3000,
+      lineDiscount: 0,
       amount: 3000,
     },
   ],
+  customer: { name: null, gstin: null },
   grossSubtotal: 45000,
   itemDiscount: 0,
   billDiscount: 4500,
@@ -86,7 +93,8 @@ describe('renderBillTicket', () => {
       'Tax Invoice',
       'Bill No: 2026-27/12',
       'T1',
-      '2 × Paneer &lt;b&gt;Tikka&lt;/b&gt; (Half)',
+      'Paneer &lt;b&gt;Tikka&lt;/b&gt; (Half)',
+      '2 × ₹210.00 = ₹420.00',
       '+ Cheese',
       'Discount (Regular guest)',
       'CGST 2.5%',
@@ -141,6 +149,73 @@ describe('renderBillTicket', () => {
     expect(html).toContain('Parcel #7');
     expect(html).toContain('VOID');
     expect(html).toContain('58mm');
+  });
+});
+
+describe('bill line maths', () => {
+  const line = (name: string, quantity: number, rate: number, lineDiscount = 0) => ({
+    itemName: name,
+    variantName: 'Regular',
+    addons: [],
+    quantity,
+    unitPrice: rate,
+    rate,
+    gross: rate * quantity,
+    lineDiscount,
+    amount: rate * quantity - lineDiscount,
+  });
+  const money = (s: string) => Math.round(Number(s.replace(/[₹,]/g, '')) * 100);
+  const textOf = (html: string) =>
+    new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+
+  it('prints qty × rate = amount, the dish discount, and numbers that add up to the subtotal', () => {
+    const html = renderBillTicket({
+      ...billPayload,
+      taxScheme: 'NONE',
+      taxBreakup: [],
+      cgst: 0,
+      sgst: 0,
+      lines: [line('Paneer Tikka', 2, 20000, 4000), line('Naan', 1, 5000)],
+      grossSubtotal: 45000,
+      itemDiscount: 4000,
+      billDiscount: 0,
+      discountReason: null,
+      roundOff: 0,
+      total: 41000,
+    });
+    const text = textOf(html);
+    expect(text).toContain('2 × ₹200.00 = ₹400.00');
+    expect(text).toContain('Discount −₹40.00');
+    expect(text).toContain('1 × ₹50.00 = ₹50.00');
+    const beforeSubtotal = text.slice(0, text.indexOf('Subtotal'));
+    const gross = [...beforeSubtotal.matchAll(/= (₹[\d,.]+)/g)].map((m) => money(m[1]!));
+    const discounts = [...beforeSubtotal.matchAll(/Discount −(₹[\d,.]+)/g)].map((m) =>
+      money(m[1]!),
+    );
+    const subtotal = money(/Subtotal\s*(₹[\d,.]+)/.exec(text)![1]!);
+    expect(subtotal).toBe(41000);
+    expect(gross.reduce((a, b) => a + b, 0) - discounts.reduce((a, b) => a + b, 0)).toBe(subtotal);
+  });
+
+  it('prints no line discount row when the dish has none', () => {
+    const text = textOf(renderBillTicket(billPayload));
+    expect(text.slice(0, text.indexOf('Subtotal'))).not.toContain('−');
+  });
+});
+
+describe('bill to a customer', () => {
+  it('prints Bill to with the name and GSTIN only when set', () => {
+    expect(renderBillTicket(billPayload)).not.toContain('Bill to');
+    const html = renderBillTicket({
+      ...billPayload,
+      customer: { name: 'Acme <Foods>', gstin: '27ABCDE1234F1Z5' },
+    });
+    expect(html).toContain('Bill to: Acme &lt;Foods&gt; · GSTIN 27ABCDE1234F1Z5');
+    const gstinOnly = renderBillTicket({
+      ...billPayload,
+      customer: { name: null, gstin: '27ABCDE1234F1Z5' },
+    });
+    expect(gstinOnly).toContain('Bill to: GSTIN 27ABCDE1234F1Z5');
   });
 });
 

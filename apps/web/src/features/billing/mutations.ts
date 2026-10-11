@@ -7,6 +7,7 @@ import {
   addPayment,
   applyDiscount,
   createBill,
+  setBillCustomer,
   voidBill,
   type BillLineChoice,
   type PaymentInput,
@@ -87,6 +88,16 @@ export function useAddPayment(bill: Bill, onRecorded: (updated: Bill) => void) {
     mutation.mutate(body, callbacks);
   };
   return { ...mutation, pay, isSending: () => sending.current };
+}
+
+/** Sets or clears the B2B customer on a bill, then reloads the order's bills. */
+export function useSetCustomer(bill: Bill) {
+  const refresh = useRefreshOrder();
+  return useMutation({
+    mutationFn: (body: { name: string | null; gstin: string | null }) =>
+      setBillCustomer(bill.id, body),
+    onSuccess: () => refresh(bill.orderId),
+  });
 }
 
 export function useVoidBill(bill: Bill) {

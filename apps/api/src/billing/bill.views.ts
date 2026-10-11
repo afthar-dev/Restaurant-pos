@@ -111,6 +111,7 @@ export function billView(bill: BillWithDetails) {
       receivedBy: p.receivedBy,
       createdAt: p.createdAt,
     })),
+    customer: { name: bill.customerName, gstin: bill.customerGstin },
     voidReason: bill.voidReason,
     version: bill.version,
     createdAt: bill.createdAt,

@@ -35,8 +35,16 @@ export interface BillPrintPayload {
     addons: string[];
     quantity: number;
     unitPrice: number;
+    /** Paise per unit, before any dish discount. */
+    rate: number;
+    /** rate × quantity, before any dish discount. */
+    gross: number;
+    /** Dish discount in paise (0 when none). */
+    lineDiscount: number;
     amount: number;
   }[];
+  /** Optional B2B customer, set from the Settle panel. */
+  customer: { name: string | null; gstin: string | null };
   grossSubtotal: number;
   itemDiscount: number;
   billDiscount: number;
@@ -109,16 +117,19 @@ export function renderBillTicket(p: BillPrintPayload): string {
     .map((l) => {
       const name = l.variantName === 'Regular' ? l.itemName : `${l.itemName} (${l.variantName})`;
       const addons = l.addons.map((a) => `<div class="sub">+ ${e(a)}</div>`).join('');
-      return `<div class="line">${row(`${l.quantity} × ${e(name)}`, money(l.amount))}${addons}</div>`;
+      const rateLine = `<div class="sub">${l.quantity} × ${money(l.rate)} = ${money(l.gross)}</div>`;
+      const discountLine =
+        l.lineDiscount > 0 ? `<div class="sub">Discount −${money(l.lineDiscount)}</div>` : '';
+      return `<div class="line"><div>${e(name)}</div>${addons}${rateLine}${discountLine}</div>`;
     })
     .join('');
-  const discount = p.itemDiscount + p.billDiscount;
   const totals = [
-    row('Subtotal', money(p.grossSubtotal)),
-    discount > 0 &&
+    // Dish discounts are already shown on their lines, so the subtotal is net of them.
+    row('Subtotal', money(p.grossSubtotal - p.itemDiscount)),
+    p.billDiscount > 0 &&
       row(
         p.discountReason ? `Discount (${e(p.discountReason)})` : 'Discount',
-        `-${money(discount)}`,
+        `-${money(p.billDiscount)}`,
       ),
     p.packaging > 0 && row('Packaging', money(p.packaging)),
     p.exempt > 0 && row('No GST items', money(p.exempt)),
@@ -130,6 +141,10 @@ export function renderBillTicket(p: BillPrintPayload): string {
   ]
     .filter(Boolean)
     .join('');
+  const billTo =
+    p.customer.name || p.customer.gstin
+      ? `<div>Bill to: ${[p.customer.name && e(p.customer.name), p.customer.gstin && `GSTIN ${e(p.customer.gstin)}`].filter(Boolean).join(' · ')}</div>`
+      : '';
   const payments = p.payments.map((pay) => row(MODE_LABEL[pay.mode], money(pay.amount))).join('');
 
   return `<!doctype html><html><head><meta charset="utf-8"><title>Bill ${p.billNo}</title><style>
@@ -156,6 +171,7 @@ ${row(`Bill No: ${e(p.financialYear)}/${p.billNo}`, e(when))}
 ${row(where, p.guests ? `Guests: ${p.guests}` : '')}
 ${row(`Cashier: ${e(p.cashierName)}`, p.waiterName ? `Steward: ${e(p.waiterName)}` : '')}
 ${p.customerName ? `<div>${e(p.customerName)}</div>` : ''}
+${billTo}
 <hr>
 ${lines}
 <hr>

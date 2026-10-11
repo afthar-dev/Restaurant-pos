@@ -34,6 +34,11 @@ export const applyDiscount = (bill: Versioned, body: object, overrideToken?: str
     body,
   });
 
+export const setBillCustomer = (
+  billId: string,
+  body: { name: string | null; gstin: string | null },
+) => apiFetch<Bill>(`/api/bills/${billId}/customer`, { method: 'PATCH', body });
+
 export interface PaymentInput {
   mode: PaymentMode;
   amount: number;

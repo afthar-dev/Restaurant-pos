@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { gstinSchema } from './gstin';
 import { priceSchema } from './menu';
 
 export const PAYMENT_MODES = ['CASH', 'UPI', 'CARD'] as const;
@@ -55,6 +56,15 @@ export const addPaymentSchema = z.strictObject({
   reference: z.string().trim().max(60).optional(),
 });
 export type AddPaymentRequest = z.infer<typeof addPaymentSchema>;
+
+/** Blank text counts as cleared. Send null (or an empty string) to remove a field. */
+const blankToNull = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? null : v);
+
+export const billCustomerSchema = z.strictObject({
+  name: z.preprocess(blankToNull, z.string().trim().max(100).nullable()).optional(),
+  gstin: z.preprocess(blankToNull, gstinSchema.nullable()).optional(),
+});
+export type BillCustomerRequest = z.infer<typeof billCustomerSchema>;
 
 export const voidBillSchema = z.strictObject({ reason: reasonSchema });
 export type VoidBillRequest = z.infer<typeof voidBillSchema>;

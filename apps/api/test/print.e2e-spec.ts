@@ -304,6 +304,49 @@ describe('print jobs', () => {
     await ctx.http().get(`/api/bills/${bill.id}/print-payload`).set(stranger.auth).expect(404);
   });
 
+  it('gives each bill line a rate, quantity, gross and dish discount that add up to the subtotal', async () => {
+    const sent = await sendPaneerKot();
+    const bill = (
+      await ctx
+        .http()
+        .post(`/api/orders/${sent.order.id}/bills`)
+        .set(owner.auth)
+        .send({})
+        .expect(201)
+    ).body;
+    await ctx
+      .http()
+      .put(`/api/bills/${bill.id}/discount`)
+      .set(owner.auth)
+      .send({
+        items: [{ billItemId: bill.lines[0].id, discount: { kind: 'FLAT', value: 4000 } }],
+        reason: 'Burnt',
+      })
+      .expect(200);
+    const res = await ctx
+      .http()
+      .get(`/api/bills/${bill.id}/print-payload`)
+      .set(owner.auth)
+      .expect(200);
+    const lines = res.body.lines as {
+      rate: number;
+      quantity: number;
+      gross: number;
+      lineDiscount: number;
+      amount: number;
+    }[];
+    expect(lines[0]).toMatchObject({ quantity: 2, lineDiscount: 4000 });
+    for (const l of lines) {
+      expect(l.gross).toBe(l.rate * l.quantity);
+      expect(l.amount).toBe(l.gross - l.lineDiscount);
+    }
+    const gross = lines.reduce((a, l) => a + l.gross, 0);
+    const discount = lines.reduce((a, l) => a + l.lineDiscount, 0);
+    const view = (await ctx.http().get(`/api/bills/${bill.id}`).set(owner.auth)).body;
+    expect(gross - discount).toBe(view.subtotal);
+    expect(res.body.customer).toEqual({ name: null, gstin: null });
+  });
+
   it('prints the bill on the bill printer and reprints it on request', async () => {
     const cashier = await signIn(ctx, outlet.id, 'CASHIER', 'Kavya');
     await kitchenPrinter(counter.id).expect(201);

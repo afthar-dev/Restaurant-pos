@@ -196,6 +196,7 @@ export function bill(partial: Partial<Bill> = {}): Bill {
     paid: 0,
     due: 47300,
     payments: [],
+    customer: { name: null, gstin: null },
     voidReason: null,
     version: 4,
     createdAt: '2026-10-06T14:12:00.000Z',

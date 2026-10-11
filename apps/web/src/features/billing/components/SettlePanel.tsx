@@ -1,11 +1,13 @@
 import { parseRupees, type PaymentMode } from '@rpos/shared';
 import { useEffect, useId, useRef, useState } from 'react';
 import { cn } from '@/shared/lib/cn';
+import { useCan } from '@/shared/session/store';
 import { rupees } from '@/shared/lib/money';
 import { Button, describeError, ErrorNote, Field, MoneyInput, PaymentIcon } from '@/shared/ui';
 import { useAddPayment } from '../mutations';
 import { cashOutcome, suggestNotes } from '../settle';
 import type { Bill } from '../types';
+import { BillCustomer } from './BillCustomer';
 import { useSettleKeys, type SettleKey } from './useSettleKeys';
 
 const MODES: { mode: PaymentMode; label: string; key: SettleKey }[] = [
@@ -34,6 +36,7 @@ export function SettlePanel({
 }) {
   const id = useId();
   const payment = useAddPayment(bill, onPaid);
+  const canEditCustomer = useCan('bill.print');
   const [mode, setMode] = useState<PaymentMode | null>(null);
   const [tender, setTender] = useState<Tender>({ kind: 'exact' });
   const [other, setOther] = useState('');
@@ -176,6 +179,7 @@ export function SettlePanel({
           >
             Split or part payment
           </button>
+          {canEditCustomer && <BillCustomer bill={bill} />}
         </>
       ) : (
         <>

@@ -70,6 +70,8 @@ export interface Bill {
   paid: number;
   due: number;
   payments: BillPayment[];
+  /** Optional B2B customer printed under the bill header. */
+  customer: { name: string | null; gstin: string | null };
   voidReason: string | null;
   version: number;
   createdAt: string;

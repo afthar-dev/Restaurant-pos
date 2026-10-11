@@ -200,6 +200,7 @@ export class PrintService {
       tableName: bill.order.table?.name ?? null,
       tokenNo: bill.order.tokenNo,
       customerName: bill.order.customerName,
+      customer: { name: bill.customerName, gstin: bill.customerGstin },
       guests: bill.order.guests,
       paperWidthMm,
       lines: bill.items.map((i) => ({
@@ -208,6 +209,10 @@ export class PrintService {
         addons: (i.addons as { name: string }[]).map((a) => a.name),
         quantity: i.quantity,
         unitPrice: i.unitPrice,
+        // Before any dish discount: rate × quantity, then the discount, so the lines add up.
+        rate: i.unitPrice,
+        gross: i.gross,
+        lineDiscount: i.itemDiscount,
         amount: i.lineTotal,
       })),
       grossSubtotal: bill.grossSubtotal,
