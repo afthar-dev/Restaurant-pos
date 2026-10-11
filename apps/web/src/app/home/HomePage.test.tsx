@@ -479,7 +479,7 @@ describe('the owner’s dashboard', () => {
     expect(within(strip).getByText('₹12,400')).toBeInTheDocument();
     expect(within(strip).getByText('Orders')).toBeInTheDocument();
     expect(within(strip).getByText('12')).toBeInTheDocument();
-    expect(within(strip).getByText('₹1,033.33')).toBeInTheDocument();
+    expect(within(strip).getByText('₹1,033')).toBeInTheDocument();
 
     const split = await section('Today’s business');
     const type = within(await split.findByRole('list', { name: 'Dine-in and parcel' }));

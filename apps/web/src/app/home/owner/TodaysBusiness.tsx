@@ -135,7 +135,7 @@ export function TodaysBusiness({
                 value: String(s.byType.DINE_IN.orders + s.byType.PARCEL.orders),
               },
               { label: 'Collected', value: rupees(s.collected) },
-              { label: 'Average order', value: rupees(s.averageOrder) },
+              { label: 'Average order', value: rupees(Math.round(s.averageOrder / 100) * 100) },
               ...(s.unpaid > 0
                 ? [{ label: 'Unpaid', value: rupees(s.unpaid), tone: 'danger' as const }]
                 : []),

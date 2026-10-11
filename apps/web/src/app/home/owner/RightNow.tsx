@@ -140,7 +140,8 @@ export function RightNow() {
       <h2 id="home-right-now" className="text-sm font-semibold tracking-wide text-muted uppercase">
         Right now
       </h2>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      {/* On phones an odd last tile stretches across, so no tile sits alone beside a gap. */}
+      <div className="grid grid-cols-2 gap-3 max-sm:[&>*:last-child:nth-child(odd)]:col-span-2 sm:grid-cols-3 lg:grid-cols-5">
         {canFloor && <TablesTile />}
         {canFloor && <KitchenTile />}
         {canQr && <QrTile />}
