@@ -1,7 +1,8 @@
-import { act, screen, within } from '@testing-library/react';
-import type { Permission } from '@rpos/shared';
+import { act, fireEvent, screen, within } from '@testing-library/react';
+import { PERMISSIONS, type Permission } from '@rpos/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { useSession } from '@/shared/session/store';
+import { INVALIDATIONS } from '@/features/realtime/invalidations';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
 import { expectNoAxeViolations } from '@/test/a11y';
 import { renderRoute } from '@/test/render';
@@ -53,18 +54,15 @@ const CLOSE_CHECK = {
   cash: { opening: 100000, cashSales: 3200, cashRefunds: 0, cashExpenses: 1000, expected: 102200 },
 };
 
-const OWNER: Permission[] = [
-  'reports.all',
-  'day.openClose',
-  'order.approveQr',
-  'stock.manage',
-  'bill.print',
-];
+// The owner holds every permission.
+const OWNER: Permission[] = [...PERMISSIONS];
+
+const MANAGER: Permission[] = ['day.openClose', 'order.approveQr', 'stock.manage', 'bill.print'];
 
 describe('HomePage', () => {
-  it('shows the owner today’s sales, open work, QR orders and low stock', async () => {
-    useSession.getState().setSession(sessionBody('OWNER', OWNER, 'Asha'));
-    mockApi({
+  it('shows a manager the open work, QR orders and low stock', async () => {
+    useSession.getState().setSession(sessionBody('MANAGER', MANAGER, 'Asha'));
+    const mockOf = mockApi({
       'GET /api/business-day/current': () => json(DAY_OPEN),
       'GET /api/reports/sales': () => json(SALES),
       'GET /api/business-day/close-check': () => json(CLOSE_CHECK),
@@ -76,11 +74,14 @@ describe('HomePage', () => {
     });
     renderRoute('/');
     expect(await screen.findByRole('heading', { level: 1, name: 'Welcome, Asha' })).toBeVisible();
-    expect(await screen.findByText('₹12,400')).toBeInTheDocument();
     expect(await screen.findByText('2 QR orders waiting for approval')).toBeInTheDocument();
     expect(await screen.findByText('Before closing the day')).toBeInTheDocument();
     expect(screen.getByText('₹1,022')).toBeInTheDocument();
     expect(await screen.findByText('Onion')).toBeInTheDocument();
+    // Today's figures and the owner's dashboard are for people with the reports.
+    expect(screen.queryByRole('heading', { name: 'Right now' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Top dishes' })).toBeNull();
+    expect(callsTo(mockOf, 'GET', '/api/reports/sales')).toHaveLength(0);
     await expectNoAxeViolations();
   });
 
@@ -366,5 +367,299 @@ describe('HomePage', () => {
       renderRoute('/');
       expect(await screen.findByText('Today ₹1,200 · 7-day total ₹1,200')).toBeInTheDocument();
     });
+  });
+});
+
+describe('the owner’s dashboard', () => {
+  const table = (id: string, name: string, busy: boolean) => ({
+    id,
+    name,
+    seats: 4,
+    order: busy
+      ? {
+          orderId: `o-${id}`,
+          status: 'OPEN',
+          guests: 2,
+          itemCount: 3,
+          subtotal: 30000,
+          openedAt: '2026-10-07T04:00:00Z',
+        }
+      : null,
+  });
+  const FLOOR = [
+    {
+      id: 'a1',
+      name: 'Hall',
+      sortOrder: 0,
+      tables: [table('t1', 'T1', true), table('t2', 'T2', true), table('t3', 'T3', false)],
+    },
+    { id: 'a2', name: 'Terrace', sortOrder: 1, tables: [table('t4', 'T4', false)] },
+  ];
+  const active = (id: string, cooking: number, ready: number) => ({
+    id,
+    type: 'DINE_IN',
+    status: 'OPEN',
+    tableId: 't1',
+    tableName: 'T1',
+    tokenNo: null,
+    customerName: null,
+    guests: 2,
+    itemCount: 3,
+    subtotal: 30000,
+    createdAt: '2026-10-07T04:00:00Z',
+    kitchen: { cooking, ready },
+  });
+  const ACTIVE = [active('o1', 2, 1), active('o2', 1, 0), active('o3', 0, 0)];
+  const FULL_SALES = {
+    ...SALES,
+    summary: {
+      ...SALES.summary,
+      payments: { CASH: 500000, UPI: 300000, CARD: 200000 },
+      byType: {
+        DINE_IN: { orders: 8, total: 900000 },
+        PARCEL: { orders: 4, total: 340000 },
+      },
+    },
+    items: [
+      { itemName: 'Chai', variantName: 'Regular', quantity: 90, amount: 90000 },
+      { itemName: 'Biryani', variantName: 'Full', quantity: 20, amount: 500000 },
+      { itemName: 'Dosa', variantName: 'Regular', quantity: 30, amount: 150000 },
+      { itemName: 'Paneer Tikka', variantName: 'Half', quantity: 10, amount: 300000 },
+      { itemName: 'Naan', variantName: 'Regular', quantity: 50, amount: 100000 },
+      { itemName: 'Lassi', variantName: 'Regular', quantity: 5, amount: 20000 },
+    ],
+    hours: [
+      { hour: 13, bills: 5, total: 400000 },
+      { hour: 14, bills: 3, total: 200000 },
+    ],
+  };
+  const DAY_REPORT = {
+    voids: [{ billNo: 3, total: 85000, reason: 'Wrong table', by: 'Meena' }],
+    discounts: [
+      { billNo: 5, amount: 10000, reason: null },
+      { billNo: 6, amount: 5000, reason: null },
+    ],
+  };
+  const handlers = (sales: () => Response = () => json(FULL_SALES)) => ({
+    'GET /api/business-day/current': () => json(DAY_OPEN),
+    'GET /api/reports/sales': sales,
+    'GET /api/business-day/close-check': () => json(CLOSE_CHECK),
+    'GET /api/business-day/d1/report': () => json(DAY_REPORT),
+    'GET /api/floor/status': () => json(FLOOR),
+    'GET /api/orders': () => json(ACTIVE),
+    'GET /api/qr/pending': () => json([{ id: 'q1' }, { id: 'q2' }]),
+    'GET /api/stock/items': () => json([]),
+  });
+  const full = () => mockApi(handlers());
+  const owner = () => useSession.getState().setSession(sessionBody('OWNER', OWNER, 'Asha'));
+  const section = async (name: string) => {
+    const heading = await screen.findByRole('heading', { level: 2, name });
+    return within(heading.closest('section')!);
+  };
+
+  it('shows live tiles for the floor, kitchen, QR orders, unpaid bills and cash', async () => {
+    owner();
+    full();
+    renderRoute('/');
+    const right = await section('Right now');
+    const link = (name: string) => right.findByRole('link', { name });
+    expect(await link('Tables busy: 2 of 4')).toHaveAttribute('href', '/pos');
+    expect(await link('In the kitchen: 3 cooking, 1 ready')).toHaveAttribute('href', '/kds');
+    expect(await link('QR orders waiting: 2')).toHaveAttribute('href', '/pos');
+    expect(await link('Unpaid bills: 1, ₹50')).toHaveAttribute('href', '/day');
+    expect(await link('Cash expected: ₹1,022')).toHaveAttribute('href', '/day');
+  });
+
+  it('shows the day’s revenue, orders, average and how it split', async () => {
+    owner();
+    full();
+    renderRoute('/');
+    const strip = await screen.findByRole('group', { name: 'This business day' });
+    expect(within(strip).getByText('Revenue')).toBeInTheDocument();
+    expect(within(strip).getByText('₹12,400')).toBeInTheDocument();
+    expect(within(strip).getByText('Orders')).toBeInTheDocument();
+    expect(within(strip).getByText('12')).toBeInTheDocument();
+    expect(within(strip).getByText('₹1,033')).toBeInTheDocument();
+
+    const split = await section('Today’s business');
+    const type = within(await split.findByRole('list', { name: 'Dine-in and parcel' }));
+    expect(type.getByText('Dine-in')).toBeInTheDocument();
+    expect(type.getByText('₹9,000 · 8 orders')).toBeInTheDocument();
+    expect(type.getByText('Parcel')).toBeInTheDocument();
+    expect(type.getByText('₹3,400 · 4 orders')).toBeInTheDocument();
+    const pay = within(split.getByRole('list', { name: 'Payment modes' }));
+    expect(pay.getByText('₹5,000')).toBeInTheDocument();
+    expect(pay.getByText('50%')).toBeInTheDocument();
+    expect(pay.getByText('30%')).toBeInTheDocument();
+    expect(pay.getByText('20%')).toBeInTheDocument();
+  });
+
+  it('charts sales by hour and lists the five best dishes by amount', async () => {
+    owner();
+    full();
+    renderRoute('/');
+    const hours = await section('Today by hour');
+    expect(await hours.findByRole('list', { name: 'Today by hour data' })).toBeInTheDocument();
+    expect(hours.getByText('Busiest: 1pm–2pm, ₹4,000 from 5 bills')).toBeInTheDocument();
+
+    const dishes = await section('Top dishes');
+    const rows = dishes.getAllByRole('listitem');
+    expect(rows).toHaveLength(5);
+    expect(rows[0]).toHaveTextContent('Biryani (Full)');
+    expect(rows[0]).toHaveTextContent('₹5,000');
+    expect(rows[4]).toHaveTextContent('Chai');
+    expect(dishes.queryByText('Lassi')).toBeNull();
+  });
+
+  it('lists voids and discounts on the watch list, with the amounts', async () => {
+    owner();
+    const mock = full();
+    renderRoute('/');
+    const watch = await section('Watch list');
+    expect(await watch.findByText('1 voided bill · ₹850')).toBeInTheDocument();
+    expect(watch.getByText('2 discounts given · ₹150')).toBeInTheDocument();
+    expect(watch.queryByText('All clear')).toBeNull();
+    expect(callsTo(mock, 'GET', '/api/business-day/d1/report').length).toBeGreaterThan(0);
+  });
+
+  it('warns about low stock and a day left open too long', async () => {
+    owner();
+    mockApi({
+      ...handlers(() => json(SALES)),
+      'GET /api/business-day/current': () =>
+        json({
+          day: { ...DAY_OPEN.day, openedAt: new Date(Date.now() - 26 * 3600_000).toISOString() },
+        }),
+      'GET /api/business-day/d1/report': () => json({ voids: [], discounts: [] }),
+      'GET /api/stock/items': () =>
+        json([
+          { id: 's1', name: 'Onion', unit: 'kg', low: true, currentMilli: 0, minLevelMilli: 1 },
+        ]),
+    });
+    renderRoute('/');
+    const watch = await section('Watch list');
+    expect(await watch.findByText('Onion')).toBeInTheDocument();
+    expect(
+      watch.getByText(/This business day has been open for over 20 hours/),
+    ).toBeInTheDocument();
+    expect(watch.queryByText('All clear')).toBeNull();
+  });
+
+  it('says all clear when there is nothing to watch', async () => {
+    owner();
+    mockApi({
+      ...handlers(() => json(SALES)),
+      'GET /api/business-day/current': () =>
+        json({ day: { ...DAY_OPEN.day, openedAt: new Date(Date.now() - 3600_000).toISOString() } }),
+      'GET /api/business-day/d1/report': () => json({ voids: [], discounts: [] }),
+    });
+    renderRoute('/');
+    const watch = await section('Watch list');
+    expect(await watch.findByText('All clear')).toBeInTheDocument();
+  });
+
+  it('hides the hour chart and the dishes when nothing has sold', async () => {
+    owner();
+    mockApi(
+      handlers(() =>
+        json({
+          ...SALES,
+          summary: { ...SALES.summary, bills: 0, total: 0, collected: 0, unpaid: 0 },
+        }),
+      ),
+    );
+    renderRoute('/');
+    await screen.findByRole('group', { name: 'This business day' });
+    expect(screen.queryByRole('heading', { name: 'Today by hour' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Top dishes' })).toBeNull();
+  });
+
+  it('shows the day-not-open card and today’s figures, without the live tiles', async () => {
+    owner();
+    const mock = mockApi({
+      'GET /api/business-day/current': () => json({ day: null }),
+      'GET /api/reports/sales': () => json(FULL_SALES),
+    });
+    renderRoute('/');
+    expect(await screen.findByText(/The business day is not open/)).toBeInTheDocument();
+    const strip = await screen.findByRole('group', { name: 'Today' });
+    expect(within(strip).getByText('₹12,400')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Right now' })).toBeNull();
+    for (const path of ['/api/floor/status', '/api/business-day/close-check']) {
+      expect(callsTo(mock, 'GET', path)).toHaveLength(0);
+    }
+  });
+
+  it('keeps the other sections when one cannot load, and retries just that one', async () => {
+    owner();
+    let fail = true;
+    mockApi(
+      handlers(() =>
+        fail
+          ? json({ code: 'SERVER', message: 'Sales are not available.' }, 500)
+          : json(FULL_SALES),
+      ),
+    );
+    renderRoute('/');
+    const right = await section('Right now');
+    expect(await right.findByRole('link', { name: 'Tables busy: 2 of 4' })).toBeInTheDocument();
+    const business = await section('Today’s business');
+    expect(await business.findByRole('alert')).toBeInTheDocument();
+    expect(await screen.findByText('1 voided bill · ₹850')).toBeInTheDocument();
+    fail = false;
+    fireEvent.click(business.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('group', { name: 'This business day' })).toBeInTheDocument();
+  });
+
+  it('asks again when the server says a bill, order, kitchen ticket or day changed', async () => {
+    owner();
+    const mock = full();
+    const { queryClient } = renderRoute('/');
+    await screen.findByRole('group', { name: 'This business day' });
+    await screen.findByText('1 voided bill · ₹850');
+    await screen.findByRole('link', { name: 'Tables busy: 2 of 4' });
+    await screen.findByRole('link', { name: 'In the kitchen: 3 cooking, 1 ready' });
+    const count = (path: string) => callsTo(mock, 'GET', path).length;
+    const before = {
+      sales: count('/api/reports/sales'),
+      check: count('/api/business-day/close-check'),
+      report: count('/api/business-day/d1/report'),
+      floor: count('/api/floor/status'),
+      orders: count('/api/orders'),
+    };
+    for (const key of INVALIDATIONS['bill.updated']!({ orderId: 'o1' })) {
+      void queryClient.invalidateQueries({ queryKey: key });
+    }
+    await expect.poll(() => count('/api/reports/sales')).toBeGreaterThan(before.sales);
+    await expect.poll(() => count('/api/business-day/close-check')).toBeGreaterThan(before.check);
+    await expect.poll(() => count('/api/business-day/d1/report')).toBeGreaterThan(before.report);
+    await expect.poll(() => count('/api/floor/status')).toBeGreaterThan(before.floor);
+    await expect.poll(() => count('/api/orders')).toBeGreaterThan(before.orders);
+  });
+
+  it('asks for the day report every minute while the screen stays open', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true, toFake: ['setTimeout', 'setInterval'] });
+    try {
+      owner();
+      const mock = full();
+      renderRoute('/');
+      await screen.findByText('1 voided bill · ₹850');
+      const before = callsTo(mock, 'GET', '/api/business-day/d1/report').length;
+      await act(() => vi.advanceTimersByTimeAsync(61_000));
+      await expect
+        .poll(() => callsTo(mock, 'GET', '/api/business-day/d1/report').length)
+        .toBeGreaterThan(before);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('passes the accessibility check', async () => {
+    owner();
+    full();
+    renderRoute('/');
+    await screen.findByText('1 voided bill · ₹850');
+    await screen.findByRole('link', { name: 'Cash expected: ₹1,022' });
+    await expectNoAxeViolations();
   });
 });

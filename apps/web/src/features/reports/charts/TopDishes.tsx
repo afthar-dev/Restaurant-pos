@@ -7,13 +7,22 @@ type Item = SalesReport['items'][number];
 const dishName = (i: Item) =>
   i.variantName && i.variantName !== 'Regular' ? `${i.itemName} (${i.variantName})` : i.itemName;
 
-/** The eight dishes that earned most, longest bar first. */
-export function TopDishes({ items }: { items: Item[] }) {
-  const top = items.slice(0, 8);
+/** The dishes that earned most (eight by default), longest bar first. */
+export function TopDishes({
+  items,
+  limit = 8,
+  as,
+}: {
+  items: Item[];
+  limit?: number;
+  as?: 'h2' | 'h3';
+}) {
+  const top = items.slice(0, limit);
   if (top.length === 0) return null;
   const max = Math.max(...top.map((i) => i.amount));
   return (
     <ChartFrame
+      as={as}
       title="Top dishes"
       takeaway={`Top seller: ${dishName(top[0]!)}, ${rupees(top[0]!.amount)}`}
     >

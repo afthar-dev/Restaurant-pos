@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:demo": "tsx prisma/demo.ts",
-    "db:qr-links": "tsx prisma/qr-links.ts"
+    "db:qr-links": "tsx prisma/qr-links.ts",
+    "db:qa-owner": "tsx prisma/qa-owner.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -24,8 +24,13 @@ export function usePastDays() {
   return useQuery({ queryKey: dayKeys.list, queryFn: fetchDays });
 }
 
-export function useDayReport(dayId: string | undefined) {
+/** How often a day report left open on a screen asks again, in case a notice was missed. */
+const DAY_REPORT_POLL_MS = 60_000;
+
+/** `poll` re-asks every minute, for a screen that stays open all evening (Home). */
+export function useDayReport(dayId: string | undefined, { poll = false } = {}) {
   return useQuery({
+    refetchInterval: poll ? DAY_REPORT_POLL_MS : false,
     queryKey: dayKeys.report(dayId),
     queryFn: () => fetchDayReport(dayId!),
     enabled: Boolean(dayId),

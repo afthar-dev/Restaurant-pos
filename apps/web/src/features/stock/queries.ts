@@ -2,8 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchPurchases, fetchStockItems, fetchStockTxns } from './api';
 import { stockKeys } from './keys';
 
-export function useStockItems() {
-  return useQuery({ queryKey: stockKeys.items, queryFn: fetchStockItems });
+export function useStockItems(enabled = true) {
+  return useQuery({ queryKey: stockKeys.items, queryFn: fetchStockItems, enabled });
 }
 
 export function useStockTxns(itemId: string) {

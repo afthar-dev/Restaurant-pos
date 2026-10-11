@@ -1,101 +1,19 @@
-import { ArrowRight, BellRing, CalendarX, Package, UtensilsCrossed } from 'lucide-react';
+import { ArrowRight, BellRing, UtensilsCrossed } from 'lucide-react';
+import { lazy, Suspense } from 'react';
 import { Link } from 'react-router';
 import { useBusinessDay, useCloseCheck } from '@/features/day';
 import { useQrPending } from '@/features/orders';
-import {
-  presetRange,
-  useDaySalesReport,
-  useSalesReport,
-  WeekTrend,
-  type SalesReport,
-} from '@/features/reports';
 import { SetupCard } from '@/features/setup';
-import { useStockItems } from '@/features/stock';
 import { rupees } from '@/shared/lib/money';
-import { dayAndTime } from '@/shared/lib/when';
+import { PRINT_TIME_ZONE } from '@/shared/lib/when';
 import { useCan, useSession } from '@/shared/session/store';
-import {
-  Badge,
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  describeError,
-  ErrorNote,
-  Skeleton,
-  StatStrip,
-} from '@/shared/ui';
+import { Button, Card, CardBody, CardHeader, Skeleton, StatStrip } from '@/shared/ui';
 import { visibleNav } from '../navigation';
+import { DayNotOpen } from './DayNotOpen';
+import { LowStockBadges, useLowStock } from './LowStockBadges';
+import { OwnerHomeSkeleton } from './owner/OwnerHomeSkeleton';
 
-/** Sales, collected, unpaid, bills and average for one report. */
-function SalesStrip({
-  label,
-  report,
-  since,
-}: {
-  label: string;
-  report: SalesReport;
-  since?: string;
-}) {
-  const s = report.summary;
-  return (
-    <StatStrip
-      label={label}
-      items={[
-        { label: 'Sales', value: rupees(s.total), hint: since },
-        { label: 'Collected', value: rupees(s.collected) },
-        ...(s.unpaid > 0
-          ? [{ label: 'Unpaid', value: rupees(s.unpaid), tone: 'danger' as const }]
-          : []),
-        { label: 'Bills', value: String(s.bills) },
-        { label: 'Average order', value: rupees(s.averageOrder) },
-      ]}
-    />
-  );
-}
-
-/** The open business day, by id: it stays one day when service runs past midnight. */
-function OpenDaySales({ dayId, openedAt }: { dayId: string; openedAt: string }) {
-  const report = useDaySalesReport(dayId, { poll: true });
-  if (report.isError) {
-    return (
-      <ErrorNote message={describeError(report.error)} onRetry={() => void report.refetch()} />
-    );
-  }
-  return report.data ? (
-    <SalesStrip
-      label="This business day"
-      report={report.data}
-      since={`Since ${dayAndTime(openedAt)}`}
-    />
-  ) : (
-    <Skeleton className="h-24" />
-  );
-}
-
-/** With no day open, the sales of today's date. */
-function TodaySales() {
-  // Worked out on each render, so a screen left open overnight moves to the new day.
-  const report = useSalesReport(presetRange('today'), { poll: true });
-  if (report.isError) {
-    return (
-      <ErrorNote message={describeError(report.error)} onRetry={() => void report.refetch()} />
-    );
-  }
-  return report.data ? (
-    <SalesStrip label="Today" report={report.data} />
-  ) : (
-    <Skeleton className="h-24" />
-  );
-}
-
-/** Owner: sales of the business day that is open now, or of today's date when none is. */
-function SalesToday() {
-  const day = useBusinessDay();
-  if (!day.data) return <Skeleton className="h-24" />;
-  const open = day.data.day;
-  return open ? <OpenDaySales dayId={open.id} openedAt={open.openedAt} /> : <TodaySales />;
-}
+const OwnerHome = lazy(() => import('./owner/OwnerHome'));
 
 /** Manager: what still blocks closing, and the cash the drawer should hold. */
 function OpenWork() {
@@ -160,8 +78,7 @@ function QrWaiting() {
 }
 
 function LowStock() {
-  const items = useStockItems();
-  const low = (items.data ?? []).filter((i) => i.low);
+  const { low } = useLowStock();
   if (low.length === 0) return null;
   return (
     <Card>
@@ -175,32 +92,7 @@ function LowStock() {
         }
       />
       <CardBody className="flex flex-wrap gap-2">
-        {low.map((i) => (
-          <Badge key={i.id} tone="warning" icon={<Package />}>
-            {i.name}
-          </Badge>
-        ))}
-      </CardBody>
-    </Card>
-  );
-}
-
-function DayNotOpen() {
-  const canOpen = useCan('day.openClose');
-  return (
-    <Card className="border-amber-300 bg-amber-50">
-      <CardBody className="flex flex-wrap items-center justify-between gap-3">
-        <span className="flex items-center gap-2 text-amber-950">
-          <CalendarX aria-hidden="true" className="size-5 shrink-0" />
-          {canOpen
-            ? 'The business day is not open. Open it on the POS to start taking orders.'
-            : 'The business day is not open yet. Ask a manager to open it.'}
-        </span>
-        {canOpen && (
-          <Button asChild size="sm">
-            <Link to="/pos">Open the day</Link>
-          </Button>
-        )}
+        <LowStockBadges names={low} />
       </CardBody>
     </Card>
   );
@@ -248,7 +140,9 @@ function QuickActions() {
 export function HomePage() {
   const user = useSession((s) => s.user);
   const day = useBusinessDay();
-  const canSales = useCan('reports.all');
+  // Only the owner holds the reports: the owner gets today at a glance, everyone else the
+  // work waiting for them.
+  const isOwner = useCan('reports.all');
   const canClose = useCan('day.openClose');
   const canQr = useCan('order.approveQr');
   const canStock = useCan('stock.manage');
@@ -266,21 +160,24 @@ export function HomePage() {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
+            timeZone: PRINT_TIME_ZONE,
           })}
         </p>
       </header>
       <SetupCard />
-      {day.data && !dayOpen && <DayNotOpen />}
-      {canQr && dayOpen && <QrWaiting />}
-      {canSales && <SalesToday />}
-      {canSales &&
-        (day.data ? (
-          <WeekTrend openedAt={day.data.day?.openedAt} />
-        ) : (
-          <Skeleton className="h-44" />
-        ))}
-      {canClose && dayOpen && <OpenWork />}
-      {canStock && <LowStock />}
+      {isOwner ? (
+        // Loaded on its own, so the dashboard stays out of the first download.
+        <Suspense fallback={<OwnerHomeSkeleton />}>
+          <OwnerHome />
+        </Suspense>
+      ) : (
+        <>
+          {day.data && !dayOpen && <DayNotOpen />}
+          {canQr && dayOpen && <QrWaiting />}
+          {canClose && dayOpen && <OpenWork />}
+          {canStock && <LowStock />}
+        </>
+      )}
       <QuickActions />
     </section>
   );
