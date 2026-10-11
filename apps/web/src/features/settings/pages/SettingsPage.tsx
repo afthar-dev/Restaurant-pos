@@ -159,6 +159,14 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
 
       <fieldset className="grid gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
         <legend className="px-1 text-sm font-semibold">Tax</legend>
+        {saved.taxScheme !== 'NONE' && !saved.gstin && (
+          <p
+            role="alert"
+            className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-900 sm:col-span-2"
+          >
+            Add your GSTIN — you are charging GST without one
+          </p>
+        )}
         <Field
           id="setting-gstin"
           label="GSTIN"

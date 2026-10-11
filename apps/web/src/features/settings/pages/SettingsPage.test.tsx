@@ -142,6 +142,18 @@ describe('SettingsPage', () => {
       });
     });
 
+    it.each([
+      ['REGULAR', null, true],
+      ['COMPOSITION', null, true],
+      ['NONE', null, false],
+      ['REGULAR', '27AAPFU0939F1ZV', false],
+    ])('red warning for saved %s with GSTIN %s: %s', async (taxScheme, gstin, shown) => {
+      await open({ ...settings, taxScheme, gstin });
+      const text = 'Add your GSTIN — you are charging GST without one';
+      if (shown) expect(await screen.findByRole('alert')).toHaveTextContent(text);
+      else expect(screen.queryByText(text)).toBeNull();
+    });
+
     it('shows the message the server sends back', async () => {
       await open({ ...settings, taxScheme: 'NONE' }, () =>
         json({ code: 'VALIDATION', message: 'Add your GSTIN to charge GST.' }, 400),
