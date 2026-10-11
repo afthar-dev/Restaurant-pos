@@ -8,3 +8,6 @@ export { useDaySalesReport, useSalesReport } from './queries';
 export { presetRange } from './ranges';
 export type { SalesReport } from './types';
 export { WeekTrend } from './components/WeekTrend';
+export { HourlySales } from './components/HourlySales';
+export { TopDishes } from './charts/TopDishes';
+export { percentShares } from './charts/scale';

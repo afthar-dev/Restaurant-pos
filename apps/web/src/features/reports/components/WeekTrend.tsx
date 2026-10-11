@@ -1,20 +1,13 @@
-import { lazy, Suspense, type ComponentProps, type ComponentType } from 'react';
+import { Suspense } from 'react';
 import { Link } from 'react-router';
 import { rupees } from '@/shared/lib/money';
 import { Card, CardBody, Skeleton } from '@/shared/ui';
 import { ChartFrame } from '../charts/ChartFrame';
-import type { ColumnChart as Chart } from '../charts/ColumnChart';
 import { billCount, dayLabel, shortDayLabel } from '../charts/scale';
 import type { ChartPoint } from '../charts/types';
 import { useSalesReport } from '../queries';
+import { LazyColumnChart } from './LazyColumnChart';
 import { datesInRange, istDateOf, presetRange } from '../ranges';
-
-// Recharts is big: the home screen loads it after the card's text is on screen. If its code
-// cannot load (app updated, Wi-Fi dropped), the card keeps its text and goes without the
-// chart, rather than the error taking down the whole home screen.
-const ColumnChart = lazy<ComponentType<ComponentProps<typeof Chart>>>(() =>
-  import('../charts/ColumnChart').catch(() => ({ default: () => null })),
-);
 
 /**
  * Owner home: the last seven India dates; closed days are empty slots. The highlighted bar is
@@ -24,7 +17,7 @@ const ColumnChart = lazy<ComponentType<ComponentProps<typeof Chart>>>(() =>
 export function WeekTrend({ openedAt }: { openedAt?: string | null }) {
   // Worked out on each render, so a screen left open overnight moves to the new day.
   const range = presetRange('last7Days');
-  const report = useSalesReport(range);
+  const report = useSalesReport(range, { poll: true });
   if (report.isError) return null;
   if (!report.data) return <Skeleton className="h-44" />;
 
@@ -62,7 +55,7 @@ export function WeekTrend({ openedAt }: { openedAt?: string | null }) {
         >
           {/* Same 96 px height as the chart, so the card does not jump when it arrives. */}
           <Suspense fallback={<Skeleton className="h-24 w-full" />}>
-            <ColumnChart title="Last 7 days" points={points} height={96} compact />
+            <LazyColumnChart title="Last 7 days" points={points} height={96} compact />
           </Suspense>
         </ChartFrame>
         <Link
