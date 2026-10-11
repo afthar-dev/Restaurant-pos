@@ -28,6 +28,7 @@ export function ExpenseForm() {
   const [saved, setSaved] = useState<string | null>(null);
   // A large cash expense the API wants a manager to approve before it is saved.
   const [pending, setPending] = useState<NewExpense | null>(null);
+  const [approvalFailed, setApprovalFailed] = useState(false);
   const add = useAddExpense(() => {
     setSaved('Expense saved.');
     setAmount('');
@@ -66,10 +67,18 @@ export function ExpenseForm() {
 
   function send(body: NewExpense) {
     setSaved(null);
+    setApprovalFailed(false);
     add.mutate(body, {
       onSuccess: () => setPending(null),
       onError: (failure) => {
-        if (failure instanceof ApiError && failure.code === 'APPROVAL_REQUIRED') setPending(body);
+        if (failure instanceof ApiError && failure.code === 'APPROVAL_REQUIRED') {
+          // A bad or used token comes back the same way: drop it and ask again.
+          const { overrideToken, ...rest } = body;
+          setPending(rest);
+          setApprovalFailed(overrideToken !== undefined);
+        } else {
+          setPending(null);
+        }
       },
     });
   }
@@ -147,12 +156,19 @@ export function ExpenseForm() {
         </div>
       </form>
       {pending && (
-        <ManagerApproval
-          permission="day.openClose"
-          message={`${rupees(pending.amount)} in cash is above the petty cash limit. A manager must approve it.`}
-          onApproved={(token) => send({ ...pending, overrideToken: token })}
-          onCancel={() => setPending(null)}
-        />
+        <>
+          {approvalFailed && (
+            <p role="alert" className="text-sm text-red-700">
+              That approval did not work. Ask the manager again.
+            </p>
+          )}
+          <ManagerApproval
+            permission="day.openClose"
+            message={`${rupees(pending.amount)} in cash is above the petty cash limit. A manager must approve it.`}
+            onApproved={(token) => send({ ...pending, overrideToken: token })}
+            onCancel={() => setPending(null)}
+          />
+        </>
       )}
     </div>
   );

@@ -123,6 +123,18 @@ describe('SettingsPage', () => {
     expect(JSON.parse(String(call?.[1]?.body))).toEqual({ pettyCashLimitPaise: 150000 });
   });
 
+  it('refuses a blank petty cash limit instead of sending zero', async () => {
+    useSession.getState().setSession(sessionBody('OWNER', ['settings.manage']));
+    const mock = mockApi({ 'GET /api/outlet': () => json(settings) });
+    renderRoute('/admin/settings');
+    fireEvent.change(await screen.findByLabelText('Petty cash limit (₹)'), {
+      target: { value: '  ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    expect(await screen.findByText('Enter a limit in rupees')).toBeInTheDocument();
+    expect(callsTo(mock, 'PATCH', '/api/outlet')).toHaveLength(0);
+  });
+
   it('rejects an invalid GSTIN without calling the server', async () => {
     useSession.getState().setSession(sessionBody('OWNER', ['settings.manage']));
     const mock = mockApi({ 'GET /api/outlet': () => json(settings) });

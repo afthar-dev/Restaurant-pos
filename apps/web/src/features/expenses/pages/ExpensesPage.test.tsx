@@ -125,6 +125,56 @@ describe('ExpensesPage', () => {
     expect(await within(form).findByText('Expense saved.')).toBeInTheDocument();
   });
 
+  async function fillLargeExpense(mock: ReturnType<typeof mockApi>) {
+    renderRoute('/expenses');
+    const form = await screen.findByRole('form', { name: 'New expense' });
+    await within(form).findByRole('option', { name: 'Gas' });
+    fireEvent.change(within(form).getByLabelText('Category'), { target: { value: GAS } });
+    fireEvent.change(within(form).getByLabelText('Amount (₹)'), { target: { value: '2500' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Save expense' }));
+    const approval = await screen.findByRole('form', { name: 'Manager approval' });
+    await within(approval).findByRole('option', { name: 'Meena' });
+    fireEvent.change(within(approval).getByLabelText('Manager'), { target: { value: 'm1' } });
+    fireEvent.change(within(approval).getByLabelText('Manager PIN'), { target: { value: '9999' } });
+    fireEvent.click(within(approval).getByRole('button', { name: 'Approve' }));
+    await expect.poll(() => callsTo(mock, 'POST', '/api/expenses').length).toBe(2);
+    return form;
+  }
+
+  it('says so when the approval did not work, and asks again', async () => {
+    asCashier();
+    const mock = mockApi({
+      'GET /api/expenses': () => json(day()),
+      'GET /api/expense-categories': () => json(CATEGORIES),
+      'GET /api/auth/approvers': () => json([{ id: 'm1', name: 'Meena' }]),
+      'POST /api/auth/override': () => json({ overrideToken: 'tok' }, 201),
+      'POST /api/expenses': () => json({ code: 'APPROVAL_REQUIRED', message: 'No.' }, 403),
+    });
+    await fillLargeExpense(mock);
+    expect(await screen.findByText(/That approval did not work/)).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: 'Manager approval' })).toBeInTheDocument();
+  });
+
+  it('shows any other error instead of the approval step', async () => {
+    asCashier();
+    let attempt = 0;
+    const mock = mockApi({
+      'GET /api/expenses': () => json(day()),
+      'GET /api/expense-categories': () => json(CATEGORIES),
+      'GET /api/auth/approvers': () => json([{ id: 'm1', name: 'Meena' }]),
+      'POST /api/auth/override': () => json({ overrideToken: 'tok' }, 201),
+      'POST /api/expenses': () => {
+        attempt += 1;
+        return attempt === 1
+          ? json({ code: 'APPROVAL_REQUIRED', message: 'No.' }, 403)
+          : json({ code: 'DAY_CLOSED', message: 'That business day is closed.' }, 409);
+      },
+    });
+    await fillLargeExpense(mock);
+    expect(await screen.findByText('That business day is closed.')).toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: 'Manager approval' })).toBeNull();
+  });
+
   it('asks for a category and a valid amount', async () => {
     asCashier();
     const mock = mockApi({

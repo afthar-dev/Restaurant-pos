@@ -127,6 +127,10 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     setResult('');
+    if (draft.pettyCashRupees.trim() === '') {
+      setErrors({ pettyCashRupees: 'Enter a limit in rupees' });
+      return;
+    }
     const body = changes(saved, draft);
     if (Object.keys(body).length === 0) {
       setResult('No changes to save');

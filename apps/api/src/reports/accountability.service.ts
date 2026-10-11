@@ -34,6 +34,8 @@ export function istRange(range: ReportRange): { gte: Date; lt: Date } {
 /**
  * Who gave discounts, voided bills, cancelled dishes and reprinted over a date range, and
  * why. Discounts and voids are attributed to the approving manager, like the audit trail.
+ * Cash out (pay-outs and drops) is attributed to whoever recorded it, the person handling the
+ * cash, not to the manager who approved it.
  * Rows from before reason codes count as "Other". Read-only.
  */
 @Injectable()
