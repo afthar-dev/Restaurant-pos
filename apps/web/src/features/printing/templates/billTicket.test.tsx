@@ -312,3 +312,46 @@ describe('bill printing', () => {
     );
   });
 });
+
+describe('totals block order and old queued payloads', () => {
+  const textOf = (html: string) =>
+    new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+
+  it('prints Subtotal, Discount, Packaging, Taxable, GST, Round off, Total in order for REGULAR', () => {
+    const text = textOf(renderBillTicket({ ...billPayload, packaging: 500 }));
+    const at = ['Subtotal', 'Discount', 'Packaging', 'Taxable', 'CGST', 'Round off', 'TOTAL'].map(
+      (label) => text.indexOf(label, text.indexOf('Subtotal')),
+    );
+    expect(at.every((i) => i >= 0)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    expect(text).toMatch(/Taxable\s*₹405\.00/);
+  });
+
+  it('has no Taxable row for NONE or COMPOSITION', () => {
+    for (const taxScheme of ['NONE', 'COMPOSITION'] as const) {
+      const html = renderBillTicket({
+        ...billPayload,
+        taxScheme,
+        taxBreakup: [],
+        cgst: 0,
+        sgst: 0,
+      });
+      expect(textOf(html)).not.toContain('Taxable');
+    }
+  });
+
+  it('renders a payload queued before the upgrade, with correct amounts', () => {
+    const { customer: _c, taxScheme: _t, ...rest } = billPayload;
+    const old = {
+      ...rest,
+      title: 'Bill of Supply',
+      lines: billPayload.lines.map(({ rate: _r, gross: _g, lineDiscount: _d, ...l }) => l),
+    } as unknown as BillPrintPayload;
+    const text = textOf(renderBillTicket(old));
+    expect(text).toContain('Bill of Supply');
+    expect(text).toContain('2 × ₹210.00 = ₹420.00');
+    expect(text).toContain('1 × ₹30.00 = ₹30.00');
+    expect(text).not.toContain('NaN');
+    expect(text).not.toContain('Bill to');
+  });
+});

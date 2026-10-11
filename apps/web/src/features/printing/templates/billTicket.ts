@@ -92,6 +92,16 @@ const absolute = (url: string) => new URL(url, window.location.origin).toString(
 
 export function renderBillTicket(p: BillPrintPayload): string {
   const e = escapeHtml;
+  // Jobs queued before an upgrade may lack newer fields: tolerate them rather than stall printing.
+  const legacyTitle = (p as { title?: string }).title;
+  const scheme: TaxScheme =
+    p.taxScheme ??
+    (legacyTitle === 'Tax Invoice'
+      ? 'REGULAR'
+      : legacyTitle === 'Bill of Supply'
+        ? 'COMPOSITION'
+        : 'NONE');
+  const customer = p.customer ?? { name: null, gstin: null };
   const money = (paise: number) => e(formatPaise(paise));
   const when = new Date(p.createdAt).toLocaleString('en-IN', {
     day: '2-digit',
@@ -105,9 +115,7 @@ export function renderBillTicket(p: BillPrintPayload): string {
   const outlet = [
     p.outlet.address && `<div class="center">${e(p.outlet.address)}</div>`,
     p.outlet.phone && `<div class="center">Ph: ${e(p.outlet.phone)}</div>`,
-    p.taxScheme !== 'NONE' &&
-      p.outlet.gstin &&
-      `<div class="center">GSTIN: ${e(p.outlet.gstin)}</div>`,
+    scheme !== 'NONE' && p.outlet.gstin && `<div class="center">GSTIN: ${e(p.outlet.gstin)}</div>`,
     p.outlet.fssaiNumber && `<div class="center">FSSAI: ${e(p.outlet.fssaiNumber)}</div>`,
     p.outlet.billHeader && `<div class="center">${e(p.outlet.billHeader)}</div>`,
   ]
@@ -117,9 +125,12 @@ export function renderBillTicket(p: BillPrintPayload): string {
     .map((l) => {
       const name = l.variantName === 'Regular' ? l.itemName : `${l.itemName} (${l.variantName})`;
       const addons = l.addons.map((a) => `<div class="sub">+ ${e(a)}</div>`).join('');
-      const rateLine = `<div class="sub">${l.quantity} × ${money(l.rate)} = ${money(l.gross)}</div>`;
+      const rate = l.rate ?? l.unitPrice;
+      const gross = l.gross ?? rate * l.quantity;
+      const lineDiscount = l.lineDiscount ?? 0;
+      const rateLine = `<div class="sub">${l.quantity} × ${money(rate)} = ${money(gross)}</div>`;
       const discountLine =
-        l.lineDiscount > 0 ? `<div class="sub">Discount −${money(l.lineDiscount)}</div>` : '';
+        lineDiscount > 0 ? `<div class="sub">Discount −${money(lineDiscount)}</div>` : '';
       return `<div class="line"><div>${e(name)}</div>${addons}${rateLine}${discountLine}</div>`;
     })
     .join('');
@@ -132,6 +143,7 @@ export function renderBillTicket(p: BillPrintPayload): string {
         `-${money(p.billDiscount)}`,
       ),
     p.packaging > 0 && row('Packaging', money(p.packaging)),
+    scheme === 'REGULAR' && row('Taxable', money(p.taxable)),
     p.exempt > 0 && row('No GST items', money(p.exempt)),
     ...p.taxBreakup.flatMap((t) => [
       row(`CGST ${e(t.cgstPercent)} on ${money(t.taxable)}`, money(t.cgst)),
@@ -142,8 +154,8 @@ export function renderBillTicket(p: BillPrintPayload): string {
     .filter(Boolean)
     .join('');
   const billTo =
-    p.customer.name || p.customer.gstin
-      ? `<div>Bill to: ${[p.customer.name && e(p.customer.name), p.customer.gstin && `GSTIN ${e(p.customer.gstin)}`].filter(Boolean).join(' · ')}</div>`
+    customer.name || customer.gstin
+      ? `<div>Bill to: ${[customer.name && e(customer.name), customer.gstin && `GSTIN ${e(customer.gstin)}`].filter(Boolean).join(' · ')}</div>`
       : '';
   const payments = p.payments.map((pay) => row(MODE_LABEL[pay.mode], money(pay.amount))).join('');
 
@@ -165,7 +177,7 @@ ${p.status === 'VOID' ? '<div class="void">VOID</div>' : ''}
 ${p.outlet.logoUrl ? `<img class="logo" src="${e(absolute(p.outlet.logoUrl))}" alt="">` : ''}
 <div class="center name">${e(p.outlet.name)}</div>
 ${outlet}
-<div class="center title">${e(billTitle(p.taxScheme))}</div>
+<div class="center title">${e(p.taxScheme ? billTitle(p.taxScheme) : (legacyTitle ?? billTitle(scheme)))}</div>
 <hr>
 ${row(`Bill No: ${e(p.financialYear)}/${p.billNo}`, e(when))}
 ${row(where, p.guests ? `Guests: ${p.guests}` : '')}
@@ -180,8 +192,8 @@ ${totals}
 ${row('TOTAL', money(p.total), true)}
 ${payments ? `<hr>${payments}` : ''}
 ${p.due > 0 ? row('Due', money(p.due), true) : ''}
-${p.taxScheme === 'REGULAR' ? `<div class="center">${RESTAURANT_SAC}</div>` : ''}
-${p.taxScheme === 'COMPOSITION' ? `<div class="center">${COMPOSITION_DECLARATION}</div>` : ''}
+${scheme === 'REGULAR' ? `<div class="center">${RESTAURANT_SAC}</div>` : ''}
+${scheme === 'COMPOSITION' ? `<div class="center">${COMPOSITION_DECLARATION}</div>` : ''}
 ${p.outlet.billFooter ? `<hr><div class="center">${e(p.outlet.billFooter)}</div>` : ''}
 </body></html>`;
 }
