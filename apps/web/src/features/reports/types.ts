@@ -1,4 +1,7 @@
-import type { OrderType, PaymentMode } from '@rpos/shared';
+import type { GstReport, OrderType, PaymentMode } from '@rpos/shared';
+
+/** Mirrors GstReportService in apps/api/src/reports/gst-report.service.ts. */
+export type { GstReport };
 
 /** GST at one rate: CGST + SGST percent, the taxable value and the tax on it. */
 export interface GstRateRow {
@@ -49,8 +52,30 @@ export interface SalesReport {
     expenses: { total: number; byCategory: { name: string; amount: number }[] };
     net: number;
   };
+  /** Turnover and the flat tax owed on it; only for a composition outlet, otherwise null. */
+  composition: { turnover: number; taxPayable: number } | null;
   items: { itemName: string; variantName: string; quantity: number; amount: number }[];
   categories: { name: string; quantity: number; amount: number }[];
   /** Bills by India hour (0–23), only hours with bills. */
   hours: { hour: number; bills: number; total: number }[];
+}
+
+export interface AccountabilityFigure {
+  count: number;
+  amount: number;
+}
+
+/** Mirrors AccountabilityService in apps/api/src/reports/accountability.service.ts. */
+export interface AccountabilityReport {
+  byReason: { kind: 'discount' | 'void' | 'cancel'; code: string; count: number; amount: number }[];
+  byStaff: {
+    userId: string;
+    name: string;
+    discounts: AccountabilityFigure;
+    voids: AccountabilityFigure;
+    cancels: AccountabilityFigure;
+    reprints: number;
+    cashOut: AccountabilityFigure;
+    modeChanges: number;
+  }[];
 }

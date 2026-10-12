@@ -8,6 +8,7 @@ import {
   Post,
   Put,
   Query,
+  Req,
 } from '@nestjs/common';
 import {
   expenseCategorySchema,
@@ -18,7 +19,7 @@ import {
   type VoidRequest,
 } from '@rpos/shared';
 import { RequirePermissions } from '../auth/decorators';
-import { CurrentUser, type AuthUser } from '../common/request-context';
+import { CurrentUser, type AuthUser, type RequestContext } from '../common/request-context';
 import { ZodBody } from '../common/zod-body.pipe';
 import { ExpenseCategoriesService } from './expense-categories.service';
 import { ExpensesService } from './expenses.service';
@@ -72,10 +73,16 @@ export class ExpensesController {
   @Post()
   add(
     @CurrentUser() user: AuthUser,
+    @Req() req: RequestContext,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body(new ZodBody(expenseSchema)) body: ExpenseRequest,
   ) {
-    return this.expenses.add(user, idempotencyKey?.slice(0, 100) || undefined, body);
+    return this.expenses.add(
+      user,
+      req.permissions ?? [],
+      idempotencyKey?.slice(0, 100) || undefined,
+      body,
+    );
   }
 
   @Post(':id/void')

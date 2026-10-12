@@ -1,4 +1,10 @@
-import type { OrderStatus, OrderType, PaymentMode } from '@rpos/shared';
+import type {
+  CashMovementKind,
+  CloseCount,
+  OrderStatus,
+  OrderType,
+  PaymentMode,
+} from '@rpos/shared';
 
 export interface BusinessDay {
   id: string;
@@ -13,17 +19,33 @@ export interface DayBlockers {
   bills: { id: string; orderId: string; billNo: number; due: number }[];
 }
 
-export interface CloseCheck {
+/** What stops the close; the closing screen asks for this alone (blind). */
+export interface BlindCloseCheck {
   day: { id: string; openingCash: number };
   blockers: DayBlockers;
+}
+
+/** The close check with the cash expected in the drawer (owner Home). */
+export interface CloseCheck extends BlindCloseCheck {
   cash: {
     opening: number;
     cashSales: number;
     /** Cash handed back by voiding paid bills. */
     cashRefunds: number;
     cashExpenses: number;
+    /** Cash put in, taken out and dropped, apart from sales and expenses. */
+    payIns: number;
+    payOuts: number;
+    drops: number;
     expected: number;
   };
+}
+
+/** The answer to "Check count": nothing is closed or saved. */
+export interface CountCheck {
+  expected: number;
+  variance: number;
+  needsReason: boolean;
 }
 
 export interface DaySummary {
@@ -50,6 +72,13 @@ export interface GstRateRow {
 }
 
 /** Mirrors DayCloseService.report() in the API. */
+export interface ReconciliationFigure {
+  withRef: number;
+  withoutRef: number;
+  /** Paise taken without a reference. */
+  amountWithout: number;
+}
+
 export interface DayReport {
   day: {
     id: string;
@@ -59,6 +88,11 @@ export interface DayReport {
     openedBy: { id: string; name: string };
     closedBy: { id: string; name: string } | null;
     closeNote: string | null;
+    /** Notes and coins counted at close; null if the day was closed with a typed total. */
+    closeCount: CloseCount | null;
+    closeReasonCode: string | null;
+    /** The first count checked on the day (paise), only when it differs from the closing count. */
+    firstCount: number | null;
   };
   sales: {
     bills: number;
@@ -102,17 +136,41 @@ export interface DayReport {
     CARD: number;
     bills: { billNo: number; amount: number; modes: PaymentMode[]; by: string | null }[];
   };
+  /** UPI and card payments with and without a reference, to match against the statements. */
+  reconciliation: {
+    upi: ReconciliationFigure;
+    card: ReconciliationFigure;
+    /** The payments without a reference, oldest first. */
+    missing: { billNo: number; mode: PaymentMode; amount: number; at: string }[];
+  };
   byType: Record<OrderType, { orders: number; total: number }>;
   topItems: { itemName: string; variantName: string; quantity: number; amount: number }[];
+  /** Bills printed again, with the number of reprints (the original is not counted). */
+  reprints: { billNo: number; count: number }[];
   voids: { billNo: number; total: number; reason: string | null; by: string | null }[];
   cancels: { itemName: string; quantity: number; reason: string | null }[];
   discounts: { billNo: number; amount: number; reason: string | null }[];
   expenses: { total: number; cash: number; byCategory: { name: string; amount: number }[] };
+  /** Cash put in or taken out of the drawer during the day, and what it adds up to. */
+  cashMovements: {
+    totals: { payIn: number; payOut: number; drop: number };
+    list: {
+      at: string;
+      type: CashMovementKind;
+      amount: number;
+      reasonCode: string;
+      note: string | null;
+      by: string;
+    }[];
+  };
   cash: {
     opening: number;
     cashSales: number;
     cashRefunds: number;
     cashExpenses: number;
+    payIns: number;
+    payOuts: number;
+    drops: number;
     expected: number;
     counted: number | null;
     variance: number | null;

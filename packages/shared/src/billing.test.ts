@@ -7,6 +7,7 @@ import {
   discountSchema,
   reopenDaySchema,
   splitEqually,
+  voidBillSchema,
 } from './billing';
 
 const ID = '00000000-0000-4000-8000-000000000001';
@@ -52,8 +53,8 @@ describe('request schemas', () => {
     expect(addPaymentSchema.safeParse({ mode: 'CASH', amount: 0 }).success).toBe(false);
     expect(addPaymentSchema.safeParse({ mode: 'CHEQUE', amount: 100 }).success).toBe(false);
     expect(
-      addPaymentSchema.parse({ mode: 'UPI', amount: 100, reference: ' 1234 ' }).reference,
-    ).toBe('1234');
+      addPaymentSchema.parse({ mode: 'UPI', amount: 100, reference: ' 123456 ' }).reference,
+    ).toBe('123456');
   });
 
   it('sets bill and item discounts together', () => {
@@ -68,5 +69,21 @@ describe('request schemas', () => {
     expect(closeDaySchema.safeParse({}).success).toBe(false);
     expect(closeDaySchema.parse({ countedCash: 150000 })).toEqual({ countedCash: 150000 });
     expect(reopenDaySchema.safeParse({ reason: 'x' }).success).toBe(false);
+  });
+});
+
+describe('discount and void reason codes', () => {
+  it('takes a code and note, or the older free text', () => {
+    expect(billDiscountSchema.safeParse({ bill: null, reasonCode: 'COMPLIMENTARY' }).success).toBe(
+      true,
+    );
+    expect(billDiscountSchema.safeParse({ reasonCode: 'OTHER' }).success).toBe(false);
+    expect(billDiscountSchema.safeParse({ reasonCode: 'NOPE' }).success).toBe(false);
+    expect(voidBillSchema.safeParse({ reasonCode: 'DUPLICATE' }).success).toBe(true);
+    expect(voidBillSchema.safeParse({ reasonCode: 'OTHER', note: 'Fire alarm' }).success).toBe(
+      true,
+    );
+    expect(voidBillSchema.safeParse({ reason: 'Wrong table' }).success).toBe(true);
+    expect(voidBillSchema.safeParse({}).success).toBe(false);
   });
 });

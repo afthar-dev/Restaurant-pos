@@ -2,6 +2,7 @@ import { ArrowLeft, UtensilsCrossed } from 'lucide-react';
 import { Suspense, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 import { useBootSession, useCurrentDevice } from '@/features/auth';
+import { CashButton } from '@/features/cash';
 import { ServerStatus } from '@/features/health';
 import { Toaster } from '@/features/notifications';
 import { PrintWorker } from '@/features/printing';
@@ -75,6 +76,7 @@ function AppLayout() {
             <DayStatusPill />
           </div>
           <div className="flex items-center gap-2">
+            {pathname.startsWith('/pos') && <CashButton />}
             {/* Phones get one status button (one header row); desktops show both pills. */}
             <div className="lg:hidden">
               <StatusButton />

@@ -4,12 +4,13 @@ import { printBill } from '@/features/billing/printBill';
 import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
 import { renderWithProviders } from '@/test/render';
 import { withDeviceTimeZone } from '@/test/timezone';
-import { renderBillTicket, type BillPrintPayload } from './billTicket';
+import { billTitle, renderBillTicket, type BillPrintPayload } from './billTicket';
 import { PrintWorker } from '../PrintWorker';
 
 export const billPayload: BillPrintPayload = {
   kind: 'BILL',
-  title: 'Tax Invoice',
+  copy: 0,
+  taxScheme: 'REGULAR',
   outlet: {
     name: 'Spice Garden',
     address: 'MG Road, Bengaluru',
@@ -39,6 +40,9 @@ export const billPayload: BillPrintPayload = {
       addons: ['Cheese'],
       quantity: 2,
       unitPrice: 21000,
+      rate: 21000,
+      gross: 42000,
+      lineDiscount: 0,
       amount: 42000,
     },
     {
@@ -47,9 +51,13 @@ export const billPayload: BillPrintPayload = {
       addons: [],
       quantity: 1,
       unitPrice: 3000,
+      rate: 3000,
+      gross: 3000,
+      lineDiscount: 0,
       amount: 3000,
     },
   ],
+  customer: { name: null, gstin: null },
   grossSubtotal: 45000,
   itemDiscount: 0,
   billDiscount: 4500,
@@ -86,7 +94,8 @@ describe('renderBillTicket', () => {
       'Tax Invoice',
       'Bill No: 2026-27/12',
       'T1',
-      '2 × Paneer &lt;b&gt;Tikka&lt;/b&gt; (Half)',
+      'Paneer &lt;b&gt;Tikka&lt;/b&gt; (Half)',
+      '2 × ₹210.00 = ₹420.00',
       '+ Cheese',
       'Discount (Regular guest)',
       'CGST 2.5%',
@@ -126,7 +135,7 @@ describe('renderBillTicket', () => {
   it('prints a bill of supply without tax lines, a parcel token and a void stamp', () => {
     const html = renderBillTicket({
       ...billPayload,
-      title: 'Bill of Supply',
+      taxScheme: 'COMPOSITION',
       taxBreakup: [],
       cgst: 0,
       sgst: 0,
@@ -141,6 +150,111 @@ describe('renderBillTicket', () => {
     expect(html).toContain('Parcel #7');
     expect(html).toContain('VOID');
     expect(html).toContain('58mm');
+  });
+});
+
+describe('bill line maths', () => {
+  const line = (name: string, quantity: number, rate: number, lineDiscount = 0) => ({
+    itemName: name,
+    variantName: 'Regular',
+    addons: [],
+    quantity,
+    unitPrice: rate,
+    rate,
+    gross: rate * quantity,
+    lineDiscount,
+    amount: rate * quantity - lineDiscount,
+  });
+  const money = (s: string) => Math.round(Number(s.replace(/[₹,]/g, '')) * 100);
+  const textOf = (html: string) =>
+    new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+
+  it('prints qty × rate = amount, the dish discount, and numbers that add up to the subtotal', () => {
+    const html = renderBillTicket({
+      ...billPayload,
+      taxScheme: 'NONE',
+      taxBreakup: [],
+      cgst: 0,
+      sgst: 0,
+      lines: [line('Paneer Tikka', 2, 20000, 4000), line('Naan', 1, 5000)],
+      grossSubtotal: 45000,
+      itemDiscount: 4000,
+      billDiscount: 0,
+      discountReason: null,
+      roundOff: 0,
+      total: 41000,
+    });
+    const text = textOf(html);
+    expect(text).toContain('2 × ₹200.00 = ₹400.00');
+    expect(text).toContain('Discount −₹40.00');
+    expect(text).toContain('1 × ₹50.00 = ₹50.00');
+    const beforeSubtotal = text.slice(0, text.indexOf('Subtotal'));
+    const gross = [...beforeSubtotal.matchAll(/= (₹[\d,.]+)/g)].map((m) => money(m[1]!));
+    const discounts = [...beforeSubtotal.matchAll(/Discount −(₹[\d,.]+)/g)].map((m) =>
+      money(m[1]!),
+    );
+    const subtotal = money(/Subtotal\s*(₹[\d,.]+)/.exec(text)![1]!);
+    expect(subtotal).toBe(41000);
+    expect(gross.reduce((a, b) => a + b, 0) - discounts.reduce((a, b) => a + b, 0)).toBe(subtotal);
+  });
+
+  it('prints no line discount row when the dish has none', () => {
+    const text = textOf(renderBillTicket(billPayload));
+    expect(text.slice(0, text.indexOf('Subtotal'))).not.toContain('−');
+  });
+});
+
+describe('bill to a customer', () => {
+  it('prints Bill to with the name and GSTIN only when set', () => {
+    expect(renderBillTicket(billPayload)).not.toContain('Bill to');
+    const html = renderBillTicket({
+      ...billPayload,
+      customer: { name: 'Acme <Foods>', gstin: '27ABCDE1234F1Z5' },
+    });
+    expect(html).toContain('Bill to: Acme &lt;Foods&gt; · GSTIN 27ABCDE1234F1Z5');
+    const gstinOnly = renderBillTicket({
+      ...billPayload,
+      customer: { name: null, gstin: '27ABCDE1234F1Z5' },
+    });
+    expect(gstinOnly).toContain('Bill to: GSTIN 27ABCDE1234F1Z5');
+  });
+});
+
+describe('bill title and wording by tax scheme', () => {
+  const noTax = { taxBreakup: [], cgst: 0, sgst: 0 };
+
+  it('names the bill after the scheme', () => {
+    expect(billTitle('REGULAR')).toBe('Tax Invoice');
+    expect(billTitle('COMPOSITION')).toBe('Bill of Supply');
+    expect(billTitle('NONE')).toBe('Bill');
+  });
+
+  it('REGULAR prints Tax Invoice, the GSTIN, CGST and SGST rows and the SAC code', () => {
+    const html = renderBillTicket(billPayload);
+    expect(html).toContain('Tax Invoice');
+    expect(html).toContain('GSTIN: 29ABCDE1234F1Z5');
+    expect(html).toContain('CGST 2.5%');
+    expect(html).toContain('SGST 2.5%');
+    expect(html).toContain('SAC 996331');
+    expect(html).not.toContain('Composition taxable person');
+  });
+
+  it('COMPOSITION prints Bill of Supply, the GSTIN, the declaration and no tax rows', () => {
+    const html = renderBillTicket({ ...billPayload, ...noTax, taxScheme: 'COMPOSITION' });
+    expect(html).toContain('Bill of Supply');
+    expect(html).toContain('GSTIN: 29ABCDE1234F1Z5');
+    expect(html).toContain('Composition taxable person, not eligible to collect tax on supplies');
+    expect(html).not.toContain('CGST');
+    expect(html).not.toContain('SAC 996331');
+  });
+
+  it('NONE prints Bill with no GSTIN line and no tax rows', () => {
+    const html = renderBillTicket({ ...billPayload, ...noTax, taxScheme: 'NONE' });
+    expect(html).toContain('>Bill<');
+    expect(html).not.toContain('GSTIN');
+    expect(html).not.toContain('CGST');
+    expect(html).not.toContain('SAC 996331');
+    expect(html).not.toContain('Composition taxable person');
   });
 });
 
@@ -197,5 +311,83 @@ describe('bill printing', () => {
     expect(String(callsTo(mock, 'GET', '/api/bills/b1/print-payload')[0]?.[0])).toContain(
       'paperWidthMm=80',
     );
+  });
+
+  it('prints the copy number its own tap was given, even if a later tap already raised the count', async () => {
+    useSession.getState().setSession(sessionBody('CASHIER', ['bill.print']));
+    let taps = 0;
+    mockApi({
+      'POST /api/bills/b1/print': () => json({ id: 'b1', queued: 0, copy: ++taps }, 201),
+      // Both taps were counted before either payload is read: the payload says the latest.
+      'GET /api/bills/b1/print-payload': () => json({ ...billPayload, copy: 2 }),
+    });
+    const printHtml = vi.fn(async (_html: string) => undefined);
+    await Promise.all([printBill('b1', printHtml), printBill('b1', printHtml)]);
+    const pages = printHtml.mock.calls.map((c) => c[0]);
+    expect(pages.some((h) => h.includes('REPRINT #1'))).toBe(true);
+    expect(pages.some((h) => h.includes('REPRINT #2'))).toBe(true);
+    expect(new Set(pages.map((h) => /REPRINT #[0-9]+/.exec(h)?.[0])).size).toBe(2);
+  });
+});
+
+describe('totals block order and old queued payloads', () => {
+  const textOf = (html: string) =>
+    new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+
+  it('prints Subtotal, Discount, Packaging, Taxable, GST, Round off, Total in order for REGULAR', () => {
+    const text = textOf(renderBillTicket({ ...billPayload, packaging: 500 }));
+    const at = ['Subtotal', 'Discount', 'Packaging', 'Taxable', 'CGST', 'Round off', 'TOTAL'].map(
+      (label) => text.indexOf(label, text.indexOf('Subtotal')),
+    );
+    expect(at.every((i) => i >= 0)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    expect(text).toMatch(/Taxable\s*₹405\.00/);
+  });
+
+  it('has no Taxable row for NONE or COMPOSITION', () => {
+    for (const taxScheme of ['NONE', 'COMPOSITION'] as const) {
+      const html = renderBillTicket({
+        ...billPayload,
+        taxScheme,
+        taxBreakup: [],
+        cgst: 0,
+        sgst: 0,
+      });
+      expect(textOf(html)).not.toContain('Taxable');
+    }
+  });
+
+  it('renders a payload queued before the upgrade, with correct amounts', () => {
+    const { customer: _c, taxScheme: _t, ...rest } = billPayload;
+    const old = {
+      ...rest,
+      title: 'Bill of Supply',
+      lines: billPayload.lines.map(({ rate: _r, gross: _g, lineDiscount: _d, ...l }) => l),
+    } as unknown as BillPrintPayload;
+    const text = textOf(renderBillTicket(old));
+    expect(text).toContain('Bill of Supply');
+    expect(text).toContain('2 × ₹210.00 = ₹420.00');
+    expect(text).toContain('1 × ₹30.00 = ₹30.00');
+    expect(text).not.toContain('NaN');
+    expect(text).not.toContain('Bill to');
+    // Pre-upgrade NONE outlets also said "Bill of Supply": never claim composition for them.
+    expect(text).not.toContain('Composition taxable person');
+  });
+});
+
+describe('reprint mark', () => {
+  const textOf = (html: string) =>
+    new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+
+  it('prints REPRINT #n above the bill title for a reprint, and nothing on the original', () => {
+    const text = textOf(renderBillTicket({ ...billPayload, copy: 2 }));
+    expect(text).toContain('REPRINT #2');
+    expect(text.indexOf('REPRINT #2')).toBeLessThan(text.indexOf('Tax Invoice'));
+    expect(textOf(renderBillTicket(billPayload))).not.toContain('REPRINT');
+  });
+
+  it('treats a payload queued before the upgrade as the original', () => {
+    const { copy: _c, ...rest } = billPayload;
+    expect(textOf(renderBillTicket(rest as unknown as BillPrintPayload))).not.toContain('REPRINT');
   });
 });

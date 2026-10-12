@@ -20,7 +20,7 @@ describe('seed', () => {
     const outlets = await prisma.outlet.findMany();
     expect(outlets).toHaveLength(1);
     expect(outlets[0]?.name).toBe('Main Outlet');
-    expect(outlets[0]?.taxScheme).toBe('REGULAR');
+    expect(outlets[0]?.taxScheme).toBe('NONE');
     expect(outlets[0]?.cashierDiscountCapBp).toBe(1000);
   });
 

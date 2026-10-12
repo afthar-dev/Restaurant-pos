@@ -7,6 +7,7 @@ import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { BillingModule } from './billing/billing.module';
 import { BusinessDayModule } from './business-day/business-day.module';
+import { CashModule } from './cash/cash.module';
 import { apiThrottleLimit, THROTTLE_WINDOW_MS } from './common/throttle';
 import { RposThrottlerGuard } from './common/throttler.guard';
 import { ConfigModule } from './config/config.module';
@@ -39,6 +40,7 @@ import { UsersModule } from './users/users.module';
     }),
     AuditModule,
     ExpensesModule,
+    CashModule,
     StockModule,
     ReportsModule,
     AuthModule,

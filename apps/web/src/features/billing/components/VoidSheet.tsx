@@ -5,8 +5,10 @@ import {
   dangerButton,
   describeError,
   ErrorNote,
-  Field,
-  inputClass,
+  noReason,
+  ReasonPicker,
+  reasonReady,
+  reasonRequest,
   secondaryButton,
   Sheet,
 } from '@/shared/ui';
@@ -21,21 +23,21 @@ export function VoidSheet({ bill, onDone }: { bill: Bill; onDone: () => void }) 
   const id = useId();
   const canVoid = useCan('bill.void');
   const voiding = useVoidBill(bill);
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState(noReason);
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function send(overrideToken?: string) {
     setError(null);
     voiding.mutate(
-      { reason: reason.trim(), overrideToken },
+      { reason: reasonRequest(reason), overrideToken },
       { onSuccess: onDone, onError: (failure) => setError(describeError(failure)) },
     );
   }
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (reason.trim().length < 3) return setError('Give a short reason.');
+    if (!reasonReady(reason)) return setError('Choose a reason.');
     if (canVoid) send();
     else setApproving(true);
   }
@@ -59,14 +61,7 @@ export function VoidSheet({ bill, onDone }: { bill: Bill; onDone: () => void }) 
         />
       ) : (
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3">
-          <Field id={`${id}-reason`} label="Reason">
-            <input
-              id={`${id}-reason`}
-              className={inputClass}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </Field>
+          <ReasonPicker kind="void" idPrefix={`${id}-reason`} value={reason} onChange={setReason} />
           <div className="flex gap-2">
             <button
               type="submit"

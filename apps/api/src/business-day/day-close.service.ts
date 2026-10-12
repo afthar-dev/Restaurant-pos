@@ -1,9 +1,10 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import type { PaymentMode } from '@prisma/client';
-import type { CloseDayRequest } from '@rpos/shared';
+import { Prisma, type BusinessDay, type PaymentMode } from '@prisma/client';
+import { closeCountTotal, type CloseCount, type CloseDayRequest } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
 import { gstLinesOf, gstSummary } from '../billing/gst-summary';
+import { cashMovementTotals } from '../cash/cash-totals';
 import { ApiError } from '../common/api-error';
 import { notFound } from '../common/master-data';
 import type { AuthUser } from '../common/request-context';
@@ -14,7 +15,15 @@ import { BusinessDayService, dayNotOpen } from './business-day.service';
 
 type Db = Pick<
   PrismaService,
-  'bill' | 'order' | 'orderItem' | 'businessDay' | 'user' | 'expense' | 'payment'
+  | 'bill'
+  | 'order'
+  | 'orderItem'
+  | 'businessDay'
+  | 'user'
+  | 'expense'
+  | 'payment'
+  | 'outlet'
+  | 'cashMovement'
 >;
 
 const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
@@ -30,27 +39,46 @@ export class DayCloseService {
   ) {}
 
   /** What stops the close right now, and the cash the drawer should hold. */
-  async closeCheck(outletId: string) {
+  async closeCheck(outletId: string, blind = false) {
     const day = await this.prisma.businessDay.findFirst({ where: { outletId, status: 'OPEN' } });
     if (!day) throw dayNotOpen();
     const blockers = await this.blockers(this.prisma, day.id);
-    const cashSales = await this.cashSales(this.prisma, day.id);
-    const cashRefunds = await this.cashRefunds(this.prisma, day.id);
-    const spent = await cashExpenses(this.prisma, day.id);
-    return {
-      day: { id: day.id, openingCash: day.openingCash },
-      blockers,
-      cash: {
-        opening: day.openingCash,
-        cashSales,
-        cashRefunds,
-        cashExpenses: spent,
-        expected: day.openingCash + cashSales - cashRefunds - spent,
-      },
-    };
+    // The closing screen asks for a blind count: nothing that adds up to the expected figure.
+    if (blind) {
+      return { day: { id: day.id, openingCash: day.openingCash }, blockers, cash: {} };
+    }
+    const cash = await this.expectedCash(this.prisma, day);
+    return { day: { id: day.id, openingCash: day.openingCash }, blockers, cash };
+  }
+
+  /**
+   * What closing would show for a counted figure, once the manager has counted: the expected
+   * cash, the variance and whether the variance needs a reason. Changes and records nothing.
+   */
+  async checkCount(outletId: string, dayId: string, countedCash: number) {
+    const day = await this.prisma.businessDay.findFirst({
+      where: { id: dayId, outletId, status: 'OPEN' },
+    });
+    if (!day) throw dayNotOpen();
+    // The first count checked is kept, once, so a later re-count that matches is still visible.
+    await this.prisma.businessDay.updateMany({
+      where: { id: day.id, firstCountedCash: null },
+      data: { firstCountedCash: countedCash },
+    });
+    const { expected } = await this.expectedCash(this.prisma, day);
+    const variance = countedCash - expected;
+    const outlet = await this.prisma.outlet.findUniqueOrThrow({ where: { id: outletId } });
+    return { expected, variance, needsReason: Math.abs(variance) > outlet.varianceAlertPaise };
   }
 
   async close(actor: AuthUser, request: CloseDayRequest) {
+    if (request.count && closeCountTotal(request.count) !== request.countedCash) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        'COUNT_MISMATCH',
+        'The notes and coins do not add up to the counted cash.',
+      );
+    }
     const dayId = await this.prisma.$transaction(async (tx) => {
       // Waits for any order, bill or payment still being written on the day (they hold a
       // share lock from requireOpen), so the checks below see everything.
@@ -69,13 +97,16 @@ export class DayCloseService {
           { blockers },
         );
       }
-      // Expected cash = opening + cash payments − cash refunded − cash expenses (spec §5.5.4).
-      const expected =
-        day.openingCash +
-        (await this.cashSales(tx, day.id)) -
-        (await this.cashRefunds(tx, day.id)) -
-        (await cashExpenses(tx, day.id));
+      const { expected } = await this.expectedCash(tx, day);
       const variance = request.countedCash - expected;
+      const outlet = await tx.outlet.findUniqueOrThrow({ where: { id: actor.outletId } });
+      if (!request.reasonCode && Math.abs(variance) > outlet.varianceAlertPaise) {
+        throw new ApiError(
+          HttpStatus.BAD_REQUEST,
+          'REASON_REQUIRED',
+          'The cash is out by more than the allowed amount. Say why.',
+        );
+      }
       await tx.businessDay.update({
         where: { id: day.id },
         data: {
@@ -86,6 +117,8 @@ export class DayCloseService {
           countedCash: request.countedCash,
           variance,
           closeNote: request.note || null,
+          closeReasonCode: request.reasonCode ?? null,
+          closeCount: request.count ?? Prisma.DbNull,
         },
       });
       await this.audit.record(
@@ -96,7 +129,16 @@ export class DayCloseService {
           entity: 'business_day',
           entityId: day.id,
           reason: request.note || null,
-          after: { expected, counted: request.countedCash, variance },
+          after: {
+            expected,
+            counted: request.countedCash,
+            variance,
+            ...(request.reasonCode ? { reasonCode: request.reasonCode } : {}),
+            ...(request.count ? { count: request.count } : {}),
+            ...(day.firstCountedCash !== null && day.firstCountedCash !== request.countedCash
+              ? { firstCount: day.firstCountedCash }
+              : {}),
+          },
         },
         tx,
       );
@@ -149,6 +191,9 @@ export class DayCloseService {
           countedCash: null,
           variance: null,
           closeNote: null,
+          closeReasonCode: null,
+          firstCountedCash: null,
+          closeCount: Prisma.DbNull,
         },
       });
       await this.audit.record(
@@ -165,6 +210,9 @@ export class DayCloseService {
             expectedCash: day.expectedCash,
             countedCash: day.countedCash,
             variance: day.variance,
+            closeReasonCode: day.closeReasonCode,
+            firstCount: day.firstCountedCash,
+            closeCount: day.closeCount ?? null,
           },
         },
         tx,
@@ -326,9 +374,41 @@ export class DayCloseService {
     // What is kept: received on the day less what was refunded on it.
     const collected = payments.CASH + payments.UPI + payments.CARD - refunds.total;
     const billed = sum(live.map((b) => b.total));
-    const cashSales = payments.CASH;
     const spent = await expenseTotals(this.prisma, day.id);
-    const expected = day.expectedCash ?? day.openingCash + cashSales - refunds.CASH - spent.cash;
+    // The same figures and formula as the close check and the close.
+    const drawer = await this.expectedCash(this.prisma, day);
+    const expected = day.expectedCash ?? drawer.expected;
+    const movements = await this.prisma.cashMovement.findMany({
+      where: { businessDayId: day.id },
+      include: { createdBy: { select: { name: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    // UPI and card payments that still stand, with and without a reference to match against
+    // the bank or card statement. Refunded payments are left out.
+    const reconciliation = {
+      upi: { withRef: 0, withoutRef: 0, amountWithout: 0 },
+      card: { withRef: 0, withoutRef: 0, amountWithout: 0 },
+      missing: [] as { billNo: number; mode: PaymentMode; amount: number; at: Date }[],
+    };
+    for (const b of bills) {
+      if (b.status === 'VOID') continue;
+      for (const p of b.payments) {
+        if (p.mode === 'CASH' || p.refundedAt) continue;
+        const figure = p.mode === 'UPI' ? reconciliation.upi : reconciliation.card;
+        if (p.reference) {
+          figure.withRef += 1;
+        } else {
+          figure.withoutRef += 1;
+          figure.amountWithout += p.amount;
+          reconciliation.missing.push({
+            billNo: b.billNo,
+            mode: p.mode,
+            amount: p.amount,
+            at: p.createdAt,
+          });
+        }
+      }
+    }
     return {
       day: {
         id: day.id,
@@ -338,6 +418,13 @@ export class DayCloseService {
         openedBy: day.openedBy,
         closedBy: day.closedBy,
         closeNote: day.closeNote,
+        closeCount: day.closeCount as CloseCount | null,
+        closeReasonCode: day.closeReasonCode,
+        // Only when the first count checked was not the count the day closed with.
+        firstCount:
+          day.firstCountedCash !== null && day.firstCountedCash !== day.countedCash
+            ? day.firstCountedCash
+            : null,
       },
       sales: {
         bills: live.length,
@@ -358,6 +445,7 @@ export class DayCloseService {
       },
       reopened,
       payments,
+      reconciliation,
       refunds: { ...refunds, bills: [...refundedBills.values()] },
       byType,
       topItems,
@@ -372,6 +460,10 @@ export class DayCloseService {
         quantity: i.quantity,
         reason: i.cancelReason,
       })),
+      // The first print is the original; every one after it is a reprint.
+      reprints: bills
+        .filter((b) => b.printCount > 1)
+        .map((b) => ({ billNo: b.billNo, count: b.printCount - 1 })),
       discounts: live
         .filter((b) => b.itemDiscount + b.billDiscount > 0)
         .map((b) => ({
@@ -380,11 +472,25 @@ export class DayCloseService {
           reason: b.discountReason,
         })),
       expenses: { total: spent.total, cash: spent.cash, byCategory: spent.byCategory },
+      cashMovements: {
+        totals: { payIn: drawer.payIns, payOut: drawer.payOuts, drop: drawer.drops },
+        list: movements.map((m) => ({
+          at: m.createdAt,
+          type: m.type,
+          amount: m.amount,
+          reasonCode: m.reasonCode,
+          note: m.note,
+          by: m.createdBy.name,
+        })),
+      },
       cash: {
         opening: day.openingCash,
-        cashSales,
-        cashRefunds: refunds.CASH,
-        cashExpenses: spent.cash,
+        cashSales: drawer.cashSales,
+        cashRefunds: drawer.cashRefunds,
+        cashExpenses: drawer.cashExpenses,
+        payIns: drawer.payIns,
+        payOuts: drawer.payOuts,
+        drops: drawer.drops,
         expected,
         counted: day.countedCash,
         variance: day.variance,
@@ -450,6 +556,32 @@ export class DayCloseService {
         billNo: b.billNo,
         due: b.total - sum(b.payments.map((p) => p.amount)),
       })),
+    };
+  }
+
+  /**
+   * The one place expected cash is worked out (spec §5.5.4, P5): opening + cash payments − cash
+   * refunded − cash expenses + pay-ins − pay-outs − drops. The close check, the count check, the
+   * close and the day report all use it.
+   */
+  private async expectedCash(
+    db: Pick<Db, 'payment' | 'expense' | 'cashMovement'>,
+    day: Pick<BusinessDay, 'id' | 'openingCash'>,
+  ) {
+    const cashSales = await this.cashSales(db, day.id);
+    const cashRefunds = await this.cashRefunds(db, day.id);
+    const spent = await cashExpenses(db, day.id);
+    const moved = await cashMovementTotals(db, day.id);
+    return {
+      opening: day.openingCash,
+      cashSales,
+      cashRefunds,
+      cashExpenses: spent,
+      payIns: moved.payIn,
+      payOuts: moved.payOut,
+      drops: moved.drop,
+      expected:
+        day.openingCash + cashSales - cashRefunds - spent + moved.payIn - moved.payOut - moved.drop,
     };
   }
 

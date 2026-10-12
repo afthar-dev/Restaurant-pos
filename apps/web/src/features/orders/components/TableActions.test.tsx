@@ -52,10 +52,10 @@ describe('voiding a bill', () => {
     renderWithProviders(<BillActions bill={bill()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Void' }));
     const sheet = await screen.findByRole('dialog', { name: 'Void bill 12' });
-    fireEvent.change(within(sheet).getByLabelText('Reason'), { target: { value: 'Wrong table' } });
+    fireEvent.click(within(sheet).getByRole('radio', { name: 'Wrong order' }));
     fireEvent.click(within(sheet).getByRole('button', { name: 'Void bill' }));
     await expect.poll(() => callsTo(mock, 'POST', '/api/bills/b1/void').length).toBe(1);
-    expect(body(mock, 'POST', '/api/bills/b1/void')).toEqual({ reason: 'Wrong table' });
+    expect(body(mock, 'POST', '/api/bills/b1/void')).toEqual({ reasonCode: 'WRONG_ORDER' });
   });
 
   it('asks a manager to approve when a cashier voids', async () => {
@@ -68,7 +68,7 @@ describe('voiding a bill', () => {
     renderWithProviders(<BillActions bill={bill({ status: 'PAID' })} />);
     fireEvent.click(screen.getByRole('button', { name: 'Void (manager)' }));
     const sheet = await screen.findByRole('dialog', { name: 'Void bill 12' });
-    fireEvent.change(within(sheet).getByLabelText('Reason'), { target: { value: 'Refund' } });
+    fireEvent.click(within(sheet).getByRole('radio', { name: 'Payment issue' }));
     fireEvent.click(within(sheet).getByRole('button', { name: 'Void bill' }));
     await within(sheet).findByRole('option', { name: 'Meena' });
     fireEvent.change(within(sheet).getByLabelText('Manager'), { target: { value: 'm1' } });
@@ -79,6 +79,29 @@ describe('voiding a bill', () => {
     expect(new Headers(init?.headers).get('x-override-token')).toBe('tok');
   });
 
+  it('needs a note when the reason is Other', async () => {
+    as(['bill.print', 'bill.void'], 'MANAGER');
+    const mock = mockApi({
+      'POST /api/bills/b1/void': () => json(bill({ status: 'VOID' }), 201),
+    });
+    renderWithProviders(<BillActions bill={bill()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Void' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Void bill 12' });
+    fireEvent.click(within(sheet).getByRole('radio', { name: 'Other' }));
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Void bill' }));
+    expect(await within(sheet).findByText('Choose a reason.')).toBeInTheDocument();
+    expect(callsTo(mock, 'POST', '/api/bills/b1/void')).toHaveLength(0);
+    fireEvent.change(within(sheet).getByLabelText('What happened'), {
+      target: { value: 'Fire alarm' },
+    });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Void bill' }));
+    await expect.poll(() => callsTo(mock, 'POST', '/api/bills/b1/void').length).toBe(1);
+    expect(body(mock, 'POST', '/api/bills/b1/void')).toEqual({
+      reasonCode: 'OTHER',
+      note: 'Fire alarm',
+    });
+  });
+
   it('needs a reason', async () => {
     as(['bill.print', 'bill.void'], 'MANAGER');
     const mock = mockApi({});
@@ -86,7 +109,7 @@ describe('voiding a bill', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Void' }));
     const sheet = await screen.findByRole('dialog', { name: 'Void bill 12' });
     fireEvent.click(within(sheet).getByRole('button', { name: 'Void bill' }));
-    expect(await within(sheet).findByText('Give a short reason.')).toBeInTheDocument();
+    expect(await within(sheet).findByText('Choose a reason.')).toBeInTheDocument();
     expect(callsTo(mock, 'POST', '/api/bills/b1/void')).toHaveLength(0);
   });
 });

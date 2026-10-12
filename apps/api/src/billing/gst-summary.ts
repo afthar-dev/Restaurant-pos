@@ -1,3 +1,5 @@
+import { COMPOSITION_RESTAURANT_RATE_BP } from '@rpos/shared';
+
 /** One stored line (bill item) as the GST summary reads it. */
 export interface GstLine {
   cgstBp: number;
@@ -56,4 +58,9 @@ export function gstLinesOf(bill: { taxScheme: string; items: GstLine[] }): GstLi
   return bill.taxScheme === 'REGULAR'
     ? bill.items
     : bill.items.map((i) => ({ ...i, cgstBp: 0, sgstBp: 0 }));
+}
+
+/** What a composition outlet owes on its turnover: the flat restaurant rate, rounded to paise. */
+export function compositionFigures(turnover: number): { turnover: number; taxPayable: number } {
+  return { turnover, taxPayable: Math.round((turnover * COMPOSITION_RESTAURANT_RATE_BP) / 10000) };
 }

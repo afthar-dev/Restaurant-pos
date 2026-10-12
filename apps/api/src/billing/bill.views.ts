@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import type { TaxScheme } from '@rpos/shared';
 import type { TaxBreakupRow } from './bill-calc';
 import { gstLinesOf, gstSummary } from './gst-summary';
 
@@ -47,6 +48,13 @@ export function taxBreakupOf(bill: {
   return [...rows.values()].sort((a, b) => a.cgstBp + a.sgstBp - (b.cgstBp + b.sgstBp));
 }
 
+/** Only a GST-registered outlet may call a bill a Tax Invoice. Mirrors billTitle() in the web app. */
+export function billTitle(scheme: TaxScheme): 'Tax Invoice' | 'Bill of Supply' | 'Bill' {
+  if (scheme === 'REGULAR') return 'Tax Invoice';
+  if (scheme === 'COMPOSITION') return 'Bill of Supply';
+  return 'Bill';
+}
+
 export function billView(bill: BillWithDetails) {
   const paid = paidOn(bill);
   // From the lines, so bills made before No-GST sales were kept apart read the same way.
@@ -56,7 +64,7 @@ export function billView(bill: BillWithDetails) {
     billNo: bill.billNo,
     financialYear: bill.financialYear,
     status: bill.status,
-    title: bill.taxScheme === 'REGULAR' ? 'Tax Invoice' : 'Bill of Supply',
+    title: billTitle(bill.taxScheme),
     orderId: bill.orderId,
     orderType: bill.order.type,
     tableName: bill.order.table?.name ?? null,
@@ -103,6 +111,7 @@ export function billView(bill: BillWithDetails) {
       receivedBy: p.receivedBy,
       createdAt: p.createdAt,
     })),
+    customer: { name: bill.customerName, gstin: bill.customerGstin },
     voidReason: bill.voidReason,
     version: bill.version,
     createdAt: bill.createdAt,

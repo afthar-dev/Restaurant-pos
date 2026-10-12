@@ -11,13 +11,16 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { reasonOf } from '../common/reason';
 import {
   cancelItemSchema,
   cancelOrderSchema,
   kdsStatusSchema,
+  kotReprintSchema,
   type CancelItemRequest,
   type CancelOrderRequest,
   type KdsStatusRequest,
+  type KotReprintRequest,
 } from '@rpos/shared';
 import { Public, RequirePermissions } from '../auth/decorators';
 import {
@@ -55,7 +58,15 @@ export class KotsController {
     @Headers('if-match') ifMatch: string | undefined,
     @Body(new ZodBody(cancelItemSchema)) body: CancelItemRequest,
   ) {
-    return this.kots.cancelItem(actor, user, id, itemId, ifMatch, body.reason, body.quantity);
+    return this.kots.cancelItem(
+      actor,
+      user,
+      id,
+      itemId,
+      ifMatch,
+      reasonOf('cancel', body),
+      body.quantity,
+    );
   }
 
   @Post('orders/:id/void')
@@ -67,7 +78,7 @@ export class KotsController {
     @Headers('if-match') ifMatch: string | undefined,
     @Body(new ZodBody(cancelOrderSchema)) body: CancelOrderRequest,
   ) {
-    return this.kots.voidOrder(actor, user, id, ifMatch, body.reason);
+    return this.kots.voidOrder(actor, user, id, ifMatch, reasonOf('cancel', body));
   }
 
   @Post('kots/:id/served')
@@ -78,8 +89,12 @@ export class KotsController {
 
   @Post('kots/:id/reprint')
   @RequirePermissions('order.take')
-  reprint(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string) {
-    return this.kots.reprint(user, id);
+  reprint(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodBody(kotReprintSchema)) body: KotReprintRequest,
+  ) {
+    return this.kots.reprint(user, id, body);
   }
 
   @Public()

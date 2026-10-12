@@ -1,11 +1,28 @@
-import { parseRupees, type PaymentMode } from '@rpos/shared';
+import {
+  PAYMENT_REFERENCE,
+  PAYMENT_REFERENCE_HINT,
+  parseRupees,
+  type PaymentMode,
+} from '@rpos/shared';
 import { useEffect, useId, useRef, useState } from 'react';
+import { useOutlet } from '@/features/settings';
 import { cn } from '@/shared/lib/cn';
+import { useCan, useSession } from '@/shared/session/store';
 import { rupees } from '@/shared/lib/money';
-import { Button, describeError, ErrorNote, Field, MoneyInput, PaymentIcon } from '@/shared/ui';
+import {
+  Button,
+  describeError,
+  ErrorNote,
+  Field,
+  inputClass,
+  MoneyInput,
+  PaymentIcon,
+} from '@/shared/ui';
 import { useAddPayment } from '../mutations';
 import { cashOutcome, suggestNotes } from '../settle';
 import type { Bill } from '../types';
+import { BillCustomer } from './BillCustomer';
+import { UpiQr } from './UpiQr';
 import { useSettleKeys, type SettleKey } from './useSettleKeys';
 
 const MODES: { mode: PaymentMode; label: string; key: SettleKey }[] = [
@@ -34,9 +51,14 @@ export function SettlePanel({
 }) {
   const id = useId();
   const payment = useAddPayment(bill, onPaid);
+  const canEditCustomer = useCan('bill.print');
+  const isOwner = useSession((state) => state.user?.role === 'OWNER');
+  // Loaded with the panel, so the QR is ready the moment UPI is chosen.
+  const outlet = useOutlet();
   const [mode, setMode] = useState<PaymentMode | null>(null);
   const [tender, setTender] = useState<Tender>({ kind: 'exact' });
   const [other, setOther] = useState('');
+  const [reference, setReference] = useState('');
   const [error, setError] = useState<string | null>(null);
   const modeButtons = useRef(new Map<PaymentMode, HTMLButtonElement>());
   const confirmButton = useRef<HTMLButtonElement>(null);
@@ -48,6 +70,7 @@ export function SettlePanel({
     setMode(null);
     setTender({ kind: 'exact' });
     setOther('');
+    setReference('');
     setError(null);
   }, [bill.due]);
 
@@ -85,6 +108,7 @@ export function SettlePanel({
     setError(null);
     setTender({ kind: 'exact' });
     setOther('');
+    setReference('');
     setMode(next);
   }
 
@@ -96,9 +120,16 @@ export function SettlePanel({
 
   function confirm() {
     if (!mode || !canConfirm) return;
+    const ref = reference.trim();
+    if (!cash && ref && !PAYMENT_REFERENCE.test(ref)) return setError(PAYMENT_REFERENCE_HINT);
     setError(null);
     payment.pay(
-      { mode, amount: bill.due, ...(typeof tendered === 'number' ? { tendered } : {}) },
+      {
+        mode,
+        amount: bill.due,
+        ...(typeof tendered === 'number' ? { tendered } : {}),
+        ...(!cash && ref ? { reference: ref } : {}),
+      },
       {
         onSuccess: (updated) => {
           if (updated.status !== 'PAID') setMode(null);
@@ -176,6 +207,7 @@ export function SettlePanel({
           >
             Split or part payment
           </button>
+          {canEditCustomer && <BillCustomer bill={bill} />}
         </>
       ) : (
         <>
@@ -218,6 +250,28 @@ export function SettlePanel({
                 ) : null}
               </p>
             </div>
+          )}
+          {mode === 'UPI' && outlet.data?.upiVpa && (
+            <UpiQr
+              vpa={outlet.data.upiVpa}
+              payee={outlet.data.upiPayee || outlet.data.name}
+              amountPaise={bill.due}
+              note={`Bill ${bill.billNo}`}
+            />
+          )}
+          {mode === 'UPI' && outlet.data && !outlet.data.upiVpa && isOwner && (
+            <p className="text-sm text-muted">Add your UPI ID in Settings</p>
+          )}
+          {!cash && (
+            <Field id={`${id}-reference`} label="Reference (optional)">
+              <input
+                id={`${id}-reference`}
+                className={`${inputClass} max-w-60`}
+                autoComplete="off"
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+              />
+            </Field>
           )}
           <ErrorNote message={error} />
           <div className="flex flex-wrap gap-2">

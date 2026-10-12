@@ -1,4 +1,6 @@
 import { formatPaise } from '@rpos/shared';
+import { movementLabel } from './cashMovements';
+import { countRows, varianceReasonLabel } from './closeCount';
 import type { DayReport } from './types';
 import { escapeHtml } from '@/shared/lib/escape';
 import { PRINT_TIME_ZONE } from '@/shared/lib/when';
@@ -10,6 +12,24 @@ const MODE_NAME = { CASH: 'Cash', UPI: 'UPI', CARD: 'Card' } as const;
 
 const section = (title: string, body: string) =>
   body ? `<hr><div class="head">${title}</div>${body}` : '';
+
+/** UPI and card payments with and without a reference; nothing when there were none. */
+function reconciliationRows(r: DayReport, money: (paise: number) => string): string {
+  const { upi, card, missing } = r.reconciliation;
+  const figure = (name: string, f: DayReport['reconciliation']['upi']) =>
+    f.withRef + f.withoutRef > 0
+      ? row(
+          `${name} · ${f.withRef} with reference, ${f.withoutRef} without`,
+          f.withoutRef > 0 ? money(f.amountWithout) : '',
+        )
+      : '';
+  const rows = [figure('UPI', upi), figure('Card', card)].join('');
+  if (!rows) return '';
+  return (
+    rows +
+    missing.map((m) => row(`Bill ${m.billNo} · ${MODE_NAME[m.mode]}`, money(m.amount))).join('')
+  );
+}
 
 /** The day-close report (spec §5.5) on the counter's thermal roll. */
 export function renderDayReport(r: DayReport, outletName: string, paperWidthMm = 80): string {
@@ -93,6 +113,7 @@ ${section(
       ].join('')
     : '',
 )}
+${section('UPI and card references', reconciliationRows(r, money))}
 ${section(
   'Orders',
   [
@@ -112,6 +133,10 @@ ${section(
     .join(''),
 )}
 ${section(
+  'Reprinted bills',
+  r.reprints.map((b) => row(`Bill ${b.billNo}`, `reprinted ${b.count}×`)).join(''),
+)}
+${section(
   'Voided bills',
   r.voids
     .map((v) => row(`Bill ${v.billNo}${v.reason ? ` · ${e(v.reason)}` : ''}`, money(v.total)))
@@ -129,6 +154,21 @@ ${section(
     .map((d) => row(`Bill ${d.billNo}${d.reason ? ` · ${e(d.reason)}` : ''}`, money(d.amount)))
     .join(''),
 )}
+${section(
+  'Cash in / out',
+  r.cashMovements.list.length > 0
+    ? [
+        r.cashMovements.totals.payIn > 0 ? row('Cash in', money(r.cashMovements.totals.payIn)) : '',
+        r.cashMovements.totals.payOut > 0
+          ? row('Cash out', money(r.cashMovements.totals.payOut))
+          : '',
+        r.cashMovements.totals.drop > 0
+          ? row('Cash drops', money(r.cashMovements.totals.drop))
+          : '',
+        ...r.cashMovements.list.map((m) => row(e(movementLabel(m)), money(m.amount))),
+      ].join('')
+    : '',
+)}
 ${section('Expenses', r.expenses.byCategory.map((x) => row(e(x.name), money(x.amount))).join(''))}
 ${section(
   'Cash',
@@ -137,9 +177,22 @@ ${section(
     row('Cash sales', money(r.cash.cashSales)),
     r.cash.cashRefunds > 0 ? row('Cash refunded', money(r.cash.cashRefunds)) : '',
     row('Cash expenses', money(r.cash.cashExpenses)),
+    r.cash.payIns > 0 ? row('Pay-ins', money(r.cash.payIns)) : '',
+    r.cash.payOuts > 0 ? row('Pay-outs', money(r.cash.payOuts)) : '',
+    r.cash.drops > 0 ? row('Drops', money(r.cash.drops)) : '',
     row('Expected in drawer', money(r.cash.expected), true),
     r.cash.counted !== null ? row('Counted', money(r.cash.counted)) : '',
     variance !== null ? row('Variance', money(variance), true) : '',
+  ].join(''),
+)}
+${section(
+  'Cash count',
+  [
+    ...(r.day.closeCount
+      ? countRows(r.day.closeCount).map((c) => row(c.label, money(c.amount)))
+      : []),
+    r.day.firstCount !== null ? row('First count', money(r.day.firstCount)) : '',
+    r.day.closeReasonCode ? row('Reason', e(varianceReasonLabel(r.day.closeReasonCode)!)) : '',
   ].join(''),
 )}
 ${r.day.closeNote ? `<hr><div>Note: ${e(r.day.closeNote)}</div>` : ''}

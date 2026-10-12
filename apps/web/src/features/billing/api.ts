@@ -34,6 +34,11 @@ export const applyDiscount = (bill: Versioned, body: object, overrideToken?: str
     body,
   });
 
+export const setBillCustomer = (
+  billId: string,
+  body: { name: string | null; gstin: string | null },
+) => apiFetch<Bill>(`/api/bills/${billId}/customer`, { method: 'PATCH', body });
+
 export interface PaymentInput {
   mode: PaymentMode;
   amount: number;
@@ -48,11 +53,20 @@ export const addPayment = (billId: string, idempotencyKey: string, body: Payment
     body,
   });
 
-export const voidBill = (billId: string, reason: string, overrideToken?: string) =>
+export const changePaymentMode = (
+  paymentId: string,
+  body: { mode: PaymentMode; reasonCode: string; note?: string; overrideToken?: string },
+) => apiFetch<Bill>(`/api/payments/${paymentId}/change-mode`, { method: 'POST', body });
+
+export const voidBill = (
+  billId: string,
+  reason: { reasonCode: string; note?: string },
+  overrideToken?: string,
+) =>
   apiFetch(`/api/bills/${billId}/void`, {
     method: 'POST',
     headers: overrideHeader(overrideToken),
-    body: { reason },
+    body: reason,
   });
 
 export const fetchBillPrintPayload = (billId: string, paperWidthMm: 58 | 80) =>
@@ -60,4 +74,4 @@ export const fetchBillPrintPayload = (billId: string, paperWidthMm: 58 | 80) =>
 
 /** Queues the bill on the bill printer; `queued` is 0 when no bill printer is set up. */
 export const queueBillPrint = (billId: string) =>
-  apiFetch<{ queued: number }>(`/api/bills/${billId}/print`, { method: 'POST' });
+  apiFetch<{ queued: number; copy: number }>(`/api/bills/${billId}/print`, { method: 'POST' });

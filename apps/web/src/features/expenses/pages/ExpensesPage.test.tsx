@@ -84,6 +84,97 @@ describe('ExpensesPage', () => {
     });
   });
 
+  it('asks a manager to approve a large cash expense, then sends the approval', async () => {
+    asCashier();
+    let attempt = 0;
+    const mock = mockApi({
+      'GET /api/expenses': () => json(day()),
+      'GET /api/expense-categories': () => json(CATEGORIES),
+      'GET /api/auth/approvers': () => json([{ id: 'm1', name: 'Meena' }]),
+      'POST /api/auth/override': () => json({ overrideToken: 'tok' }, 201),
+      'POST /api/expenses': () => {
+        attempt += 1;
+        return attempt === 1
+          ? json({ code: 'APPROVAL_REQUIRED', message: 'A manager must approve.' }, 403)
+          : json(expense({ amount: 250000 }), 201);
+      },
+    });
+    renderRoute('/expenses');
+    const form = await screen.findByRole('form', { name: 'New expense' });
+    await within(form).findByRole('option', { name: 'Gas' });
+    fireEvent.change(within(form).getByLabelText('Category'), { target: { value: GAS } });
+    fireEvent.change(within(form).getByLabelText('Amount (₹)'), { target: { value: '2500' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Save expense' }));
+    const approval = await screen.findByRole('form', { name: 'Manager approval' });
+    expect(approval).toHaveTextContent('above the petty cash limit');
+    await within(approval).findByRole('option', { name: 'Meena' });
+    fireEvent.change(within(approval).getByLabelText('Manager'), { target: { value: 'm1' } });
+    fireEvent.change(within(approval).getByLabelText('Manager PIN'), { target: { value: '9999' } });
+    fireEvent.click(within(approval).getByRole('button', { name: 'Approve' }));
+    await expect.poll(() => callsTo(mock, 'POST', '/api/expenses').length).toBe(2);
+    const sent = callsTo(mock, 'POST', '/api/expenses');
+    expect(JSON.parse(String(sent[1]?.[1]?.body))).toEqual({
+      categoryId: GAS,
+      amount: 250000,
+      mode: 'CASH',
+      overrideToken: 'tok',
+    });
+    // The retry is the same entry: one request id.
+    const key = (i: number) => new Headers(sent[i]?.[1]?.headers).get('Idempotency-Key');
+    expect(key(0)).toBe(key(1));
+    expect(await within(form).findByText('Expense saved.')).toBeInTheDocument();
+  });
+
+  async function fillLargeExpense(mock: ReturnType<typeof mockApi>) {
+    renderRoute('/expenses');
+    const form = await screen.findByRole('form', { name: 'New expense' });
+    await within(form).findByRole('option', { name: 'Gas' });
+    fireEvent.change(within(form).getByLabelText('Category'), { target: { value: GAS } });
+    fireEvent.change(within(form).getByLabelText('Amount (₹)'), { target: { value: '2500' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Save expense' }));
+    const approval = await screen.findByRole('form', { name: 'Manager approval' });
+    await within(approval).findByRole('option', { name: 'Meena' });
+    fireEvent.change(within(approval).getByLabelText('Manager'), { target: { value: 'm1' } });
+    fireEvent.change(within(approval).getByLabelText('Manager PIN'), { target: { value: '9999' } });
+    fireEvent.click(within(approval).getByRole('button', { name: 'Approve' }));
+    await expect.poll(() => callsTo(mock, 'POST', '/api/expenses').length).toBe(2);
+    return form;
+  }
+
+  it('says so when the approval did not work, and asks again', async () => {
+    asCashier();
+    const mock = mockApi({
+      'GET /api/expenses': () => json(day()),
+      'GET /api/expense-categories': () => json(CATEGORIES),
+      'GET /api/auth/approvers': () => json([{ id: 'm1', name: 'Meena' }]),
+      'POST /api/auth/override': () => json({ overrideToken: 'tok' }, 201),
+      'POST /api/expenses': () => json({ code: 'APPROVAL_REQUIRED', message: 'No.' }, 403),
+    });
+    await fillLargeExpense(mock);
+    expect(await screen.findByText(/That approval did not work/)).toBeInTheDocument();
+    expect(screen.getByRole('form', { name: 'Manager approval' })).toBeInTheDocument();
+  });
+
+  it('shows any other error instead of the approval step', async () => {
+    asCashier();
+    let attempt = 0;
+    const mock = mockApi({
+      'GET /api/expenses': () => json(day()),
+      'GET /api/expense-categories': () => json(CATEGORIES),
+      'GET /api/auth/approvers': () => json([{ id: 'm1', name: 'Meena' }]),
+      'POST /api/auth/override': () => json({ overrideToken: 'tok' }, 201),
+      'POST /api/expenses': () => {
+        attempt += 1;
+        return attempt === 1
+          ? json({ code: 'APPROVAL_REQUIRED', message: 'No.' }, 403)
+          : json({ code: 'DAY_CLOSED', message: 'That business day is closed.' }, 409);
+      },
+    });
+    await fillLargeExpense(mock);
+    expect(await screen.findByText('That business day is closed.')).toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: 'Manager approval' })).toBeNull();
+  });
+
   it('asks for a category and a valid amount', async () => {
     asCashier();
     const mock = mockApi({
@@ -174,6 +265,9 @@ describe('day report printout', () => {
         openedBy: { id: 'a', name: 'A' },
         closedBy: { id: 'a', name: 'A' },
         closeNote: null,
+        closeCount: null,
+        closeReasonCode: null,
+        firstCount: null,
       },
       sales: {
         bills: 0,
@@ -192,18 +286,28 @@ describe('day report printout', () => {
       },
       payments: { CASH: 0, UPI: 0, CARD: 0 },
       refunds: { total: 0, CASH: 0, UPI: 0, CARD: 0, bills: [] },
+      reconciliation: {
+        upi: { withRef: 0, withoutRef: 0, amountWithout: 0 },
+        card: { withRef: 0, withoutRef: 0, amountWithout: 0 },
+        missing: [],
+      },
       reopened: null,
       byType: { DINE_IN: { orders: 0, total: 0 }, PARCEL: { orders: 0, total: 0 } },
       topItems: [],
       voids: [],
+      reprints: [],
       cancels: [],
       discounts: [],
+      cashMovements: { totals: { payIn: 0, payOut: 0, drop: 0 }, list: [] },
       expenses: { total: 95000, cash: 95000, byCategory: [{ name: 'Gas <LPG>', amount: 95000 }] },
       cash: {
         opening: 0,
         cashSales: 0,
         cashRefunds: 0,
         cashExpenses: 95000,
+        payIns: 0,
+        payOuts: 0,
+        drops: 0,
         expected: -95000,
         counted: null,
         variance: null,

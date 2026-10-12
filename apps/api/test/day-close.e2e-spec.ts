@@ -50,6 +50,169 @@ describe('closing the business day', () => {
     ctx.http().post('/api/business-day/close').set(who.auth).send(body);
   const roti = () => [{ variantId: r.roti.regular.id, quantity: 1 }];
 
+  describe('blind count', () => {
+    const count = {
+      notes: { '500': 3, '200': 0, '100': 2, '50': 0, '20': 0, '10': 0 },
+      coins: 3000,
+    }; // ₹1,730
+    const checkCount = (countedCash: number, who = manager) =>
+      ctx
+        .http()
+        .post(`/api/business-day/${dayId}/close/check-count`)
+        .set(who.auth)
+        .send({ countedCash });
+    let dayId: string;
+    beforeEach(async () => {
+      dayId = (await ctx.prisma.businessDay.findFirstOrThrow()).id;
+    });
+
+    it('hides the expected cash from the closing screen only', async () => {
+      const blind = await ctx
+        .http()
+        .get('/api/business-day/close-check?blind=1')
+        .set(manager.auth)
+        .expect(200);
+      expect(blind.body.cash).not.toHaveProperty('expected');
+      expect(JSON.stringify(blind.body.cash)).not.toContain('100000');
+      const normal = await ctx
+        .http()
+        .get('/api/business-day/close-check')
+        .set(manager.auth)
+        .expect(200);
+      expect(normal.body.cash.expected).toBe(100000);
+    });
+
+    it('checks a count without closing the day or writing anything', async () => {
+      const cash = await billFor(roti(), r.t1.id);
+      await pay(cash.id, { mode: 'CASH', amount: cash.total }).expect(201);
+      const res = await checkCount(99000).expect(201);
+      expect(res.body).toEqual({ expected: 103200, variance: -4200, needsReason: false });
+      expect((await checkCount(93000).expect(201)).body.needsReason).toBe(true);
+      expect((await ctx.prisma.businessDay.findFirstOrThrow()).status).toBe('OPEN');
+      expect(await ctx.prisma.auditEntry.count({ where: { action: 'day.close' } })).toBe(0);
+      await checkCount(1, waiter).expect(403);
+    });
+
+    it('remembers the first count checked, once, and reports it when the close differs', async () => {
+      await checkCount(150000).expect(201);
+      await checkCount(173000).expect(201);
+      expect((await ctx.prisma.businessDay.findFirstOrThrow()).firstCountedCash).toBe(150000);
+      const res = await close({ countedCash: 173000, reasonCode: 'COUNT_ERROR' }).expect(201);
+      expect(res.body.day.firstCount).toBe(150000);
+      const audit = await ctx.prisma.auditEntry.findFirstOrThrow({
+        where: { action: 'day.close' },
+      });
+      expect(audit.after).toMatchObject({ counted: 173000, firstCount: 150000 });
+    });
+
+    it('reports no first count when it is the same as the close', async () => {
+      await checkCount(100000).expect(201);
+      const res = await close({ countedCash: 100000 }).expect(201);
+      expect(res.body.day.firstCount).toBeNull();
+    });
+
+    it('clears the first count when the day is reopened', async () => {
+      await checkCount(99000).expect(201);
+      await close({ countedCash: 100000 }).expect(201);
+      await ctx
+        .http()
+        .post(`/api/business-day/${dayId}/reopen`)
+        .set(owner.auth)
+        .send({ reason: 'Missed a bill' })
+        .expect(201);
+      expect((await ctx.prisma.businessDay.findFirstOrThrow()).firstCountedCash).toBeNull();
+    });
+
+    it('refuses to check a count for a day that is not the open one', async () => {
+      const other = '00000000-0000-4000-8000-000000000009';
+      const res = await ctx
+        .http()
+        .post(`/api/business-day/${other}/close/check-count`)
+        .set(manager.auth)
+        .send({ countedCash: 1 })
+        .expect(409);
+      expect(res.body.code).toBe('DAY_NOT_OPEN');
+      expect((await ctx.prisma.businessDay.findFirstOrThrow()).firstCountedCash).toBeNull();
+    });
+
+    it('refuses a count that does not add up to the counted cash', async () => {
+      const res = await close({ countedCash: 100000, count }).expect(400);
+      expect(res.body.code).toBe('COUNT_MISMATCH');
+      expect((await ctx.prisma.businessDay.findFirstOrThrow()).status).toBe('OPEN');
+    });
+
+    it('needs a reason when the variance is above the outlet threshold', async () => {
+      // Expected ₹1,000; counted ₹1,730 is +₹730.
+      const res = await close({ countedCash: 173000 }).expect(400);
+      expect(res.body.code).toBe('REASON_REQUIRED');
+      const other = await close({ countedCash: 173000, reasonCode: 'OTHER' }).expect(400);
+      expect(other.body.code).toBe('VALIDATION');
+      expect((await ctx.prisma.businessDay.findFirstOrThrow()).status).toBe('OPEN');
+    });
+
+    it('closes with the count and reason stored, returned and audited', async () => {
+      const exact = { ...count, notes: { ...count.notes, '500': 3 } };
+      const res = await close({
+        countedCash: 173000,
+        count: exact,
+        reasonCode: 'EXPENSE_MISSING',
+        note: 'Gas cylinder',
+      }).expect(201);
+      expect(res.body.day.closeCount).toEqual(exact);
+      expect(res.body.day.closeReasonCode).toBe('EXPENSE_MISSING');
+      expect(res.body.cash.variance).toBe(73000);
+      const day = await ctx.prisma.businessDay.findFirstOrThrow();
+      expect(day.closeCount).toEqual(exact);
+      expect(day.closeReasonCode).toBe('EXPENSE_MISSING');
+      const audit = await ctx.prisma.auditEntry.findFirstOrThrow({
+        where: { action: 'day.close' },
+      });
+      expect(audit.after).toMatchObject({
+        counted: 173000,
+        reasonCode: 'EXPENSE_MISSING',
+        count: exact,
+      });
+      const again = await ctx
+        .http()
+        .get(`/api/business-day/${dayId}/report`)
+        .set(manager.auth)
+        .expect(200);
+      expect(again.body.day.closeCount).toEqual(exact);
+      expect(again.body.day.closeReasonCode).toBe('EXPENSE_MISSING');
+    });
+
+    it('closes without a reason when the variance is within the threshold', async () => {
+      await close({ countedCash: 99100 }).expect(201); // −₹9 against ₹10 (default ₹100)
+    });
+
+    it('takes the threshold from the outlet setting', async () => {
+      await ctx.prisma.outlet.update({
+        where: { id: outlet.id },
+        data: { varianceAlertPaise: 500 },
+      });
+      expect((await checkCount(99100).expect(201)).body.needsReason).toBe(true);
+      await close({ countedCash: 99100 }).expect(400);
+      await ctx.prisma.outlet.update({
+        where: { id: outlet.id },
+        data: { varianceAlertPaise: 100000 },
+      });
+      await close({ countedCash: 50000 }).expect(201);
+    });
+
+    it('clears the count when the day is reopened', async () => {
+      await close({ countedCash: 100000 }).expect(201);
+      await ctx
+        .http()
+        .post(`/api/business-day/${dayId}/reopen`)
+        .set(owner.auth)
+        .send({ reason: 'Missed a bill' })
+        .expect(201);
+      const day = await ctx.prisma.businessDay.findFirstOrThrow();
+      expect(day.closeCount).toBeNull();
+      expect(day.closeReasonCode).toBeNull();
+    });
+  });
+
   it('lists what blocks the close', async () => {
     const open = await servedOrder(ctx, r, waiter, roti());
     const unpaid = await billFor(roti(), r.t2.id);
@@ -72,6 +235,9 @@ describe('closing the business day', () => {
       cashSales: 0,
       cashRefunds: 0,
       cashExpenses: 0,
+      payIns: 0,
+      payOuts: 0,
+      drops: 0,
       expected: 100000,
     });
     const res = await close({ countedCash: 0 }).expect(409);
@@ -91,6 +257,9 @@ describe('closing the business day', () => {
       cashSales: 3200,
       cashRefunds: 0,
       cashExpenses: 0,
+      payIns: 0,
+      payOuts: 0,
+      drops: 0,
       expected: 103200,
       counted: 103000,
       variance: -200,
@@ -199,6 +368,9 @@ describe('closing the business day', () => {
       cashSales: cash.total * 2,
       cashRefunds: cash.total,
       cashExpenses: 0,
+      payIns: 0,
+      payOuts: 0,
+      drops: 0,
       expected: 100000 + cash.total,
     });
 
@@ -285,6 +457,9 @@ describe('closing the business day', () => {
       expectedCash: 100000,
       countedCash: 99000,
       variance: -1000,
+      closeReasonCode: null,
+      firstCount: null,
+      closeCount: null,
     });
 
     const open = await ctx
@@ -402,6 +577,22 @@ describe('closing the business day', () => {
       collected: paid.total,
       unpaid: unpaid.total,
     });
+  });
+
+  it('lists the bills that were reprinted, with how many times', async () => {
+    const reprinted = await billFor(roti(), r.t1.id);
+    const untouched = await billFor(roti(), r.t2.id);
+    for (let i = 0; i < 2; i++) {
+      await ctx.http().post(`/api/bills/${reprinted.id}/print`).set(cashier.auth).expect(201);
+    }
+    const day = await ctx.prisma.businessDay.findFirstOrThrow();
+    const report = await ctx
+      .http()
+      .get(`/api/business-day/${day.id}/report`)
+      .set(manager.auth)
+      .expect(200);
+    expect(report.body.reprints).toEqual([{ billNo: reprinted.billNo, count: 2 }]);
+    expect(untouched.billNo).not.toBe(reprinted.billNo);
   });
 
   it('ranks the top items on the day report by amount, like the sales report', async () => {

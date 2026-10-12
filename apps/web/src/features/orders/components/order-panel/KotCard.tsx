@@ -1,9 +1,11 @@
 import { rupees } from '@/shared/lib/money';
 import { describeError } from '@/shared/ui';
-import { useMarkServed, useReprintKot } from '../../mutations';
+import { useState } from 'react';
+import { useMarkServed } from '../../mutations';
 import type { KotPrintState, Order, OrderKot, OrderLine } from '../../types';
 import { CancelLineDialog } from './CancelLineDialog';
 import { lineDetail } from './lineDetail';
+import { ReprintKotDialog } from './ReprintKotDialog';
 
 /** Ticket state at a glance; the state is also written out next to it. */
 const KOT_DOT: Record<OrderKot['status'], string> = {
@@ -21,7 +23,7 @@ const PRINT_LABEL: Record<Exclude<KotPrintState, 'NONE'>, string> = {
 
 /** Whether the paper ticket came out, with a reprint for a jammed or missing ticket. */
 function KotPrint({ kot, orderId }: { kot: OrderKot; orderId: string }) {
-  const reprint = useReprintKot(kot.id, orderId);
+  const [asking, setAsking] = useState(false);
   if (kot.print === 'NONE') return null;
   return (
     <span className="flex items-center gap-2 text-xs">
@@ -40,12 +42,11 @@ function KotPrint({ kot, orderId }: { kot: OrderKot; orderId: string }) {
         type="button"
         aria-label={`Reprint KOT ${kot.kotNo}`}
         className="text-text underline disabled:opacity-50"
-        disabled={reprint.isPending}
-        onClick={() => reprint.mutate()}
+        onClick={() => setAsking(true)}
       >
-        {reprint.isPending ? 'Reprinting…' : 'Reprint'}
+        Reprint
       </button>
-      {reprint.isError && <span className="text-red-700">{describeError(reprint.error)}</span>}
+      {asking && <ReprintKotDialog kot={kot} orderId={orderId} onClose={() => setAsking(false)} />}
     </span>
   );
 }

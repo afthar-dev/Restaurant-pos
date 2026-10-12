@@ -11,7 +11,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 /** Empties every table, children first. Keep in sync with prisma/schema.prisma. */
 export async function resetDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE stock_txns, purchase_lines, purchases, stock_items, expenses, expense_categories, qr_submissions, qr_sessions, payments, bill_items, bills, idempotency_keys, ' +
+    'TRUNCATE TABLE cash_movements, stock_txns, purchase_lines, purchases, stock_items, expenses, expense_categories, qr_submissions, qr_sessions, payments, bill_items, bills, idempotency_keys, ' +
       'print_jobs, kot_lines, ' +
       'order_items, kots, orders, ' +
       'counters, business_days, combo_components, item_addon_groups, addons, addon_groups, item_variants, ' +
@@ -46,7 +46,8 @@ export async function createTestApp(
 }
 
 export async function createOutlet(prisma: PrismaClient): Promise<Outlet> {
-  return prisma.outlet.create({ data: { name: 'Test Outlet' } });
+  // The column default is NONE (not registered); tests bill with GST unless they say otherwise.
+  return prisma.outlet.create({ data: { name: 'Test Outlet', taxScheme: 'REGULAR' } });
 }
 
 let phoneCounter = 0;

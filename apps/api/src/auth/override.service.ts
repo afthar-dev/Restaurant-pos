@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { hasPermission, type Permission } from '@rpos/shared';
+import { ApiError } from '../common/api-error';
 import type { AuthUser } from '../common/request-context';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokenService } from './token.service';
@@ -45,6 +46,25 @@ export class OverrideService {
       role: approver.role,
       outletId: approver.outletId,
     };
+  }
+
+  /**
+   * For a limit that depends on the request (cash pay-outs, large cash expenses): nothing is
+   * needed when `permissions` already holds `permission`; otherwise a manager's token for it.
+   * Returns the approving manager, or null when no approval was needed. Throws
+   * APPROVAL_REQUIRED (403) when the token is missing, used or not valid for this requester.
+   */
+  async requireApproval(
+    requester: AuthUser,
+    permissions: readonly Permission[],
+    permission: Permission,
+    token: string | undefined,
+    message: string,
+  ): Promise<AuthUser | null> {
+    if (permissions.includes(permission)) return null;
+    const manager = token ? await this.approve(token, permission, requester) : null;
+    if (!manager) throw new ApiError(HttpStatus.FORBIDDEN, 'APPROVAL_REQUIRED', message);
+    return manager;
   }
 
   /** Marks an override token as used. False when it was used before. */

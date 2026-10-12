@@ -7,6 +7,10 @@ import {
   ErrorNote,
   Field,
   inputClass,
+  noReason,
+  ReasonPicker,
+  reasonReady,
+  reasonRequest,
   secondaryButton,
 } from '@/shared/ui';
 import { useCancelLine } from '../../mutations';
@@ -24,7 +28,7 @@ export function CancelLineDialog({
 }) {
   const canCancel = useCan('item.cancelAfterKot');
   const cancel = useCancelLine(order, line, onDone);
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState(noReason);
   const [quantity, setQuantity] = useState(String(line.quantity));
   const [approverId, setApproverId] = useState('');
   const [pin, setPin] = useState('');
@@ -32,7 +36,7 @@ export function CancelLineDialog({
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (reason.trim().length < 3) return setError('Give a short reason.');
+    if (!reasonReady(reason)) return setError('Choose a reason.');
     const qty = Number(quantity);
     if (!Number.isInteger(qty) || qty < 1 || qty > line.quantity) {
       return setError(`Cancel between 1 and ${line.quantity}.`);
@@ -42,7 +46,7 @@ export function CancelLineDialog({
     }
     setError(null);
     cancel.mutate({
-      reason: reason.trim(),
+      reason: reasonRequest(reason),
       quantity: qty,
       overrideToken: canCancel
         ? undefined
@@ -62,14 +66,12 @@ export function CancelLineDialog({
         This dish is already in the kitchen. A cancellation ticket goes to {''}
         the same station.
       </p>
-      <Field id={`cancel-reason-${line.id}`} label="Reason">
-        <input
-          id={`cancel-reason-${line.id}`}
-          className={inputClass}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-        />
-      </Field>
+      <ReasonPicker
+        kind="cancel"
+        idPrefix={`cancel-reason-${line.id}`}
+        value={reason}
+        onChange={setReason}
+      />
       {line.quantity > 1 && (
         <Field id={`cancel-qty-${line.id}`} label="How many">
           <input

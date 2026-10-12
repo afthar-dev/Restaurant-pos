@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { fetchDaySalesReport, fetchSalesReport } from './api';
+import { fetchAccountability, fetchGstReport, fetchDaySalesReport, fetchSalesReport } from './api';
 import { reportKeys } from './keys';
 import type { DateRange } from './ranges';
 
@@ -25,5 +25,23 @@ export function useDaySalesReport(dayId: string, { poll = false } = {}) {
     refetchInterval: poll ? REPORT_POLL_MS : false,
     queryKey: reportKeys.day(dayId),
     queryFn: () => fetchDaySalesReport(dayId),
+  });
+}
+
+/** Discounts, voids, cancelled dishes and reprints by reason and by staff member. */
+export function useAccountability(range: DateRange) {
+  return useQuery({
+    queryKey: reportKeys.accountability(range),
+    queryFn: () => fetchAccountability(range),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** GST by rate, SAC and invoice series for the accountant. */
+export function useGstReport(range: DateRange) {
+  return useQuery({
+    queryKey: reportKeys.gst(range),
+    queryFn: () => fetchGstReport(range),
+    placeholderData: keepPreviousData,
   });
 }

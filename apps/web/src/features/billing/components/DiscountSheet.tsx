@@ -7,7 +7,11 @@ import {
   ErrorNote,
   Field,
   inputClass,
+  noReason,
   primaryButton,
+  ReasonPicker,
+  reasonReady,
+  reasonRequest,
   secondaryButton,
   Sheet,
 } from '@/shared/ui';
@@ -39,7 +43,7 @@ export function DiscountSheet({ bill, onDone }: { bill: Bill; onDone: () => void
       ]),
     ),
   );
-  const [reason, setReason] = useState(bill.discountReason ?? '');
+  const [reason, setReason] = useState(noReason);
   const [error, setError] = useState<string | null>(null);
   const [needsManager, setNeedsManager] = useState<string | null>(null);
 
@@ -73,12 +77,12 @@ export function DiscountSheet({ bill, onDone }: { bill: Bill; onDone: () => void
         const raw = (lineOff[l.id] ?? '').trim();
         return raw !== '' && (parseRupees(raw) ?? 0) > 0;
       });
-    if (anything && reason.trim().length < 3) return { problem: 'Give a reason for the discount.' };
+    if (anything && !reasonReady(reason)) return { problem: 'Give a reason for the discount.' };
     return {
       body: {
         bill: billDiscount,
         items,
-        ...(reason.trim() ? { reason: reason.trim() } : {}),
+        ...(reasonReady(reason) ? reasonRequest(reason) : {}),
       },
     };
   }
@@ -166,14 +170,12 @@ export function DiscountSheet({ bill, onDone }: { bill: Bill; onDone: () => void
               ))}
             </div>
           </details>
-          <Field id={`${id}-reason`} label="Reason">
-            <input
-              id={`${id}-reason`}
-              className={inputClass}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </Field>
+          <ReasonPicker
+            kind="discount"
+            idPrefix={`${id}-reason`}
+            value={reason}
+            onChange={setReason}
+          />
           <ErrorNote message={error} />
           <div className="flex gap-2">
             <button

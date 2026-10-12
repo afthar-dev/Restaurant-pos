@@ -1,5 +1,14 @@
 import { z } from 'zod';
+import { gstinSchema } from './gstin';
 import { priceSchema } from './menu';
+import {
+  CLOSE_VARIANCE_REASONS,
+  DISCOUNT_REASONS,
+  PAYMENT_MODE_CHANGE_REASONS,
+  VOID_REASONS,
+  reasonRequestFields,
+  refineReason,
+} from './reasons';
 
 export const PAYMENT_MODES = ['CASH', 'UPI', 'CARD'] as const;
 export type PaymentMode = (typeof PAYMENT_MODES)[number];
@@ -34,29 +43,66 @@ export const createBillSchema = z.strictObject({
 });
 export type CreateBillRequest = z.infer<typeof createBillSchema>;
 
-export const billDiscountSchema = z.strictObject({
-  /** Omit to keep the bill discount, null to remove it. */
-  bill: discountSchema.nullable().optional(),
-  items: z
-    .array(z.strictObject({ billItemId: z.uuid(), discount: discountSchema.nullable() }))
-    .max(200)
-    .default([]),
-  /** Required (checked by the server) whenever any discount is above zero. */
-  reason: z.string().trim().max(140).optional(),
-});
+export const billDiscountSchema = refineReason(
+  z.strictObject({
+    /** Omit to keep the bill discount, null to remove it. */
+    bill: discountSchema.nullable().optional(),
+    items: z
+      .array(z.strictObject({ billItemId: z.uuid(), discount: discountSchema.nullable() }))
+      .max(200)
+      .default([]),
+    /**
+     * A reason is required (checked by the server) whenever any discount is above zero.
+     * `reason` is the older free text; it counts as OTHER.
+     */
+    ...reasonRequestFields(DISCOUNT_REASONS),
+  }),
+  false,
+);
 export type BillDiscountRequest = z.infer<typeof billDiscountSchema>;
+
+/** A UPI or card reference: 6 to 22 letters and digits. */
+export const PAYMENT_REFERENCE = /^[A-Za-z0-9]{6,22}$/;
+export const PAYMENT_REFERENCE_HINT = 'A reference is 6 to 22 letters and digits';
 
 export const addPaymentSchema = z.strictObject({
   mode: z.enum(PAYMENT_MODES),
   amount: priceSchema.refine((v) => v > 0, 'Enter an amount'),
   /** Cash handed over; change = tendered − amount. Cash only. */
   tendered: priceSchema.optional(),
-  /** UPI or card reference, optional. */
-  reference: z.string().trim().max(60).optional(),
+  /** UPI or card reference (6-22 letters and digits), optional; blank counts as none. */
+  reference: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().trim().regex(PAYMENT_REFERENCE, PAYMENT_REFERENCE_HINT).optional(),
+  ),
 });
 export type AddPaymentRequest = z.infer<typeof addPaymentSchema>;
 
-export const voidBillSchema = z.strictObject({ reason: reasonSchema });
+/**
+ * Fixes the mode of a payment taken on the open day. A manager's token is needed unless the
+ * caller can close the day.
+ */
+export const changePaymentModeSchema = refineReason(
+  z.strictObject({
+    mode: z.enum(PAYMENT_MODES),
+    ...reasonRequestFields(PAYMENT_MODE_CHANGE_REASONS),
+    /** A manager's single-use approval, from POST /auth/override. */
+    overrideToken: z.string().min(1).max(2000).optional(),
+  }),
+  true,
+);
+export type ChangePaymentModeRequest = z.infer<typeof changePaymentModeSchema>;
+
+/** Blank text counts as cleared. Send null (or an empty string) to remove a field. */
+const blankToNull = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? null : v);
+
+export const billCustomerSchema = z.strictObject({
+  name: z.preprocess(blankToNull, z.string().trim().max(100).nullable()).optional(),
+  gstin: z.preprocess(blankToNull, gstinSchema.nullable()).optional(),
+});
+export type BillCustomerRequest = z.infer<typeof billCustomerSchema>;
+
+export const voidBillSchema = refineReason(z.strictObject(reasonRequestFields(VOID_REASONS)), true);
 export type VoidBillRequest = z.infer<typeof voidBillSchema>;
 
 export const moveOrderSchema = z.strictObject({ tableId: z.uuid() });
@@ -65,10 +111,42 @@ export type MoveOrderRequest = z.infer<typeof moveOrderSchema>;
 export const mergeOrderSchema = z.strictObject({ fromOrderId: z.uuid() });
 export type MergeOrderRequest = z.infer<typeof mergeOrderSchema>;
 
-export const closeDaySchema = z.strictObject({
-  countedCash: priceSchema,
-  note: z.string().trim().max(200).optional(),
+/** The notes counted at day close: how many of each, and the coins in paise. */
+export const CLOSE_NOTE_DENOMINATIONS = ['500', '200', '100', '50', '20', '10'] as const;
+export type CloseNoteDenomination = (typeof CLOSE_NOTE_DENOMINATIONS)[number];
+
+export const closeCountSchema = z.strictObject({
+  notes: z.strictObject(
+    Object.fromEntries(
+      CLOSE_NOTE_DENOMINATIONS.map((d) => [d, z.number().int().min(0).max(100_000)]),
+    ) as Record<CloseNoteDenomination, z.ZodNumber>,
+  ),
+  coins: priceSchema,
 });
+export type CloseCount = z.infer<typeof closeCountSchema>;
+
+/** The paise a count adds up to (notes are whole rupees, coins are already paise). */
+export function closeCountTotal(count: CloseCount): number {
+  return (
+    CLOSE_NOTE_DENOMINATIONS.reduce((sum, d) => sum + Number(d) * count.notes[d], 0) * 100 +
+    count.coins
+  );
+}
+
+export const closeDaySchema = refineReason(
+  z.strictObject({
+    countedCash: priceSchema,
+    count: closeCountSchema.optional(),
+    reasonCode: z.enum(CLOSE_VARIANCE_REASONS).optional(),
+    note: z.string().trim().max(200).optional(),
+  }),
+  false,
+);
+
+/** Asks what closing would show for a counted figure; changes nothing. */
+export const checkCountSchema = z.strictObject({ countedCash: priceSchema });
+export type CheckCountRequest = z.infer<typeof checkCountSchema>;
+
 export type CloseDayRequest = z.infer<typeof closeDaySchema>;
 
 export const reopenDaySchema = z.strictObject({ reason: reasonSchema });

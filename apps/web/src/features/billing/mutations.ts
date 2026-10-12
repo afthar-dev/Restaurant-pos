@@ -6,7 +6,9 @@ import { ApiError } from '@/shared/api/http';
 import {
   addPayment,
   applyDiscount,
+  changePaymentMode,
   createBill,
+  setBillCustomer,
   voidBill,
   type BillLineChoice,
   type PaymentInput,
@@ -89,11 +91,36 @@ export function useAddPayment(bill: Bill, onRecorded: (updated: Bill) => void) {
   return { ...mutation, pay, isSending: () => sending.current };
 }
 
+/** Sets or clears the B2B customer on a bill, then reloads the order's bills. */
+export function useSetCustomer(bill: Bill) {
+  const refresh = useRefreshOrder();
+  return useMutation({
+    mutationFn: (body: { name: string | null; gstin: string | null }) =>
+      setBillCustomer(bill.id, body),
+    onSuccess: () => refresh(bill.orderId),
+  });
+}
+
+/** Fixes the mode of a payment taken today; the order's bills reload with the new mode. */
+export function useChangePaymentMode(bill: Bill, paymentId: string) {
+  const refresh = useRefreshOrder();
+  return useMutation({
+    mutationFn: (body: Parameters<typeof changePaymentMode>[1]) =>
+      changePaymentMode(paymentId, body),
+    onSuccess: () => refresh(bill.orderId),
+  });
+}
+
 export function useVoidBill(bill: Bill) {
   const refresh = useRefreshOrder();
   return useMutation({
-    mutationFn: ({ reason, overrideToken }: { reason: string; overrideToken?: string }) =>
-      voidBill(bill.id, reason, overrideToken),
+    mutationFn: ({
+      reason,
+      overrideToken,
+    }: {
+      reason: { reasonCode: string; note?: string };
+      overrideToken?: string;
+    }) => voidBill(bill.id, reason, overrideToken),
     onSuccess: () => refresh(bill.orderId),
   });
 }

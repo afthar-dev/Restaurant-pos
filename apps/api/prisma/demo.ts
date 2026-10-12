@@ -235,6 +235,7 @@ export async function loadDemo(prisma: PrismaClient): Promise<string[]> {
         address: '12, MG Road, Bengaluru 560001',
         phone: '08041234567',
         gstin: '29ABCDE1234F1Z5',
+        taxScheme: 'REGULAR',
         billFooter: 'Thank you! Visit again.',
       },
     });

@@ -1,7 +1,14 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Bill, DiscountKind, OrderItem, Prisma } from '@prisma/client';
-import type { BillDiscountRequest, CreateBillRequest, Permission } from '@rpos/shared';
+import { resolveReason } from '@rpos/shared';
+import type {
+  ResolvedReason,
+  BillCustomerRequest,
+  BillDiscountRequest,
+  CreateBillRequest,
+  Permission,
+} from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
 import { OverrideService } from '../auth/override.service';
 import { BusinessDayService } from '../business-day/business-day.service';
@@ -259,7 +266,7 @@ export class BillsService {
     actor: AuthUser,
     requester: AuthUser,
     billId: string,
-    reason: string,
+    reason: ResolvedReason,
   ): Promise<BillView> {
     const orderId = await this.orderOf(requester.outletId, billId);
     await this.orders.mutate(requester, orderId, undefined, async ({ tx, order }) => {
@@ -299,7 +306,13 @@ export class BillsService {
       const voidedAt = new Date();
       await tx.bill.update({
         where: { id: billId },
-        data: { status: 'VOID', voidReason: reason, voidedById: actor.id, voidedAt },
+        data: {
+          status: 'VOID',
+          voidReason: reason.text,
+          voidReasonCode: reason.code,
+          voidedById: actor.id,
+          voidedAt,
+        },
       });
       // The customer gets the money back: refunded on the day of the void, which is this
       // open day (a bill can only be voided on its own day).
@@ -317,7 +330,7 @@ export class BillsService {
           action: 'bill.void',
           entity: 'bill',
           entityId: billId,
-          reason,
+          reason: reason.text,
           before: {
             billNo: bill.billNo,
             status: bill.status,
@@ -326,6 +339,7 @@ export class BillsService {
           },
           after: {
             status: 'VOID',
+            reasonCode: reason.code,
             requestedBy: requester.id,
             refunded: paid._sum.amount ?? 0,
           },
@@ -335,6 +349,45 @@ export class BillsService {
     });
     this.changed(requester.outletId, billId, orderId);
     return this.get(requester.outletId, billId);
+  }
+
+  /**
+   * Sets or clears the B2B customer printed under the bill header. Allowed while the bill is
+   * open or paid and its business day is still open; a field left out is kept.
+   */
+  async setCustomer(
+    user: AuthUser,
+    billId: string,
+    request: BillCustomerRequest,
+  ): Promise<BillView> {
+    const orderId = await this.orderOf(user.outletId, billId);
+    await this.orders.mutate(user, orderId, undefined, async ({ tx }) => {
+      const bill = await this.lockBill(tx, user.outletId, billId, undefined);
+      if (bill.status === 'VOID') {
+        throw new ApiError(HttpStatus.CONFLICT, 'BILL_VOID', 'This bill is void.');
+      }
+      const day = await this.days.requireOpen(tx, user.outletId);
+      if (bill.businessDayId !== day.id) {
+        throw new ApiError(HttpStatus.CONFLICT, 'DAY_CLOSED', 'This bill belongs to a closed day.');
+      }
+      const customerName = request.name === undefined ? bill.customerName : request.name || null;
+      const customerGstin = request.gstin === undefined ? bill.customerGstin : request.gstin;
+      await tx.bill.update({ where: { id: billId }, data: { customerName, customerGstin } });
+      await this.audit.record(
+        {
+          outletId: user.outletId,
+          actorId: user.id,
+          action: 'bill.customer',
+          entity: 'bill',
+          entityId: billId,
+          before: { name: bill.customerName, gstin: bill.customerGstin },
+          after: { name: customerName, gstin: customerGstin },
+        },
+        tx,
+      );
+    });
+    this.changed(user.outletId, billId, orderId);
+    return this.get(user.outletId, billId);
   }
 
   /** The bill's order id, checked against the outlet (for locking the order first). */
@@ -404,10 +457,11 @@ export class BillsService {
       });
 
       const totalDiscount = after.itemDiscount + after.billDiscount;
-      const reason = request.reason?.trim() ?? '';
-      if (totalDiscount > 0 && reason.length < 3) {
+      const reason = resolveReason('discount', request);
+      if (totalDiscount > 0 && (!reason || (reason.code === 'OTHER' && reason.text.length < 3))) {
         throw new ApiError(HttpStatus.BAD_REQUEST, 'VALIDATION', 'Give a reason for the discount.');
       }
+      const discountReason = totalDiscount > 0 ? reason : null;
       let approver: AuthUser = user;
       const outlet = await tx.outlet.findUniqueOrThrow({ where: { id: user.outletId } });
       const allowed = Math.floor((after.grossSubtotal * outlet.cashierDiscountCapBp) / 10000);
@@ -428,7 +482,8 @@ export class BillsService {
       await tx.bill.update({
         where: { id: billId },
         data: {
-          discountReason: totalDiscount > 0 ? reason : null,
+          discountReason: discountReason?.text ?? null,
+          discountReasonCode: discountReason?.code ?? null,
           discountById: totalDiscount > 0 ? approver.id : null,
         },
       });
@@ -446,10 +501,11 @@ export class BillsService {
           action: 'bill.discount',
           entity: 'bill',
           entityId: billId,
-          reason: reason || null,
+          reason: reason?.text ?? null,
           before: snapshot(before),
           after: {
             ...snapshot(after),
+            ...(reason ? { reasonCode: reason.code } : {}),
             ...(approver.id !== user.id ? { requestedBy: user.id } : {}),
           },
         },
@@ -468,13 +524,39 @@ export class BillsService {
    */
   async reprint(user: AuthUser, billId: string) {
     await this.orderOf(user.outletId, billId);
-    return { id: billId, queued: await this.print.queueBillJobs(billId) };
+    // One atomic increment returns the new count, so two taps at once get copies 1 and 2.
+    const copy = await this.prisma.$transaction(async (tx) => {
+      const { printCount } = await tx.bill.update({
+        where: { id: billId },
+        data: { printCount: { increment: 1 } },
+        select: { printCount: true },
+      });
+      await this.audit.record(
+        {
+          outletId: user.outletId,
+          actorId: user.id,
+          action: 'bill.reprint',
+          entity: 'bill',
+          entityId: billId,
+          after: { copy: printCount - 1 },
+        },
+        tx,
+      );
+      return printCount - 1;
+    });
+    return { id: billId, queued: await this.print.queueBillJobs(billId, copy), copy };
   }
 
   /** Queues a new bill on the bill printers; a print problem never fails billing (§5.6.4). */
   private async queueForPrint(billId: string): Promise<number> {
     try {
-      return await this.print.queueBillJobs(billId);
+      // The original counts as the first print (even with no printer: it prints on screen).
+      const { printCount } = await this.prisma.bill.update({
+        where: { id: billId },
+        data: { printCount: { increment: 1 } },
+        select: { printCount: true },
+      });
+      return await this.print.queueBillJobs(billId, printCount - 1);
     } catch (error) {
       this.logger.error(`Could not queue print for bill ${billId}: ${String(error)}`);
       return 0;

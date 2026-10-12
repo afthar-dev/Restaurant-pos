@@ -10,17 +10,31 @@ import {
   Field,
   GstTable,
   inputClass,
+  noReason,
   PageHeader,
   PaymentIcon,
   primaryButton,
+  ReasonPicker,
+  reasonReady,
   secondaryButton,
+  type ReasonValue,
 } from '@/shared/ui';
+import { CashButton } from '@/features/cash';
+import { movementLabel } from '../cashMovements';
 import { renderDayReport } from '../dayReport';
 import { printHtmlInIframe } from '@/features/printing';
 import { useOutlet } from '@/features/settings';
-import { useCloseDay, useRefreshDays, useReopenDay } from '../mutations';
-import { useBusinessDay, useCloseCheck, useDayReport, usePastDays } from '../queries';
-import type { DayBlockers, DayReport, DaySummary } from '../types';
+import { countRows, varianceReasonLabel } from '../closeCount';
+import {
+  draftTotal,
+  emptyCount,
+  NoteCounter,
+  toCount,
+  type CountDraft,
+} from '../components/NoteCounter';
+import { useCheckCount, useCloseDay, useRefreshDays, useReopenDay } from '../mutations';
+import { useBlindCloseCheck, useBusinessDay, useDayReport, usePastDays } from '../queries';
+import type { CountCheck, DayBlockers, DayReport, DaySummary } from '../types';
 import { rupees } from '@/shared/lib/money';
 import { ChevronRight, Sunrise } from 'lucide-react';
 import { Link } from 'react-router';
@@ -127,13 +141,19 @@ function Blockers({ blockers }: { blockers: DayBlockers }) {
 
 function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
   const id = useId();
-  const check = useCloseCheck();
+  const check = useBlindCloseCheck();
   const openDay = useBusinessDay().data?.day;
-  const [counted, setCounted] = useState('');
+  const [typedTotal, setTypedTotal] = useState(false);
+  const [count, setCount] = useState<CountDraft>(emptyCount);
+  const [total, setTotal] = useState('');
   const [note, setNote] = useState('');
+  const [reason, setReason] = useState<ReasonValue>(noReason);
+  const [checked, setChecked] = useState<{ counted: number; result: CountCheck } | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const dayId = check.data?.day.id ?? '';
+  const checkCount = useCheckCount(dayId);
   const close = useCloseDay({
     onClosed: (report) => {
       setConfirming(false);
@@ -142,7 +162,11 @@ function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
     // Blockers found by the server show in the list above, not as an error.
     onFailed: (failure, blocked) => {
       setConfirming(false);
-      if (!blocked) setError(describeError(failure));
+      if (!blocked) {
+        // The figures shown may be stale (a payment or expense came in): check again.
+        setChecked(null);
+        setError(describeError(failure));
+      }
     },
   });
 
@@ -151,16 +175,42 @@ function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
   }
   const blockers = check.data.blockers;
   const blocked = blockers.orders.length > 0 || blockers.bills.length > 0;
-  const { cash } = check.data;
 
-  function onSubmit(event: FormEvent) {
+  const typedCount = typedTotal ? null : toCount(count);
+  /** Paise counted, or null while what is typed is not an amount. */
+  const counted = typedTotal ? parseRupees(total.trim()) : typedCount ? draftTotal(count) : null;
+  // Counting again after a check starts the check over: the figures shown were for the old count.
+  const shown = checked && checked.counted === counted ? checked.result : null;
+  const needsReason = shown?.needsReason ?? false;
+  const canClose = shown !== null && !blocked && (!needsReason || reasonReady(reason));
+
+  const edit =
+    <T,>(set: (next: T) => void) =>
+    (next: T) => {
+      set(next);
+      setChecked(null);
+      setConfirming(false);
+      setError(null);
+    };
+
+  function onCheck(event: FormEvent) {
     event.preventDefault();
-    if (parseRupees(counted.trim()) === null) {
-      return setError('Enter the cash you counted, like 1032.');
+    if (counted === null) {
+      return setError(
+        typedTotal
+          ? 'Enter the cash you counted, like 1032.'
+          : 'Check the notes and coins you typed.',
+      );
     }
     setError(null);
-    setConfirming(true);
+    checkCount.mutate(counted, {
+      onSuccess: (result) => setChecked({ counted, result }),
+      onError: (failure) => setError(describeError(failure)),
+    });
   }
+
+  // "Other" carries what happened as the note; otherwise the manager's own note is kept.
+  const closingNote = needsReason && reason.code === 'OTHER' ? reason.note.trim() : note.trim();
 
   return (
     <section aria-labelledby={`${id}-title`} className="flex flex-col gap-3">
@@ -175,24 +225,71 @@ function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
         )}
       </div>
       <Blockers blockers={blockers} />
-      <Block title="Cash in the drawer">
-        <Row label="Opening" value={rupees(cash.opening)} />
-        <Row label="Cash sales" value={rupees(cash.cashSales)} />
-        {cash.cashRefunds > 0 && <Row label="Cash refunded" value={rupees(cash.cashRefunds)} />}
-        <Row label="Cash expenses" value={rupees(cash.cashExpenses)} />
-        <Row label="Expected in drawer" value={rupees(cash.expected)} strong />
-      </Block>
-      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field id={`${id}-counted`} label="Counted cash (₹)">
-            <input
-              id={`${id}-counted`}
-              inputMode="decimal"
-              className={inputClass}
-              value={counted}
-              onChange={(e) => setCounted(e.target.value)}
-            />
-          </Field>
+      <form onSubmit={onCheck} noValidate className="flex flex-col gap-3">
+        <Block title="Count the cash in the drawer">
+          {typedTotal ? (
+            <Field id={`${id}-counted`} label="Counted cash (₹)">
+              <input
+                id={`${id}-counted`}
+                inputMode="decimal"
+                className={inputClass}
+                value={total}
+                onChange={(e) => edit(setTotal)(e.target.value)}
+              />
+            </Field>
+          ) : (
+            <NoteCounter idPrefix={id} value={count} onChange={edit(setCount)} />
+          )}
+          <button
+            type="button"
+            className={`${secondaryButton} min-h-11 self-start`}
+            onClick={() => {
+              setTypedTotal((t) => !t);
+              setChecked(null);
+              setConfirming(false);
+              setError(null);
+            }}
+          >
+            {typedTotal ? 'Count notes instead' : 'Type total instead'}
+          </button>
+        </Block>
+        {!shown && (
+          <button
+            type="submit"
+            className={`${secondaryButton} min-h-12 self-start text-base`}
+            disabled={checkCount.isPending}
+          >
+            Check count
+          </button>
+        )}
+        {shown && (
+          <Block title="Count checked">
+            <Row label="Expected in drawer" value={rupees(shown.expected)} strong />
+            <Row label="Counted" value={rupees(checked!.counted)} />
+            <div
+              className={`flex justify-between gap-2 font-semibold ${
+                shown.variance === 0 ? '' : 'text-red-700'
+              }`}
+            >
+              <span>Variance</span>
+              <span className="tabular-nums">{signed(shown.variance)}</span>
+            </div>
+            {needsReason && (
+              <div className="flex flex-col gap-2 pt-1">
+                <p className="text-amber-900">
+                  The cash is out by more than the allowed amount. Say why.
+                </p>
+                <ReasonPicker
+                  kind="closeVariance"
+                  idPrefix={`${id}-reason`}
+                  value={reason}
+                  onChange={setReason}
+                />
+              </div>
+            )}
+          </Block>
+        )}
+        {!(needsReason && reason.code === 'OTHER') && (
           <Field id={`${id}-note`} label="Note">
             <input
               id={`${id}-note`}
@@ -201,7 +298,7 @@ function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
               onChange={(e) => setNote(e.target.value)}
             />
           </Field>
-        </div>
+        )}
         <ErrorNote message={error} />
         {confirming ? (
           <ConfirmBar
@@ -209,8 +306,10 @@ function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
             confirmLabel="Yes, close the day"
             onConfirm={() =>
               close.mutate({
-                countedCash: parseRupees(counted.trim())!,
-                ...(note.trim() ? { note: note.trim() } : {}),
+                countedCash: counted!,
+                ...(typedCount ? { count: typedCount } : {}),
+                ...(needsReason && reason.code ? { reasonCode: reason.code } : {}),
+                ...(closingNote ? { note: closingNote } : {}),
               })
             }
             onCancel={() => setConfirming(false)}
@@ -218,9 +317,10 @@ function CloseToday({ onClosed }: { onClosed: (report: DayReport) => void }) {
           />
         ) : (
           <button
-            type="submit"
+            type="button"
             className={`${primaryButton} min-h-12 self-start text-base`}
-            disabled={blocked}
+            disabled={!canClose}
+            onClick={() => setConfirming(true)}
           >
             Close day
           </button>
@@ -296,11 +396,43 @@ function ReportView({
             {`Parcel · ${report.byType.PARCEL.orders} orders · ${rupees(report.byType.PARCEL.total)}`}
           </p>
         </Block>
+        {report.reconciliation.upi.withRef +
+          report.reconciliation.upi.withoutRef +
+          report.reconciliation.card.withRef +
+          report.reconciliation.card.withoutRef >
+          0 && (
+          <Block title="UPI and card references">
+            {(
+              [
+                ['UPI', report.reconciliation.upi],
+                ['Card', report.reconciliation.card],
+              ] as const
+            )
+              .filter(([, f]) => f.withRef + f.withoutRef > 0)
+              .map(([name, f]) => (
+                <Row
+                  key={name}
+                  label={`${name} · ${f.withRef} with reference, ${f.withoutRef} without`}
+                  value={f.withoutRef > 0 ? rupees(f.amountWithout) : ''}
+                />
+              ))}
+            {report.reconciliation.missing.map((m, index) => (
+              <Row
+                key={index}
+                label={`Bill ${m.billNo} · ${PAY_LABEL[m.mode]}`}
+                value={rupees(m.amount)}
+              />
+            ))}
+          </Block>
+        )}
         <Block title="Cash">
           <Row label="Opening" value={rupees(cash.opening)} />
           <Row label="Cash sales" value={rupees(cash.cashSales)} />
           {cash.cashRefunds > 0 && <Row label="Cash refunded" value={rupees(cash.cashRefunds)} />}
           <Row label="Cash expenses" value={rupees(cash.cashExpenses)} />
+          {cash.payIns > 0 && <Row label="Pay-ins" value={rupees(cash.payIns)} />}
+          {cash.payOuts > 0 && <Row label="Pay-outs" value={rupees(cash.payOuts)} />}
+          {cash.drops > 0 && <Row label="Drops" value={rupees(cash.drops)} />}
           <Row label="Expected in drawer" value={rupees(cash.expected)} strong />
           {cash.counted !== null && <Row label="Counted" value={rupees(cash.counted)} />}
           {cash.variance !== null && (
@@ -315,6 +447,22 @@ function ReportView({
           )}
           {report.day.closeNote && <p className="text-muted">Note: {report.day.closeNote}</p>}
         </Block>
+        {(report.day.closeCount ||
+          report.day.closeReasonCode ||
+          report.day.firstCount !== null) && (
+          <Block title="Cash count">
+            {report.day.closeCount &&
+              countRows(report.day.closeCount).map((c) => (
+                <Row key={c.label} label={c.label} value={rupees(c.amount)} />
+              ))}
+            {report.day.firstCount !== null && (
+              <Row label="First count" value={rupees(report.day.firstCount)} />
+            )}
+            {report.day.closeReasonCode && (
+              <Row label="Reason" value={varianceReasonLabel(report.day.closeReasonCode)!} />
+            )}
+          </Block>
+        )}
         <Block title="Top items">
           {report.topItems.length === 0 && <p className="text-subtle">No sales.</p>}
           {report.topItems.map((i) => (
@@ -329,6 +477,22 @@ function ReportView({
             </div>
           ))}
         </Block>
+        {report.cashMovements.list.length > 0 && (
+          <Block title="Cash in / out">
+            {report.cashMovements.totals.payIn > 0 && (
+              <Row label="Cash in" value={rupees(report.cashMovements.totals.payIn)} />
+            )}
+            {report.cashMovements.totals.payOut > 0 && (
+              <Row label="Cash out" value={rupees(report.cashMovements.totals.payOut)} />
+            )}
+            {report.cashMovements.totals.drop > 0 && (
+              <Row label="Cash drops" value={rupees(report.cashMovements.totals.drop)} />
+            )}
+            {report.cashMovements.list.map((m, index) => (
+              <Row key={index} label={movementLabel(m)} value={rupees(m.amount)} />
+            ))}
+          </Block>
+        )}
         {report.refunds.total > 0 && (
           <Block title="Refunds">
             <Row label="Total refunded" value={rupees(report.refunds.total)} strong />
@@ -347,6 +511,13 @@ function ReportView({
                 label={`Bill ${b.billNo} · ${b.modes.map((m) => PAY_LABEL[m]).join(', ')}${b.by ? ` · ${b.by}` : ''}`}
                 value={rupees(b.amount)}
               />
+            ))}
+          </Block>
+        )}
+        {report.reprints.length > 0 && (
+          <Block title="Reprinted bills">
+            {report.reprints.map((b) => (
+              <Row key={b.billNo} label={`Bill ${b.billNo}`} value={`Reprinted ${b.count}×`} />
             ))}
           </Block>
         )}
@@ -484,6 +655,7 @@ export function DayPage() {
       <PageHeader
         title="Day close"
         description="Settle every table, count the cash in the drawer and close the day. Past day reports are below."
+        actions={open ? <CashButton /> : undefined}
       />
       {canClose && open && !justClosed && <CloseToday onClosed={setJustClosed} />}
       {canClose && day.data && !open && !justClosed && (

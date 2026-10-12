@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma, type Kot, type KotStatus, type OrderItem } from '@prisma/client';
+import { reasonLabel, type KotReprintRequest, type ResolvedReason } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
 import { CountersService } from '../business-day/counters.service';
 import { ApiError } from '../common/api-error';
@@ -178,7 +179,7 @@ export class KotsService {
     orderId: string,
     itemId: string,
     ifMatch: string | undefined,
-    reason: string,
+    reason: ResolvedReason,
     quantity: number | undefined,
   ): Promise<OrderView> {
     let kot: Kot | null = null;
@@ -218,8 +219,10 @@ export class KotsService {
       }
       const cancelData = {
         status: 'CANCELLED' as const,
-        cancelReason: reason,
+        cancelReason: reason.text,
+        cancelReasonCode: reason.code,
         cancelledById: actor.id,
+        cancelledAt: new Date(),
       };
       let cancelledLine: OrderItem;
       if (qty < item.quantity) {
@@ -250,8 +253,9 @@ export class KotsService {
           action: 'order.item.cancel',
           entity: 'order',
           entityId: orderId,
-          reason,
+          reason: reason.text,
           after: {
+            reasonCode: reason.code,
             itemName: item.itemName,
             variantName: item.variantName,
             quantity: qty,
@@ -274,7 +278,7 @@ export class KotsService {
     requester: AuthUser,
     orderId: string,
     ifMatch: string | undefined,
-    reason: string,
+    reason: ResolvedReason,
   ): Promise<OrderView> {
     const kots: Kot[] = [];
     let closed: Kot[] = [];
@@ -296,14 +300,21 @@ export class KotsService {
       }
       await tx.orderItem.updateMany({
         where: { orderId, status: { in: ['NEW', 'SENT'] } },
-        data: { status: 'CANCELLED', cancelReason: reason, cancelledById: actor.id },
+        data: {
+          status: 'CANCELLED',
+          cancelReason: reason.text,
+          cancelReasonCode: reason.code,
+          cancelledById: actor.id,
+          cancelledAt: new Date(),
+        },
       });
       closed = await this.closeCancelledTickets(tx, orderId);
       await tx.order.update({
         where: { id: orderId },
         data: {
           status: 'CANCELLED',
-          cancelReason: reason,
+          cancelReason: reason.text,
+          cancelReasonCode: reason.code,
           cancelledById: actor.id,
           closedAt: new Date(),
         },
@@ -316,8 +327,8 @@ export class KotsService {
           action: 'order.void',
           entity: 'order',
           entityId: orderId,
-          reason,
-          after: { requestedBy: requester.id, cancelKots: kots.length },
+          reason: reason.text,
+          after: { reasonCode: reason.code, requestedBy: requester.id, cancelKots: kots.length },
         },
         tx,
       );
@@ -463,10 +474,34 @@ export class KotsService {
     });
   }
 
-  async reprint(user: AuthUser, kotId: string) {
+  /** Prints a ticket again; the reason is audited and the copy is numbered for the kitchen. */
+  async reprint(user: AuthUser, kotId: string, body: KotReprintRequest) {
     const kot = await this.prisma.kot.findFirst({ where: { id: kotId, outletId: user.outletId } });
     if (!kot) throw notFound('KOT');
-    await this.events.emitAsync('kot.print', { outletId: kot.outletId, kotId: kot.id });
+    const note = body.note?.trim() || null;
+    // One atomic increment returns the new count, so two taps at once get copies 1 and 2.
+    const copy = await this.prisma.$transaction(async (tx) => {
+      const { printCount } = await tx.kot.update({
+        where: { id: kot.id },
+        data: { printCount: { increment: 1 } },
+        select: { printCount: true },
+      });
+      await this.audit.record(
+        {
+          outletId: kot.outletId,
+          actorId: user.id,
+          action: 'kot.reprint',
+          entity: 'kot',
+          entityId: kot.id,
+          reason:
+            body.reasonCode === 'OTHER' && note ? note : reasonLabel('kotReprint', body.reasonCode),
+          after: { copy: printCount - 1, reasonCode: body.reasonCode, note },
+        },
+        tx,
+      );
+      return printCount - 1;
+    });
+    await this.events.emitAsync('kot.print', { outletId: kot.outletId, kotId: kot.id, copy });
     return { id: kot.id, queued: true };
   }
 

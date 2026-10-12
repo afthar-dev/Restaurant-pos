@@ -5,18 +5,24 @@ import {
   Headers,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Put,
   Query,
   Req,
 } from '@nestjs/common';
+import { reasonOf } from '../common/reason';
 import {
   addPaymentSchema,
+  billCustomerSchema,
   billDiscountSchema,
+  changePaymentModeSchema,
   createBillSchema,
   voidBillSchema,
   type AddPaymentRequest,
+  type BillCustomerRequest,
   type BillDiscountRequest,
+  type ChangePaymentModeRequest,
   type VoidBillRequest,
   type CreateBillRequest,
 } from '@rpos/shared';
@@ -82,6 +88,16 @@ export class BillsController {
     );
   }
 
+  @Patch('bills/:id/customer')
+  @RequirePermissions('bill.print')
+  customer(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodBody(billCustomerSchema)) body: BillCustomerRequest,
+  ) {
+    return this.bills.setCustomer(user, id, body);
+  }
+
   @Post('bills/:id/payments')
   @RequirePermissions('payment.take')
   pay(
@@ -93,6 +109,18 @@ export class BillsController {
     return this.payments.add(user, id, idempotencyKey?.slice(0, 100) || undefined, body);
   }
 
+  /** Fixes a wrong mode on a payment of the open day; a manager is needed unless the caller can close the day. */
+  @Post('payments/:id/change-mode')
+  @RequirePermissions('payment.take')
+  changeMode(
+    @CurrentUser() user: AuthUser,
+    @Req() req: RequestContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodBody(changePaymentModeSchema)) body: ChangePaymentModeRequest,
+  ) {
+    return this.payments.changeMode(user, req.permissions ?? [], id, body);
+  }
+
   @Post('bills/:id/void')
   @RequirePermissions('bill.void')
   void(
@@ -101,7 +129,7 @@ export class BillsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodBody(voidBillSchema)) body: VoidBillRequest,
   ) {
-    return this.bills.void(actor, user, id, body.reason);
+    return this.bills.void(actor, user, id, reasonOf('void', body));
   }
 
   @Post('bills/:id/print')

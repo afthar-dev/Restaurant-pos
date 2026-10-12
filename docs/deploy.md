@@ -144,6 +144,12 @@ docker compose -f docker-compose.prod.yml -f docker-compose.tls.yml --env-file .
 
 Database migrations run automatically when the `api` container starts. Take a backup first (`--once` above).
 
+### After an upgrade
+
+- Apply the database migrations before the new API starts serving. The `api` container does this on start; if you run the API some other way, run `prisma migrate deploy` first.
+- Reload every counter, captain and kitchen tab after deploying. A screen left open from the old version may be refused by the new API (for example, reprinting a KOT now needs a reason, and closing the day may ask for a reason).
+- An outlet on Regular GST without a GSTIN keeps billing, but sees a red warning until the owner adds the GSTIN in Admin → Settings.
+
 ## 10. If something is wrong
 
 | Symptom | Check |

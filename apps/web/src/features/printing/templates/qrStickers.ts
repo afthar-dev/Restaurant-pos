@@ -1,5 +1,5 @@
-import QRCode from 'qrcode';
 import { escapeHtml } from '@/shared/lib/escape';
+import { qrSvg } from '@/shared/lib/qrSvg';
 
 export interface TableCode {
   id: string;
@@ -22,11 +22,7 @@ export async function renderQrStickers(
   const e = escapeHtml;
   const cards = await Promise.all(
     tables.map(async (t) => {
-      const svg = await QRCode.toString(stickerUrl(origin, t.qrToken), {
-        type: 'svg',
-        margin: 1,
-        errorCorrectionLevel: 'M',
-      });
+      const svg = await qrSvg(stickerUrl(origin, t.qrToken));
       return `<div class="card"><div class="outlet">${e(outletName)}</div><div class="table">${e(t.name)}</div><div class="qr">${svg}</div><div class="hint">Scan to see the menu and order</div></div>`;
     }),
   );

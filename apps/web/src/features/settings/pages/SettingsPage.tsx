@@ -30,12 +30,23 @@ const TAX_LABEL: Record<TaxScheme, string> = {
   NONE: 'Not GST registered',
 };
 
+const GSTIN_NEEDED = 'Add your GSTIN to charge GST.';
+
 const PARCEL_LABEL: Record<ParcelPaymentTiming, string> = {
   PAY_FIRST: 'Customer pays before the order is sent',
   PAY_AT_PICKUP: 'Customer pays at pickup',
 };
 
-type TextKey = 'name' | 'gstin' | 'address' | 'phone' | 'fssaiNumber' | 'billHeader' | 'billFooter';
+type TextKey =
+  | 'name'
+  | 'gstin'
+  | 'address'
+  | 'phone'
+  | 'fssaiNumber'
+  | 'billHeader'
+  | 'billFooter'
+  | 'upiVpa'
+  | 'upiPayee';
 
 interface Draft {
   text: Record<TextKey, string>;
@@ -44,6 +55,9 @@ interface Draft {
   waiterCanCollectPayment: boolean;
   parcelPaymentTiming: ParcelPaymentTiming;
   bagRupees: string;
+  varianceRupees: string;
+  pettyCashRupees: string;
+  printUpiQr: boolean;
 }
 
 function toDraft(s: OutletSettings): Draft {
@@ -56,12 +70,17 @@ function toDraft(s: OutletSettings): Draft {
       fssaiNumber: s.fssaiNumber ?? '',
       billHeader: s.billHeader ?? '',
       billFooter: s.billFooter ?? '',
+      upiVpa: s.upiVpa ?? '',
+      upiPayee: s.upiPayee ?? '',
     },
     taxScheme: s.taxScheme,
     capPercent: String(s.cashierDiscountCapBp / 100),
     waiterCanCollectPayment: s.waiterCanCollectPayment,
     parcelPaymentTiming: s.parcelPaymentTiming,
     bagRupees: paiseToRupeesInput(s.billPackagingCharge ?? 0),
+    varianceRupees: paiseToRupeesInput(s.varianceAlertPaise ?? 10000),
+    pettyCashRupees: paiseToRupeesInput(s.pettyCashLimitPaise ?? 200000),
+    printUpiQr: s.printUpiQr ?? true,
   };
 }
 
@@ -72,9 +91,10 @@ function changes(saved: OutletSettings, draft: Draft): Record<string, unknown> {
     let value: string | null = draft.text[key].trim();
     if (key === 'gstin') value = value.toUpperCase();
     if (value === '' && key !== 'name') value = null;
-    if (value !== saved[key]) out[key] = value;
+    if (value !== (saved[key] ?? null)) out[key] = value;
   }
   if (draft.taxScheme !== saved.taxScheme) out.taxScheme = draft.taxScheme;
+  if (draft.printUpiQr !== (saved.printUpiQr ?? true)) out.printUpiQr = draft.printUpiQr;
   const capBp = Math.round(Number(draft.capPercent) * 100);
   if (capBp !== saved.cashierDiscountCapBp) out.cashierDiscountCapBp = capBp;
   if (draft.waiterCanCollectPayment !== saved.waiterCanCollectPayment) {
@@ -87,12 +107,22 @@ function changes(saved: OutletSettings, draft: Draft): Record<string, unknown> {
   // An unreadable amount is sent as -1 so the schema check reports it on the field.
   const bagPaise = bag ?? -1;
   if (bagPaise !== (saved.billPackagingCharge ?? 0)) out.billPackagingCharge = bagPaise;
+  const variance = parseRupees(draft.varianceRupees.trim() || '0');
+  const variancePaise = variance ?? -1;
+  if (variancePaise !== (saved.varianceAlertPaise ?? 10000)) out.varianceAlertPaise = variancePaise;
+  const pettyCash = parseRupees(draft.pettyCashRupees.trim() || '0');
+  const pettyCashPaise = pettyCash ?? -1;
+  if (pettyCashPaise !== (saved.pettyCashLimitPaise ?? 200000)) {
+    out.pettyCashLimitPaise = pettyCashPaise;
+  }
   return out;
 }
 
 const ERROR_FIELD: Record<string, string> = {
   cashierDiscountCapBp: 'capPercent',
   billPackagingCharge: 'bagRupees',
+  varianceAlertPaise: 'varianceRupees',
+  pettyCashLimitPaise: 'pettyCashRupees',
 };
 
 function SettingsForm({ saved }: { saved: OutletSettings }) {
@@ -102,6 +132,7 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
 
   useEffect(() => setDraft(toDraft(saved)), [saved]);
 
+  const needsGstin = draft.taxScheme !== 'NONE';
   const save = useUpdateOutlet(() => setResult('Saved'));
 
   const setText = (key: TextKey) => (value: string) =>
@@ -110,9 +141,19 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     setResult('');
+    if (draft.pettyCashRupees.trim() === '') {
+      setErrors({ pettyCashRupees: 'Enter a limit in rupees' });
+      return;
+    }
     const body = changes(saved, draft);
     if (Object.keys(body).length === 0) {
       setResult('No changes to save');
+      return;
+    }
+    // Same rule as the server: choosing or keeping a GST scheme needs a GSTIN, but only when the
+    // scheme or GSTIN is being changed, so an older outlet can still save its other settings.
+    if (('taxScheme' in body || 'gstin' in body) && needsGstin && !draft.text.gstin.trim()) {
+      setErrors({ gstin: GSTIN_NEEDED });
       return;
     }
     const parsed = outletSettingsSchema.safeParse(body);
@@ -150,7 +191,32 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
 
       <fieldset className="grid gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
         <legend className="px-1 text-sm font-semibold">Tax</legend>
-        {text('gstin', 'GSTIN', 'From the GST certificate. Leave empty if not registered.')}
+        {saved.taxScheme !== 'NONE' && !saved.gstin && (
+          <p
+            role="alert"
+            className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-900 sm:col-span-2"
+          >
+            Add your GSTIN — you are charging GST without one
+          </p>
+        )}
+        <Field
+          id="setting-gstin"
+          label="GSTIN"
+          error={errors.gstin}
+          hint={
+            needsGstin
+              ? 'Required to charge GST. From the GST certificate.'
+              : 'From the GST certificate. Leave empty if not registered.'
+          }
+        >
+          <input
+            id="setting-gstin"
+            className={inputClass}
+            aria-required={needsGstin}
+            value={draft.text.gstin}
+            onChange={(e) => setText('gstin')(e.target.value)}
+          />
+        </Field>
         <Field id="setting-taxScheme" label="GST scheme">
           <select
             id="setting-taxScheme"
@@ -165,6 +231,24 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
             ))}
           </select>
         </Field>
+      </fieldset>
+
+      <fieldset className="grid gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
+        <legend className="px-1 text-sm font-semibold">UPI payments</legend>
+        {text('upiVpa', 'UPI ID', 'Like name@bank. Customers scan a QR with the bill amount.')}
+        {text(
+          'upiPayee',
+          'Payee name',
+          'Shown in the customer UPI app. Leave empty to use the restaurant name.',
+        )}
+        <label className="flex items-center gap-2 text-sm font-medium sm:col-span-2">
+          <input
+            type="checkbox"
+            checked={draft.printUpiQr}
+            onChange={(e) => setDraft((d) => ({ ...d, printUpiQr: e.target.checked }))}
+          />
+          Print UPI QR on bills
+        </label>
       </fieldset>
 
       <fieldset className="grid gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
@@ -200,6 +284,34 @@ function SettingsForm({ saved }: { saved: OutletSettings }) {
             value={draft.bagRupees}
             onChange={(e) => setDraft((d) => ({ ...d, bagRupees: e.target.value }))}
           />{' '}
+        </Field>
+        <Field
+          id="setting-variance"
+          label="Variance alert above (₹)"
+          error={errors.varianceRupees}
+          hint="At day close, a cash difference bigger than this needs a reason."
+        >
+          <input
+            id="setting-variance"
+            inputMode="decimal"
+            className={inputClass}
+            value={draft.varianceRupees}
+            onChange={(e) => setDraft((d) => ({ ...d, varianceRupees: e.target.value }))}
+          />
+        </Field>
+        <Field
+          id="setting-petty-cash"
+          label="Petty cash limit (₹)"
+          error={errors.pettyCashRupees}
+          hint="A cash expense above this needs a manager's approval when a cashier records it."
+        >
+          <input
+            id="setting-petty-cash"
+            inputMode="decimal"
+            className={inputClass}
+            value={draft.pettyCashRupees}
+            onChange={(e) => setDraft((d) => ({ ...d, pettyCashRupees: e.target.value }))}
+          />
         </Field>
         <Field id="setting-parcel" label="Parcel payment">
           <select

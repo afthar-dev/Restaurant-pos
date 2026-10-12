@@ -4,5 +4,8 @@ export const reportKeys = {
   /** Every sales report, for invalidating them all. */
   all: ['reports'] as const,
   sales: (range: DateRange) => ['reports', 'sales', range.from, range.to] as const,
+  accountability: (range: DateRange) =>
+    ['reports', 'accountability', range.from, range.to] as const,
+  gst: (range: DateRange) => ['reports', 'gst', range.from, range.to] as const,
   day: (dayId: string) => ['reports', 'sales', 'day', dayId] as const,
 };

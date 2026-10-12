@@ -76,7 +76,12 @@ describe('HomePage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Welcome, Asha' })).toBeVisible();
     expect(await screen.findByText('2 QR orders waiting for approval')).toBeInTheDocument();
     expect(await screen.findByText('Before closing the day')).toBeInTheDocument();
-    expect(screen.getByText('₹1,022')).toBeInTheDocument();
+    // The manager counts the cash blind: no expected figure, and the check is asked for blind.
+    expect(screen.queryByText('Cash expected')).toBeNull();
+    expect(screen.queryByText('₹1,022')).toBeNull();
+    const urls = callsTo(mockOf, 'GET', '/api/business-day/close-check').map(([u]) => String(u));
+    expect(urls.length).toBeGreaterThan(0);
+    expect(urls.every((u) => u.includes('blind=1'))).toBe(true);
     expect(await screen.findByText('Onion')).toBeInTheDocument();
     // Today's figures and the owner's dashboard are for people with the reports.
     expect(screen.queryByRole('heading', { name: 'Right now' })).toBeNull();
@@ -434,6 +439,7 @@ describe('the owner’s dashboard', () => {
     ],
   };
   const DAY_REPORT = {
+    reprints: [],
     voids: [{ billNo: 3, total: 85000, reason: 'Wrong table', by: 'Meena' }],
     discounts: [
       { billNo: 5, amount: 10000, reason: null },
@@ -456,6 +462,44 @@ describe('the owner’s dashboard', () => {
     const heading = await screen.findByRole('heading', { level: 2, name });
     return within(heading.closest('section')!);
   };
+
+  describe('GSTIN warning', () => {
+    const WARNING = 'Add your GSTIN — you are charging GST without one';
+    const withOutlet = (taxScheme: string, gstin: string | null) => {
+      owner();
+      mockApi({
+        ...handlers(),
+        'GET /api/outlet': () =>
+          json({ name: 'Spice Garden', gstin, taxScheme, address: 'MG Road', phone: '9000000001' }),
+      });
+      renderRoute('/');
+    };
+
+    it.each(['REGULAR', 'COMPOSITION'])(
+      'warns the owner on %s without a GSTIN, with a link to settings',
+      async (scheme) => {
+        withOutlet(scheme, null);
+        const warning = await screen.findByRole('alert');
+        expect(within(warning).getByText(WARNING)).toBeInTheDocument();
+        expect(within(warning).getByRole('link', { name: 'Open settings' })).toHaveAttribute(
+          'href',
+          '/admin/settings',
+        );
+      },
+    );
+
+    it('stays quiet when a GSTIN is set or the outlet is not registered', async () => {
+      withOutlet('REGULAR', '27AAPFU0939F1ZV');
+      await screen.findByRole('group', { name: 'This business day' });
+      expect(screen.queryByText(WARNING)).toBeNull();
+    });
+
+    it('stays quiet for a not-registered outlet', async () => {
+      withOutlet('NONE', null);
+      await screen.findByRole('group', { name: 'This business day' });
+      expect(screen.queryByText(WARNING)).toBeNull();
+    });
+  });
 
   it('shows live tiles for the floor, kitchen, QR orders, unpaid bills and cash', async () => {
     owner();

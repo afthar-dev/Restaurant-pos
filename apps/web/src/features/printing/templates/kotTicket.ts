@@ -3,6 +3,8 @@ import { PRINT_TIME_ZONE } from '@/shared/lib/when';
 
 export interface KotPrintPayload {
   kind: 'KOT';
+  /** 0 is the original ticket, n >= 1 the nth reprint. */
+  copy: number;
   kotNo: number;
   kotType: 'NEW' | 'CANCEL';
   stationName: string;
@@ -64,7 +66,9 @@ hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
 .sub { padding-left: 14px; }
 .note { font-style: italic; }
 .line { margin-bottom: 4px; }
+.reprint { font-size: 16px; font-weight: 700; border: 2px dashed #000; padding: 2px; margin: 4px 0; }
 </style></head><body>
+${(p.copy ?? 0) >= 1 ? `<div class="center reprint">REPRINT #${p.copy}</div>` : ''}
 ${p.kotType === 'CANCEL' ? '<div class="center cancel">CANCELLED</div>' : ''}
 <div class="center big">KOT ${p.kotNo}</div>
 <div class="center">${escapeHtml(p.stationName)}</div>

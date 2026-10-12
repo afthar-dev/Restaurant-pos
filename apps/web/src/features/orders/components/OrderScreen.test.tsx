@@ -261,7 +261,7 @@ describe('OrderPanel', () => {
     await expect.poll(() => callsTo(mock, 'GET', '/api/orders/o1').length).toBe(2);
   });
 
-  it('shows a failed KOT print and reprints it', async () => {
+  it('shows a failed KOT print and reprints it after a reason is picked', async () => {
     asWaiter();
     const mock = mockApi({
       'GET /api/orders/o1': () => json(withItems),
@@ -270,7 +270,38 @@ describe('OrderPanel', () => {
     renderWithProviders(<OrderPanel orderId="o1" />);
     expect(await screen.findByText('Print failed')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reprint KOT 7' }));
+    const dialog = screen.getByRole('dialog', { name: 'Reprint KOT 7' });
+    const send = within(dialog).getByRole('button', { name: 'Reprint' });
+    expect(send).toBeDisabled();
+    expect(callsTo(mock, 'POST', '/api/kots/k1/reprint')).toHaveLength(0);
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Printer jam' }));
+    fireEvent.click(send);
     await expect.poll(() => callsTo(mock, 'POST', '/api/kots/k1/reprint').length).toBe(1);
+    expect(body(mock, 'POST', '/api/kots/k1/reprint')).toEqual({ reasonCode: 'PRINTER_JAM' });
+    await expect.poll(() => screen.queryByRole('dialog', { name: 'Reprint KOT 7' })).toBeNull();
+  });
+
+  it('asks what happened when the reprint reason is Other', async () => {
+    asWaiter();
+    const mock = mockApi({
+      'GET /api/orders/o1': () => json(withItems),
+      'POST /api/kots/k1/reprint': () => json({ id: 'k1', queued: true }, 201),
+    });
+    renderWithProviders(<OrderPanel orderId="o1" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Reprint KOT 7' }));
+    const dialog = screen.getByRole('dialog', { name: 'Reprint KOT 7' });
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Other' }));
+    const send = within(dialog).getByRole('button', { name: 'Reprint' });
+    expect(send).toBeDisabled();
+    fireEvent.change(within(dialog).getByLabelText('What happened'), {
+      target: { value: 'Ink ran out' },
+    });
+    fireEvent.click(send);
+    await expect.poll(() => callsTo(mock, 'POST', '/api/kots/k1/reprint').length).toBe(1);
+    expect(body(mock, 'POST', '/api/kots/k1/reprint')).toEqual({
+      reasonCode: 'OTHER',
+      note: 'Ink ran out',
+    });
   });
 
   it('gets a manager approval to cancel a dish already in the kitchen', async () => {
@@ -284,9 +315,7 @@ describe('OrderPanel', () => {
     renderWithProviders(<OrderPanel orderId="o1" />);
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel Paneer Tikka' }));
     const dialog = screen.getByRole('dialog', { name: 'Cancel Paneer Tikka' });
-    fireEvent.change(within(dialog).getByLabelText('Reason'), {
-      target: { value: 'Customer changed mind' },
-    });
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Customer changed mind' }));
     fireEvent.change(within(dialog).getByLabelText('How many'), { target: { value: '1' } });
     await within(dialog).findByRole('option', { name: 'Meera' });
     fireEvent.change(within(dialog).getByLabelText('Manager'), { target: { value: 'm1' } });
@@ -302,7 +331,7 @@ describe('OrderPanel', () => {
     const [call] = callsTo(mock, 'POST', '/api/orders/o1/items/l2/cancel');
     expect(new Headers(call?.[1]?.headers).get('x-override-token')).toBe('ov-1');
     expect(JSON.parse(String(call?.[1]?.body))).toEqual({
-      reason: 'Customer changed mind',
+      reasonCode: 'CHANGED_MIND',
       quantity: 1,
     });
   });
@@ -317,9 +346,20 @@ describe('OrderPanel', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel Paneer Tikka' }));
     const dialog = screen.getByRole('dialog', { name: 'Cancel Paneer Tikka' });
     expect(within(dialog).queryByLabelText('Manager PIN')).toBeNull();
-    fireEvent.change(within(dialog).getByLabelText('Reason'), { target: { value: 'Burnt' } });
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Other' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel dish' }));
+    expect(await within(dialog).findByText('Choose a reason.')).toBeInTheDocument();
+    expect(callsTo(mock, 'POST', '/api/orders/o1/items/l2/cancel')).toHaveLength(0);
+    fireEvent.change(within(dialog).getByLabelText('What happened'), {
+      target: { value: 'Burnt' },
+    });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel dish' }));
     await expect.poll(() => callsTo(mock, 'POST', '/api/orders/o1/items/l2/cancel').length).toBe(1);
+    expect(body(mock, 'POST', '/api/orders/o1/items/l2/cancel')).toEqual({
+      reasonCode: 'OTHER',
+      note: 'Burnt',
+      quantity: 2,
+    });
   });
 
   it('cancels an order that has nothing in the kitchen', async () => {
@@ -332,11 +372,9 @@ describe('OrderPanel', () => {
     });
     renderWithProviders(<OrderPanel orderId="o1" onClosed={onClosed} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Cancel order' }));
-    fireEvent.change(screen.getByLabelText('Why cancel this order?'), {
-      target: { value: 'Wrong table' },
-    });
+    fireEvent.click(screen.getByRole('radio', { name: 'Wrong dish' }));
     fireEvent.click(screen.getByRole('button', { name: 'Yes, cancel order' }));
     await expect.poll(() => onClosed.mock.calls.length).toBe(1);
-    expect(body(mock, 'POST', '/api/orders/o1/cancel')).toEqual({ reason: 'Wrong table' });
+    expect(body(mock, 'POST', '/api/orders/o1/cancel')).toEqual({ reasonCode: 'WRONG_DISH' });
   });
 });

@@ -1,14 +1,21 @@
-import { Controller, Get, HttpStatus, ParseUUIDPipe, Query } from '@nestjs/common';
-import { reportRangeSchema } from '@rpos/shared';
+import { Controller, Get, HttpStatus, ParseUUIDPipe, Query, Res } from '@nestjs/common';
+import { reportRangeSchema, type ReportRange } from '@rpos/shared';
+import type { Response } from 'express';
 import { RequirePermissions } from '../auth/decorators';
 import { ApiError } from '../common/api-error';
 import { CurrentUser, type AuthUser } from '../common/request-context';
+import { AccountabilityService } from './accountability.service';
+import { GstReportService } from './gst-report.service';
 import { SalesReportService } from './sales-report.service';
 
 @Controller('reports')
 @RequirePermissions('reports.all')
 export class ReportsController {
-  constructor(private readonly sales: SalesReportService) {}
+  constructor(
+    private readonly sales: SalesReportService,
+    private readonly accountability: AccountabilityService,
+    private readonly gstReport: GstReportService,
+  ) {}
 
   /**
    * `?from=YYYY-MM-DD&to=YYYY-MM-DD` (India dates, at most 92 days), or `?businessDayId=` for
@@ -32,4 +39,57 @@ export class ReportsController {
     }
     return this.sales.sales(user.outletId, range.data);
   }
+
+  /** Discounts, voids, cancelled dishes and reprints by reason and by staff, over India dates. */
+  @Get('accountability')
+  accountabilityReport(
+    @CurrentUser() user: AuthUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const range = reportRangeSchema.safeParse({ from: from ?? '', to: to ?? '' });
+    if (!range.success) {
+      throw new ApiError(
+        HttpStatus.BAD_REQUEST,
+        'VALIDATION',
+        range.error.issues[0]?.message ?? 'Choose a valid date range.',
+      );
+    }
+    return this.accountability.accountability(user.outletId, range.data);
+  }
+
+  /** GST figures by invoice date (India time), for the accountant. */
+  @Get('gst')
+  gst(@CurrentUser() user: AuthUser, @Query('from') from?: string, @Query('to') to?: string) {
+    return this.gstReport.gst(user.outletId, parseRange(from, to));
+  }
+
+  /** One row per bill by invoice date, as a CSV file with a BOM for Excel. */
+  @Get('bill-register.csv')
+  async billRegister(
+    @CurrentUser() user: AuthUser,
+    @Res({ passthrough: true }) res: Response,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const range = parseRange(from, to);
+    const csv = await this.gstReport.billRegister(user.outletId, range);
+    res.set({
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="bill-register-${range.from}-to-${range.to}.csv"`,
+    });
+    return csv;
+  }
+}
+
+function parseRange(from?: string, to?: string): ReportRange {
+  const range = reportRangeSchema.safeParse({ from: from ?? '', to: to ?? '' });
+  if (!range.success) {
+    throw new ApiError(
+      HttpStatus.BAD_REQUEST,
+      'VALIDATION',
+      range.error.issues[0]?.message ?? 'Choose a valid date range.',
+    );
+  }
+  return range.data;
 }

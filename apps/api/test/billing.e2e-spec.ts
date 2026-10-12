@@ -571,4 +571,69 @@ describe('bills', () => {
       expect(res.body.code).toBe('TABLE_BUSY');
     });
   });
+
+  describe('customer on the bill', () => {
+    const setCustomer = (billId: string, body: object, who = cashier) =>
+      ctx.http().patch(`/api/bills/${billId}/customer`).set(who.auth).send(body);
+    const newBill = async () => {
+      const orderId = await servedOrder(ctx, r, waiter, [
+        { variantId: r.roti.regular.id, quantity: 1 },
+      ]);
+      return (await createBill(orderId).expect(201)).body;
+    };
+
+    it('starts empty, saves a name and GSTIN, audits it and prints it', async () => {
+      const bill = await newBill();
+      expect(bill.customer).toEqual({ name: null, gstin: null });
+      const res = await setCustomer(bill.id, {
+        name: '  Acme Foods ',
+        gstin: ' 27abcde1234f1z5 ',
+      }).expect(200);
+      expect(res.body.customer).toEqual({ name: 'Acme Foods', gstin: '27ABCDE1234F1Z5' });
+      const audit = await ctx.prisma.auditEntry.findFirstOrThrow({
+        where: { action: 'bill.customer', entityId: bill.id },
+      });
+      expect(audit.actorId).toBe(cashier.user.id);
+      const payload = await ctx
+        .http()
+        .get(`/api/bills/${bill.id}/print-payload`)
+        .set(cashier.auth)
+        .expect(200);
+      expect(payload.body.customer).toEqual({ name: 'Acme Foods', gstin: '27ABCDE1234F1Z5' });
+      const cleared = await setCustomer(bill.id, { name: null, gstin: null }).expect(200);
+      expect(cleared.body.customer).toEqual({ name: null, gstin: null });
+    });
+
+    it('rejects an invalid GSTIN with 400', async () => {
+      const bill = await newBill();
+      await setCustomer(bill.id, { gstin: '27ABCDE1234F1Z' }).expect(400);
+      await setCustomer(bill.id, { gstin: '99ABCDE1234F1Z5' }).expect(400);
+    });
+
+    it('is allowed on a paid bill, but not on a void one', async () => {
+      const bill = await newBill();
+      await payOn(ctx, cashier, bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+      await setCustomer(bill.id, { name: 'Acme' }).expect(200);
+      await ctx
+        .http()
+        .post(`/api/bills/${bill.id}/void`)
+        .set(manager.auth)
+        .send({ reason: 'Wrong table' })
+        .expect(201);
+      const res = await setCustomer(bill.id, { name: 'Late' }).expect(409);
+      expect(res.body.code).toBe('BILL_VOID');
+    });
+
+    it('is refused once the business day is closed', async () => {
+      const bill = await newBill();
+      await payOn(ctx, cashier, bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+      await ctx
+        .http()
+        .post('/api/business-day/close')
+        .set(owner.auth)
+        .send({ countedCash: 100000 + bill.total })
+        .expect(201);
+      await setCustomer(bill.id, { name: 'Late' }).expect(409);
+    });
+  });
 });

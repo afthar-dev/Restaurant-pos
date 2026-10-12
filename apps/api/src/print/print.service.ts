@@ -20,6 +20,8 @@ const STALE_AFTER_MINUTES = 30;
 interface KotEvent {
   outletId: string;
   kotId: string;
+  /** 0 is the original ticket, n >= 1 the nth reprint. Absent: this is the original. */
+  copy?: number;
 }
 
 /**
@@ -69,12 +71,24 @@ export class PrintService {
       },
     });
     if (!kot) return;
+    // The original counts as a print too, so the first reprint is copy 1. One atomic update
+    // returns the new count, so two taps at once cannot both get the same number.
+    const copy =
+      event.copy ??
+      (
+        await this.prisma.kot.update({
+          where: { id: kot.id },
+          data: { printCount: { increment: 1 } },
+          select: { printCount: true },
+        })
+      ).printCount - 1;
     const printers = await this.prisma.printer.findMany({
       where: { outletId: kot.outletId, stationId: kot.stationId, purpose: 'KOT', archivedAt: null },
     });
     for (const printer of printers) {
       const payload: Prisma.InputJsonValue = {
         kind: 'KOT',
+        copy,
         kotNo: kot.kotNo,
         kotType: kot.type,
         stationName: kot.stationName,
@@ -121,15 +135,18 @@ export class PrintService {
     this.events.emit('order.updated', { outletId, orderId: order.id, tableId: order.tableId });
   }
 
-  /** Queues the bill on every bill printer; returns how many jobs were queued (0: no printer). */
-  async queueBillJobs(billId: string): Promise<number> {
+  /**
+   * Queues the bill on every bill printer; returns how many jobs were queued (0: no printer).
+   * `copy` is 0 for the original and n for the nth reprint.
+   */
+  async queueBillJobs(billId: string, copy: number): Promise<number> {
     const bill = await this.prisma.bill.findUnique({ where: { id: billId } });
     if (!bill) return 0;
     const printers = await this.prisma.printer.findMany({
       where: { outletId: bill.outletId, purpose: 'BILL', archivedAt: null },
     });
     for (const printer of printers) {
-      const payload = await this.buildBillPayload(billId, printer.paperWidthMm);
+      const payload = await this.buildBillPayload(billId, printer.paperWidthMm, copy);
       if (!payload) return 0;
       const job = await this.prisma.printJob.create({
         data: {
@@ -153,7 +170,7 @@ export class PrintService {
   }
 
   /** What a printed bill shows, for the print queue or for printing on the counter screen. */
-  async buildBillPayload(billId: string, paperWidthMm: number) {
+  async buildBillPayload(billId: string, paperWidthMm: number, copy?: number) {
     const bill = await this.prisma.bill.findUnique({
       where: { id: billId },
       include: {
@@ -179,7 +196,9 @@ export class PrintService {
     const percent = (bp: number) => `${Number((bp / 100).toFixed(2))}%`;
     return {
       kind: 'BILL',
-      title: bill.taxScheme === 'REGULAR' ? 'Tax Invoice' : 'Bill of Supply',
+      // Printed on screen without a queue: show the copy number the last print was given.
+      copy: copy ?? Math.max(0, bill.printCount - 1),
+      taxScheme: bill.taxScheme,
       outlet: {
         name: bill.outlet.name,
         address: bill.outlet.address,
@@ -189,6 +208,9 @@ export class PrintService {
         billHeader: bill.outlet.billHeader,
         billFooter: bill.outlet.billFooter,
         logoUrl: bill.outlet.logo ? this.media.urlFor(bill.outlet.logo.key) : null,
+        upiVpa: bill.outlet.upiVpa,
+        upiPayee: bill.outlet.upiPayee,
+        printUpiQr: bill.outlet.printUpiQr,
       },
       billNo: bill.billNo,
       financialYear: bill.financialYear,
@@ -200,6 +222,7 @@ export class PrintService {
       tableName: bill.order.table?.name ?? null,
       tokenNo: bill.order.tokenNo,
       customerName: bill.order.customerName,
+      customer: { name: bill.customerName, gstin: bill.customerGstin },
       guests: bill.order.guests,
       paperWidthMm,
       lines: bill.items.map((i) => ({
@@ -208,6 +231,10 @@ export class PrintService {
         addons: (i.addons as { name: string }[]).map((a) => a.name),
         quantity: i.quantity,
         unitPrice: i.unitPrice,
+        // Before any dish discount: rate × quantity, then the discount, so the lines add up.
+        rate: i.unitPrice,
+        gross: i.gross,
+        lineDiscount: i.itemDiscount,
         amount: i.lineTotal,
       })),
       grossSubtotal: bill.grossSubtotal,

@@ -1,10 +1,9 @@
 import { ArrowRight, BellRing, UtensilsCrossed } from 'lucide-react';
 import { lazy, Suspense } from 'react';
 import { Link } from 'react-router';
-import { useBusinessDay, useCloseCheck } from '@/features/day';
+import { useBlindCloseCheck, useBusinessDay } from '@/features/day';
 import { useQrPending } from '@/features/orders';
 import { SetupCard } from '@/features/setup';
-import { rupees } from '@/shared/lib/money';
 import { PRINT_TIME_ZONE } from '@/shared/lib/when';
 import { useCan, useSession } from '@/shared/session/store';
 import { Button, Card, CardBody, CardHeader, Skeleton, StatStrip } from '@/shared/ui';
@@ -15,12 +14,12 @@ import { OwnerHomeSkeleton } from './owner/OwnerHomeSkeleton';
 
 const OwnerHome = lazy(() => import('./owner/OwnerHome'));
 
-/** Manager: what still blocks closing, and the cash the drawer should hold. */
+/** Manager: what still blocks closing the day. */
 function OpenWork() {
-  const check = useCloseCheck();
+  const check = useBlindCloseCheck();
   if (check.isError) return null;
   if (!check.data) return <Skeleton className="h-32" />;
-  const { blockers, cash } = check.data;
+  const { blockers } = check.data;
   const open = blockers.orders.length;
   const unpaid = blockers.bills.length;
   return (
@@ -45,11 +44,6 @@ function OpenWork() {
         items={[
           { label: 'Open orders', value: String(open) },
           { label: 'Unpaid bills', value: String(unpaid), tone: unpaid > 0 ? 'danger' : undefined },
-          {
-            label: 'Cash expected',
-            value: rupees(cash.expected),
-            hint: 'Opening + cash sales − cash expenses',
-          },
         ]}
       />
     </Card>

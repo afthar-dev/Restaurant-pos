@@ -1,8 +1,9 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
-import type { ExpenseRequest } from '@rpos/shared';
+import type { ExpenseRequest, Permission } from '@rpos/shared';
 import { AuditService } from '../audit/audit.service';
+import { OverrideService } from '../auth/override.service';
 import { BusinessDayService } from '../business-day/business-day.service';
 import { ApiError } from '../common/api-error';
 import { invalidReference, notFound } from '../common/master-data';
@@ -32,10 +33,20 @@ export class ExpensesService {
     private readonly prisma: PrismaService,
     private readonly days: BusinessDayService,
     private readonly audit: AuditService,
+    private readonly overrides: OverrideService,
     private readonly events: EventEmitter2,
   ) {}
 
-  async add(actor: AuthUser, idempotencyKey: string | undefined, request: ExpenseRequest) {
+  /**
+   * A cash expense above the outlet's petty-cash limit needs a manager's token unless the
+   * recorder can close the day.
+   */
+  async add(
+    actor: AuthUser,
+    permissions: readonly Permission[],
+    idempotencyKey: string | undefined,
+    request: ExpenseRequest,
+  ) {
     const replay = idempotencyKey && (await this.stored(actor.outletId, idempotencyKey));
     if (replay) return replay;
     await ensureDefaultCategories(this.prisma, actor.outletId);
@@ -47,6 +58,19 @@ export class ExpensesService {
           where: { id: request.categoryId, outletId: actor.outletId, archivedAt: null },
         });
         if (!category) throw invalidReference('categoryId');
+        let approver: AuthUser | null = null;
+        if (request.mode === 'CASH') {
+          const outlet = await tx.outlet.findUniqueOrThrow({ where: { id: actor.outletId } });
+          if (request.amount > outlet.pettyCashLimitPaise) {
+            approver = await this.overrides.requireApproval(
+              actor,
+              permissions,
+              'day.openClose',
+              request.overrideToken,
+              'A manager must approve a cash expense this large.',
+            );
+          }
+        }
         const expense = await tx.expense.create({
           data: {
             outletId: actor.outletId,
@@ -58,6 +82,23 @@ export class ExpensesService {
             createdById: actor.id,
           },
         });
+        await this.audit.record(
+          {
+            outletId: actor.outletId,
+            actorId: actor.id,
+            action: 'expense.create',
+            entity: 'expense',
+            entityId: expense.id,
+            reason: request.note || null,
+            after: {
+              amount: request.amount,
+              mode: request.mode,
+              categoryId: category.id,
+              ...(approver ? { approvedBy: approver.id } : {}),
+            },
+          },
+          tx,
+        );
         if (idempotencyKey) {
           await tx.idempotencyKey.create({
             data: {

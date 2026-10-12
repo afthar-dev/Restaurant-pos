@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { POLL_MS } from '@/shared/api/queryClient';
-import { fetchCloseCheck, fetchCurrentDay, fetchDayReport, fetchDays } from './api';
+import {
+  fetchBlindCloseCheck,
+  fetchCloseCheck,
+  fetchCurrentDay,
+  fetchDayReport,
+  fetchDays,
+} from './api';
 import { dayKeys } from './keys';
 
 export function useBusinessDay() {
@@ -16,6 +22,15 @@ export function useCloseCheck() {
   return useQuery({
     queryKey: dayKeys.closeCheck,
     queryFn: fetchCloseCheck,
+    refetchInterval: POLL_MS,
+  });
+}
+
+/** The closing screen's check: what blocks the close, with no expected cash in the answer. */
+export function useBlindCloseCheck() {
+  return useQuery({
+    queryKey: dayKeys.closeCheckBlind,
+    queryFn: fetchBlindCloseCheck,
     refetchInterval: POLL_MS,
   });
 }

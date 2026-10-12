@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { PASSWORD_ROLES, PERMISSIONS, ROLES } from './auth';
+import { gstinSchema } from './gstin';
+import { vpaSchema } from './upi';
 
 export const TAX_SCHEMES = ['REGULAR', 'COMPOSITION', 'NONE'] as const;
 export type TaxScheme = (typeof TAX_SCHEMES)[number];
@@ -21,10 +23,6 @@ export const passwordSchema = z
   .max(200, 'Password is too long');
 
 export const nameSchema = z.string().trim().min(1, 'Name is required').max(100, 'Name is too long');
-
-export const gstinSchema = z
-  .string()
-  .regex(/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, 'Enter a valid 15-character GSTIN');
 
 export const loginSchema = z.strictObject({
   phone: phoneSchema,
@@ -87,6 +85,8 @@ export const updateUserSchema = z.strictObject({
 });
 export type UpdateUserRequest = z.infer<typeof updateUserSchema>;
 
+const blankToNull = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? null : v);
+
 const optionalText = (max: number) => z.string().trim().max(max).nullable().optional();
 
 export const outletSettingsSchema = z.strictObject({
@@ -112,6 +112,14 @@ export const outletSettingsSchema = z.strictObject({
   parcelPaymentTiming: z.enum(PARCEL_PAYMENT_TIMINGS).optional(),
   /** Paise added once to each parcel order's bill (bag, cutlery). */
   billPackagingCharge: z.number().int().min(0).max(100_000).optional(),
+  /** Cash variance (paise) above which closing the day needs a reason. */
+  varianceAlertPaise: z.number().int().min(0).max(10_000_000).optional(),
+  /** A cash expense above this (paise) needs a manager when a non-manager records it. */
+  pettyCashLimitPaise: z.number().int().min(0).max(10_000_000).optional(),
+  /** UPI ID for the payment QR (Settle panel and unpaid bills). Blank clears it. */
+  upiVpa: z.preprocess(blankToNull, vpaSchema.nullable()).optional(),
+  upiPayee: z.preprocess(blankToNull, z.string().trim().max(100).nullable()).optional(),
+  printUpiQr: z.boolean().optional(),
 });
 export type OutletSettingsUpdate = z.infer<typeof outletSettingsSchema>;
 

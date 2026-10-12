@@ -71,6 +71,41 @@ describe('sales report', () => {
       }[]
     ).find((c) => c.name === 'Gas')!.id;
 
+  describe('composition figures', () => {
+    const roti = async () => {
+      await openDay();
+      const bill = await billFor([{ variantId: r.roti.regular.id, quantity: 3 }]);
+      await pay(bill.id, { mode: 'CASH', amount: bill.total }).expect(201);
+      const voided = await billFor([{ variantId: r.roti.regular.id, quantity: 5 }], r.t2.id);
+      await ctx
+        .http()
+        .post(`/api/bills/${voided.id}/void`)
+        .set(manager.auth)
+        .send({ reason: 'Wrong table' })
+        .expect(201);
+      return bill;
+    };
+
+    it('gives turnover and 5% tax payable for a composition outlet, not counting voids', async () => {
+      await ctx.prisma.outlet.update({
+        where: { id: outlet.id },
+        data: { taxScheme: 'COMPOSITION', gstin: '27AAPFU0939F1ZV' },
+      });
+      const bill = await roti();
+      const res = await report(istDate(0), istDate(0)).expect(200);
+      expect(res.body.composition).toEqual({
+        turnover: bill.total,
+        taxPayable: Math.round((bill.total * 500) / 10000),
+      });
+    });
+
+    it('is null for a regular outlet', async () => {
+      await roti();
+      const res = await report(istDate(0), istDate(0)).expect(200);
+      expect(res.body.composition).toBeNull();
+    });
+  });
+
   it('adds up two days: bills, payments, items, expenses and net', async () => {
     // Yesterday: one cash bill (₹32 roti).
     await openDay();

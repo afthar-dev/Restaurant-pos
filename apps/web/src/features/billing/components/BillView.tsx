@@ -2,7 +2,9 @@ import { useState, type ReactNode } from 'react';
 import { useCan } from '@/shared/session/store';
 import { describeError, PaymentIcon, secondaryButton } from '@/shared/ui';
 import { rupees } from '@/shared/lib/money';
-import type { Bill } from '../types';
+import type { Bill, BillPayment } from '../types';
+import { ChangeModeSheet } from './ChangeModeSheet';
+import { BillCustomer } from './BillCustomer';
 import { DiscountSheet } from './DiscountSheet';
 import { usePrintBill } from '../mutations';
 
@@ -37,7 +39,10 @@ export function BillView({
   settle?: ReactNode;
 }) {
   const canDiscount = useCan('discount.apply');
+  const canPrint = useCan('bill.print');
+  const canChangeMode = useCan('payment.take') && bill.status === 'PAID';
   const [discounting, setDiscounting] = useState(false);
+  const [changing, setChanging] = useState<BillPayment | null>(null);
   const [printNote, setPrintNote] = useState<string | null>(null);
   const open = bill.status === 'OPEN';
   const discount = bill.itemDiscount + bill.billDiscount;
@@ -135,6 +140,16 @@ export function BillView({
               <span className="inline-flex items-center gap-1.5">
                 <PaymentIcon mode={p.mode} className="text-muted" />
                 {`${MODE_LABEL[p.mode]}${p.reference ? ` · ${p.reference}` : ''}`}
+                {canChangeMode && (
+                  <button
+                    type="button"
+                    aria-label={`Change mode of the ${MODE_LABEL[p.mode]} payment`}
+                    className="min-h-8 px-1 text-xs font-medium text-primary-800 underline-offset-4 hover:underline"
+                    onClick={() => setChanging(p)}
+                  >
+                    Change mode
+                  </button>
+                )}
               </span>
             }
             value={rupees(p.amount)}
@@ -143,6 +158,8 @@ export function BillView({
         {open && bill.paid > 0 && <Row label="Due" value={rupees(bill.due)} strong />}
       </div>
 
+      {/* An unpaid bill sets its customer in the Settle panel; a paid one here, before it is reprinted. */}
+      {bill.status === 'PAID' && canPrint && <BillCustomer bill={bill} />}
       <div className="flex flex-wrap gap-2">
         {actions}
         {open && canDiscount && bill.payments.length === 0 && (
@@ -157,6 +174,7 @@ export function BillView({
         <button
           type="button"
           className={`${secondaryButton} min-h-11`}
+          disabled={printing.isPending}
           onClick={() => void print()}
         >
           Print
@@ -168,6 +186,9 @@ export function BillView({
         </p>
       )}
       {discounting && <DiscountSheet bill={bill} onDone={() => setDiscounting(false)} />}
+      {changing && (
+        <ChangeModeSheet bill={bill} payment={changing} onDone={() => setChanging(null)} />
+      )}
     </section>
   );
 }

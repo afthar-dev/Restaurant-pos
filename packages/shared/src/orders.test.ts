@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addItemsSchema,
   cancelItemSchema,
+  cancelOrderSchema,
   createOrderSchema,
   lineTotal,
   updateOrderItemSchema,
@@ -68,5 +69,17 @@ describe('lineTotal', () => {
     expect(
       lineTotal({ unitPrice: 18000, addons: [{ price: 3000 }, { price: 0 }], quantity: 2 }),
     ).toBe(42000);
+  });
+});
+
+describe('cancel reason codes', () => {
+  it('takes a code, and OTHER needs a note', () => {
+    expect(cancelItemSchema.parse({ reasonCode: 'WRONG_DISH' })).toEqual({
+      reasonCode: 'WRONG_DISH',
+    });
+    expect(cancelItemSchema.safeParse({ reasonCode: 'OTHER' }).success).toBe(false);
+    expect(cancelItemSchema.safeParse({}).success).toBe(false);
+    expect(cancelOrderSchema.safeParse({ reasonCode: 'LONG_WAIT' }).success).toBe(true);
+    expect(cancelOrderSchema.safeParse({ reasonCode: 'NOPE' }).success).toBe(false);
   });
 });
