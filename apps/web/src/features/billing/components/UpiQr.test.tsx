@@ -18,7 +18,7 @@ describe('UpiQr', () => {
     expect(await screen.findByRole('img', { name: 'UPI QR code' })).toBeInTheDocument();
     expect(screen.getByText('Scan to pay ₹242')).toBeInTheDocument();
     expect(vi.mocked(qrSvg)).toHaveBeenCalledWith(
-      'upi://pay?pa=spicegarden%40okicici&pn=Spice%20Garden&am=242.00&cu=INR&tn=Bill%20135',
+      'upi://pay?pa=spicegarden@okicici&pn=Spice%20Garden&am=242.00&cu=INR&tn=Bill%20135',
     );
   });
 });

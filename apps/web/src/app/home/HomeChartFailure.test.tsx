@@ -47,9 +47,7 @@ describe('Home when the chart cannot load', () => {
     renderRoute('/');
     expect(await screen.findByRole('heading', { level: 2, name: 'Last 7 days' })).toBeVisible();
     // Let the chart's import fail, then the screen must still be the home screen.
-    await waitFor(() => expect(document.querySelector('.animate-pulse')).toBeNull(), {
-      timeout: 4000,
-    });
+    await waitFor(() => expect(document.querySelector('.animate-pulse')).toBeNull());
     expect(screen.getByRole('link', { name: 'See reports' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull();
   });

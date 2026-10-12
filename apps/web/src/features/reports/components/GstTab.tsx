@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { rupees } from '@/shared/lib/money';
 import { describeError, EmptyState, ErrorNote, LoadingScreen, secondaryButton } from '@/shared/ui';
 import { fetchBillRegister } from '../api';
-import { csvRupees, downloadCsv, toCsv } from '../csv';
+import { csvMoney, downloadCsv, toCsv } from '../csv';
 import { useGstReport } from '../queries';
 import type { DateRange } from '../ranges';
 import type { GstReport } from '../types';
@@ -43,7 +43,7 @@ function Table({
 
 const percent = (ratePercent: number) => `${ratePercent}%`;
 
-/** The GST summary as a small CSV: one block per section, rupees as plain numbers. */
+/** The GST summary as a small CSV: one block per section, rupees with two decimals. */
 function summaryCsv(report: GstReport): string {
   const { range, b2cByRate, exempt, sac, series, composition } = report;
   return toCsv([
@@ -52,15 +52,15 @@ function summaryCsv(report: GstReport): string {
     ['Rate', 'Taxable', 'CGST', 'SGST', 'Total'],
     ...b2cByRate.map((r) => [
       `GST ${percent(r.ratePercent)}`,
-      csvRupees(r.taxable),
-      csvRupees(r.cgst),
-      csvRupees(r.sgst),
-      csvRupees(r.total),
+      csvMoney(r.taxable),
+      csvMoney(r.cgst),
+      csvMoney(r.sgst),
+      csvMoney(r.total),
     ]),
-    ['Exempt / No GST', csvRupees(exempt)],
+    ['Exempt / No GST', csvMoney(exempt)],
     [],
     ['SAC', 'Quantity', 'Value'],
-    [sac.code, sac.quantity, csvRupees(sac.value)],
+    [sac.code, sac.quantity, csvMoney(sac.value)],
     [],
     ['Financial year', 'First bill', 'Last bill', 'Bills', 'Cancelled'],
     ...series.map((s) => [s.fy, s.first, s.last, s.count, s.voided]),
@@ -68,7 +68,7 @@ function summaryCsv(report: GstReport): string {
       ? [
           [],
           ['Composition', 'Turnover', 'Tax payable'],
-          ['Composition', csvRupees(composition.turnover), csvRupees(composition.taxPayable)],
+          ['Composition', csvMoney(composition.turnover), csvMoney(composition.taxPayable)],
         ]
       : []),
   ]);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { csvCell, csvRupees, toCsv } from './csv';
+import { csvCell, csvMoney, csvRupees, toCsv } from './csv';
 import { datesInRange, presetRange } from './ranges';
 
 describe('presetRange (India dates)', () => {
@@ -44,6 +44,10 @@ describe('CSV', () => {
   it('writes paise as rupees', () => {
     expect(csvRupees(117050)).toBe(1170.5);
     expect(csvRupees(3200)).toBe(32);
+  });
+
+  it('writes money with two fixed decimals, unquoted', () => {
+    expect(toCsv([[csvMoney(117050), csvMoney(3200), csvMoney(5)]])).toBe('1170.50,32.00,0.05');
   });
 });
 

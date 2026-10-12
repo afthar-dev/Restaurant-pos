@@ -32,18 +32,18 @@ describe('upiLink', () => {
         amountPaise: 24200,
         note: 'Bill 135',
       }),
-    ).toBe('upi://pay?pa=spicegarden%40okicici&pn=Spice%20Garden&am=242.00&cu=INR&tn=Bill%20135');
+    ).toBe('upi://pay?pa=spicegarden@okicici&pn=Spice%20Garden&am=242.00&cu=INR&tn=Bill%20135');
   });
 
   it('keeps paise and encodes reserved characters', () => {
     expect(upiLink({ vpa: 'a@upi', payee: "Tom & Jerry's", amountPaise: 5, note: 'Bill #7' })).toBe(
-      "upi://pay?pa=a%40upi&pn=Tom%20%26%20Jerry's&am=0.05&cu=INR&tn=Bill%20%237",
+      "upi://pay?pa=a@upi&pn=Tom%20%26%20Jerry's&am=0.05&cu=INR&tn=Bill%20%237",
     );
   });
 
   it('leaves out the note when there is none', () => {
     expect(upiLink({ vpa: 'a@upi', payee: 'Cafe', amountPaise: 10050 })).toBe(
-      'upi://pay?pa=a%40upi&pn=Cafe&am=100.50&cu=INR',
+      'upi://pay?pa=a@upi&pn=Cafe&am=100.50&cu=INR',
     );
   });
 });

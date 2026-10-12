@@ -370,6 +370,8 @@ describe('totals block order and old queued payloads', () => {
     expect(text).toContain('1 × ₹30.00 = ₹30.00');
     expect(text).not.toContain('NaN');
     expect(text).not.toContain('Bill to');
+    // Pre-upgrade NONE outlets also said "Bill of Supply": never claim composition for them.
+    expect(text).not.toContain('Composition taxable person');
   });
 });
 

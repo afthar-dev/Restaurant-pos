@@ -36,12 +36,11 @@ class ChunkBoundary extends Component<
   }
 }
 
-/** "Cash" opens the cash in / out / drop dialog. Shown to whoever takes payments or closes the day. */
+/** "Cash" opens the cash in / out / drop dialog. Shown to whoever takes payments (the API requires `payment.take`). */
 export function CashButton({ className }: { className?: string }) {
   const canTakePayments = useCan('payment.take');
-  const canCloseDay = useCan('day.openClose');
   const [open, setOpen] = useState(false);
-  if (!canTakePayments && !canCloseDay) return null;
+  if (!canTakePayments) return null;
   return (
     <>
       <button

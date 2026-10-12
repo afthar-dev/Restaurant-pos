@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { RESTAURANT_SAC, type GstReport, type ReportRange } from '@rpos/shared';
-import { financialYear } from '../billing/financial-year';
 import { compositionFigures, gstLinesOf, gstSummary } from '../billing/gst-summary';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -30,6 +29,7 @@ function text(value: string): string {
 
 const REGISTER_HEADER = [
   'Bill no',
+  'FY',
   'Date',
   'Time',
   'Type',
@@ -109,7 +109,7 @@ export class GstReportService {
 
     const series = new Map<string, GstReport['series'][number]>();
     for (const b of bills) {
-      const fy = financialYear(b.createdAt);
+      const fy = b.financialYear;
       const row = series.get(fy) ?? { fy, first: b.billNo, last: b.billNo, count: 0, voided: 0 };
       row.first = Math.min(row.first, b.billNo);
       row.last = Math.max(row.last, b.billNo);
@@ -142,6 +142,7 @@ export class GstReportService {
       const modes = [...new Set(b.payments.map((p) => p.mode))].join('+');
       return [
         b.billNo,
+        b.financialYear,
         date,
         time,
         b.order.type,

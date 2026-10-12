@@ -8,7 +8,7 @@ import { callsTo, json, mockApi, sessionBody } from '@/test/mock-api';
 import { withDeviceTimeZone } from '@/test/timezone';
 import { renderRoute } from '@/test/render';
 
-const MANAGER: Permission[] = ['day.openClose', 'reports.dayClose', 'bill.print'];
+const MANAGER: Permission[] = ['day.openClose', 'payment.take', 'reports.dayClose', 'bill.print'];
 const OWNER: Permission[] = [...MANAGER, 'day.reopen'];
 
 const today = {

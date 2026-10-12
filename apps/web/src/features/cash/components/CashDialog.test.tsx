@@ -35,7 +35,7 @@ async function openDialog() {
 }
 
 describe('CashDialog', () => {
-  it('shows the Cash button only to people who take payments or close the day', () => {
+  it('shows the Cash button only to people who take payments', () => {
     as('WAITER', ['order.take']);
     const { unmount } = renderWithProviders(<CashButton />);
     expect(screen.queryByRole('button', { name: 'Cash' })).toBeNull();
@@ -43,6 +43,12 @@ describe('CashDialog', () => {
     as('CASHIER', CASHIER);
     renderWithProviders(<CashButton />);
     expect(screen.getByRole('button', { name: 'Cash' })).toBeInTheDocument();
+  });
+
+  it('hides the Cash button from someone who can close the day but not take payments', () => {
+    as('MANAGER', ['day.openClose']);
+    renderWithProviders(<CashButton />);
+    expect(screen.queryByRole('button', { name: 'Cash' })).toBeNull();
   });
 
   it('records cash in with a reason, in paise', async () => {

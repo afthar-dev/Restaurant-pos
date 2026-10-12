@@ -249,7 +249,7 @@ describe('paying from the order screen', () => {
     expect(useNotifications.getState().toasts.map((t) => t.text)).toContain(
       'Bill 12 paid. T1 is free.',
     );
-    await expect.poll(() => onClosed.mock.calls.length, { timeout: 4000 }).toBe(1);
+    await expect.poll(() => onClosed.mock.calls.length).toBe(1);
   });
 
   it('uses the full width for a billed order, which has no menu beside it', async () => {
@@ -340,6 +340,6 @@ describe('paying from the order screen', () => {
     expect(await screen.findByRole('button', { name: 'Cash' })).toHaveFocus();
     fireEvent.click(screen.getByRole('button', { name: 'UPI' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirm ₹473 by UPI' }));
-    await expect.poll(() => onClosed.mock.calls.length, { timeout: 4000 }).toBe(1);
+    await expect.poll(() => onClosed.mock.calls.length).toBe(1);
   });
 });

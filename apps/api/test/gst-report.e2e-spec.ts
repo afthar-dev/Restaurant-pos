@@ -1,4 +1,5 @@
 import type { Outlet } from '@prisma/client';
+import { financialYear } from '../src/billing/financial-year';
 import { billFor as billForOn, pay as payOn, type Line } from './billing-helpers';
 import { buildRestaurant, type Restaurant } from './fixtures';
 import {
@@ -58,7 +59,10 @@ describe('GST report and bill register', () => {
         res.on('end', () => done(null, data));
       });
   const setCreatedAt = (billId: string, iso: string) =>
-    ctx.prisma.bill.update({ where: { id: billId }, data: { createdAt: new Date(iso) } });
+    ctx.prisma.bill.update({
+      where: { id: billId },
+      data: { createdAt: new Date(iso), financialYear: financialYear(new Date(iso)) },
+    });
 
   it('files bills by invoice date in India time and by financial year (midnight on 31 March)', async () => {
     const before = await billFor([{ variantId: r.roti.regular.id, quantity: 1 }]);
@@ -172,12 +176,13 @@ describe('GST report and bill register', () => {
     const lines = text.slice(1).split('\r\n').filter(Boolean);
     expect(lines).toHaveLength(3);
     expect(lines[0]).toBe(
-      'Bill no,Date,Time,Type,Table,Subtotal,Discount,Packaging,Taxable,CGST,SGST,Round off,Total,Paid by,Status,Customer GSTIN',
+      'Bill no,FY,Date,Time,Type,Table,Subtotal,Discount,Packaging,Taxable,CGST,SGST,Round off,Total,Paid by,Status,Customer GSTIN',
     );
     const rs = (p: number) => (p / 100).toFixed(2);
     expect(lines[1]).toBe(
       [
         paid.billNo,
+        '2026-27',
         '2026-10-12',
         '11:00',
         'DINE_IN',
@@ -196,7 +201,7 @@ describe('GST report and bill register', () => {
       ].join(','),
     );
     // Original totals kept, status VOID.
-    expect(lines[2]).toContain(`${voided.billNo},2026-10-13,00:10,DINE_IN,"T2"`);
+    expect(lines[2]).toContain(`${voided.billNo},2026-27,2026-10-13,00:10,DINE_IN,"T2"`);
     expect(lines[2]).toContain(`,${rs(voided.total)},"UPI",VOID,""`);
 
     const empty = await register('2025-01-01', '2025-01-02').expect(200);

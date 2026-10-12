@@ -23,5 +23,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     // Whole screens render in these tests; parallel runs on a busy machine need headroom.
     testTimeout: 20_000,
+    // Match Testing Library's asyncUtilTimeout (src/test/setup.ts); the 1 s default flakes under load.
+    expect: { poll: { timeout: 5000 } },
   },
 });

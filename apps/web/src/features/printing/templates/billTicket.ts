@@ -132,13 +132,9 @@ export function renderBillTicket(p: BillPrintPayload, upiQr?: string): string {
   const e = escapeHtml;
   // Jobs queued before an upgrade may lack newer fields: tolerate them rather than stall printing.
   const legacyTitle = (p as { title?: string }).title;
-  const scheme: TaxScheme =
-    p.taxScheme ??
-    (legacyTitle === 'Tax Invoice'
-      ? 'REGULAR'
-      : legacyTitle === 'Bill of Supply'
-        ? 'COMPOSITION'
-        : 'NONE');
+  // A legacy "Bill of Supply" is ambiguous (composition and pre-upgrade NONE outlets both used it),
+  // so it keeps its printed heading but never gets the composition declaration.
+  const scheme: TaxScheme = p.taxScheme ?? (legacyTitle === 'Tax Invoice' ? 'REGULAR' : 'NONE');
   const customer = p.customer ?? { name: null, gstin: null };
   const money = (paise: number) => e(formatPaise(paise));
   const when = new Date(p.createdAt).toLocaleString('en-IN', {

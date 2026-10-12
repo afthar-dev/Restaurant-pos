@@ -14,13 +14,14 @@ export interface UpiLinkInput {
 
 /**
  * The `upi://pay` link a customer's UPI app opens. Encoding: every value goes through
- * `encodeURIComponent` (so `@` is `%40` and a space is `%20`); the amount is rupees with two
+ * `encodeURIComponent` (a space is `%20`), except the `@` in the UPI ID, which stays literal because
+ * many UPI apps do not decode `%40`; the amount is rupees with two
  * decimals; the currency is always INR. The note is left out when empty.
  */
 export function upiLink({ vpa, payee, amountPaise, note }: UpiLinkInput): string {
   const rupees = `${Math.floor(amountPaise / 100)}.${String(amountPaise % 100).padStart(2, '0')}`;
   const parts = [
-    `pa=${encodeURIComponent(vpa)}`,
+    `pa=${encodeURIComponent(vpa).replace(/%40/g, '@')}`,
     `pn=${encodeURIComponent(payee)}`,
     `am=${rupees}`,
     'cu=INR',

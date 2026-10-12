@@ -425,7 +425,7 @@ describe('ReportsPage', () => {
       await waitFor(() => expect(clicks).toHaveBeenCalledTimes(2));
       expect(callsTo(mock, 'GET', '/api/reports/bill-register.csv')).toHaveLength(1);
       const [summary = '', register] = await Promise.all(blobs.map(readBlob));
-      expect(summary).toContain('"GST 5%",100,2.5,2.5,105');
+      expect(summary).toContain('"GST 5%",100.00,2.50,2.50,105.00');
       expect(summary).toContain('"Exempt / No GST"');
       // The server's BOM is not doubled by the saved file.
       expect(register!.startsWith('\uFEFF\uFEFF')).toBe(false);
