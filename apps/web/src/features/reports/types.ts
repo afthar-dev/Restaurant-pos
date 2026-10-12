@@ -1,4 +1,7 @@
-import type { OrderType, PaymentMode } from '@rpos/shared';
+import type { GstReport, OrderType, PaymentMode } from '@rpos/shared';
+
+/** Mirrors GstReportService in apps/api/src/reports/gst-report.service.ts. */
+export type { GstReport };
 
 /** GST at one rate: CGST + SGST percent, the taxable value and the tax on it. */
 export interface GstRateRow {

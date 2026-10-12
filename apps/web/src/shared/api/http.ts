@@ -18,6 +18,8 @@ export interface ApiRequest {
   headers?: Record<string, string>;
   /** Do not try to refresh the session on 401 (auth and device endpoints). */
   skipRefresh?: boolean;
+  /** Read the response as text (a CSV file) instead of JSON. */
+  as?: 'text';
 }
 
 export type RefreshOutcome = 'ok' | 'expired' | 'unavailable';
@@ -129,5 +131,6 @@ export async function apiFetch<T>(path: string, request: ApiRequest = {}): Promi
   }
   if (!res.ok) throw await toApiError(res);
   if (res.status === 204) return undefined as T;
+  if (request.as === 'text') return (await res.text()) as T;
   return (await res.json()) as T;
 }

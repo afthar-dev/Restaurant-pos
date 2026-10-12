@@ -129,3 +129,21 @@ export const reportRangeSchema = z
     path: ['to'],
   });
 export type ReportRange = z.infer<typeof reportRangeSchema>;
+
+/** SAC code for restaurant services, shown on the GST report. */
+export const RESTAURANT_SAC = '996331';
+
+/** GST report for a range of invoice dates (India time). Money is integer paise. */
+export interface GstReport {
+  range: { from: string; to: string };
+  /** The outlet's tax scheme today; each bill is judged by the scheme it was made under. */
+  scheme: 'NONE' | 'REGULAR' | 'COMPOSITION';
+  /** Taxable value and GST per rate, from regular bills. */
+  b2cByRate: { ratePercent: number; taxable: number; cgst: number; sgst: number; total: number }[];
+  /** Sales with no GST: No-GST dishes, and bills made while not registered. */
+  exempt: number;
+  sac: { code: string; quantity: number; value: number };
+  /** Invoice numbers per financial year; cancelled (void) bills are counted but kept out of figures. */
+  series: { fy: string; first: number; last: number; count: number; voided: number }[];
+  composition: { turnover: number; taxPayable: number } | null;
+}

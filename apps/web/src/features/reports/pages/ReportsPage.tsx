@@ -10,6 +10,7 @@ import {
   TabPanel,
 } from '@/shared/ui';
 import { AccountabilityTab } from '../components/AccountabilityTab';
+import { GstTab } from '../components/GstTab';
 import { CategoriesTable, DaysTable, ItemsTable } from '../components/ReportTables';
 import { RangePicker } from '../components/RangePicker';
 import { SummaryCards } from '../components/SummaryCards';
@@ -99,6 +100,7 @@ export function ReportsPage() {
         label="Report"
         tabs={[
           { value: 'sales', label: 'Sales' },
+          { value: 'gst', label: 'GST' },
           { value: 'accountability', label: 'Discounts & voids' },
         ]}
       >
@@ -128,6 +130,9 @@ export function ReportsPage() {
               )}
             </>
           )}
+        </TabPanel>
+        <TabPanel value="gst" className="flex flex-col gap-4">
+          <GstTab range={range} />
         </TabPanel>
         <TabPanel value="accountability" className="flex flex-col gap-4">
           <AccountabilityTab range={range} />

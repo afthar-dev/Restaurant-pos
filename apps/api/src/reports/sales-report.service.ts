@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type BusinessDayStatus, type OrderType, type PaymentMode } from '@prisma/client';
-import { COMPOSITION_RESTAURANT_RATE_BP, type ReportRange } from '@rpos/shared';
+import type { ReportRange } from '@rpos/shared';
 import { notFound } from '../common/master-data';
-import { gstSummary } from '../billing/gst-summary';
+import { compositionFigures, gstSummary } from '../billing/gst-summary';
 import { PrismaService } from '../prisma/prisma.service';
 
 const TIME_ZONE = 'Asia/Kolkata';
@@ -207,13 +207,7 @@ export class SalesReportService {
         net: total - (sums.cgst ?? 0) - (sums.sgst ?? 0) - expenseTotal,
       },
       // A composition outlet owes a flat share of its turnover instead of collecting GST.
-      composition:
-        taxScheme === 'COMPOSITION'
-          ? {
-              turnover: total,
-              taxPayable: Math.round((total * COMPOSITION_RESTAURANT_RATE_BP) / 10000),
-            }
-          : null,
+      composition: taxScheme === 'COMPOSITION' ? compositionFigures(total) : null,
       items: await this.items(dayIds),
       categories: await this.categories(dayIds),
       hours: await this.hours(dayIds),
